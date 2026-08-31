@@ -1,0 +1,36 @@
+Package: coursepack
+Title: Build Canvas Course Packages from Plain-Text Course Sources
+Version: 0.0.0.9000
+Authors@R:
+    person("Logan", "Kelly", email = "logan.kelly@uwrf.edu",
+           role = c("aut", "cre"))
+Description: Build tools for plain-text course authoring. Turns a course's
+    declarative manifests into a Canvas-importable Common Cartridge, a QTI 1.2
+    quiz package, and a local browsable preview, and audits the rendered course
+    against WCAG 2.1 AA. Course content never enters the package. Every entry
+    point takes the course project root as its first argument, so one installed
+    copy serves any number of courses without any of them being able to see
+    another.
+License: file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.1)
+Imports:
+    digest,
+    jsonlite,
+    stats,
+    stringr,
+    tools,
+    utils,
+    xml2,
+    yaml
+Suggests:
+    exams,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+SystemRequirements: Node.js with npx, for the accessibility audit only. pa11y
+    9.1.1 is fetched at run time by npx and is not vendored. pa11y needs a
+    Chrome or Chromium binary for its headless browser. None of this is needed
+    to build a cartridge, a QTI package, or a preview.
+Config/roxygen2/version: 8.1.0
