@@ -3,3 +3,4 @@
 ^\.github$
 ^project$
 ^\.claude$
+^LICENSE\.md$

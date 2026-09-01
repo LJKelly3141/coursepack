@@ -61,6 +61,26 @@ Node.js, `npx`, and a Chrome or Chromium binary, because it drives pa11y. Those
 are declared in `SystemRequirements` and are needed only for the audit. Building
 a cartridge, a quiz package, or a preview needs none of them.
 
+## Licence
+
+MIT. See `LICENSE.md`.
+
+One dependency, `digest`, is GPL (>= 2) and sits in `Imports`. The strict reading
+of the GPL says a package importing GPL code must itself be GPL; R practice does
+not follow that reading, and MIT packages importing `digest` are common on CRAN.
+This package declares the dependency rather than redistributing it. If that ever
+needs to be airtight, R 4.6 added a `bytes` argument to `tools::md5sum()`, so the
+hashing could move to base R and `digest` could be dropped. Be aware that this
+changes output: `digest()` as called today serializes its argument first, so its
+md5 differs from a raw-string md5, and swapping would change every generated
+cartridge identifier. That is a deliberate decision with a re-import cost, not a
+tidy-up.
+
+`exams` is GPL-2 | GPL-3 but sits in `Suggests`, which raises no question.
+
+Licensing this package does not license any course content. That lives in the
+course repositories and is not covered here.
+
 ## The migration
 
 Specified in `project/`. The plan it grew out of lives in the ECON 730 repo at

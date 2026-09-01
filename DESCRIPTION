@@ -11,7 +11,7 @@ Description: Build tools for plain-text course authoring. Turns a course's
     point takes the course project root as its first argument, so one installed
     copy serves any number of courses without any of them being able to see
     another.
-License: file LICENSE
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
