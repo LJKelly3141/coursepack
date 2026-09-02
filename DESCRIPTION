@@ -18,7 +18,10 @@ Depends:
     R (>= 4.1)
 Imports:
     digest,
+    grDevices,
+    grid,
     jsonlite,
+    magick,
     stats,
     stringr,
     tools,
