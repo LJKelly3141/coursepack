@@ -135,5 +135,3 @@ course_tile <- function(proj,
 
   invisible(out)
 }
-
-`%||%` <- function(a, b) if (is.null(a)) b else a
