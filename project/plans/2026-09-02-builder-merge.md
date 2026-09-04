@@ -722,6 +722,22 @@ for carry, extract, and the three-fates rule; `inst/skills/make-coursepack`
 sentence "two builders exist and this plan leaves both standing" is
 corrected once M16 has happened and not before.
 
+**M19. Paper version of any assignment (requested by Logan, 2026-09-04).** A
+routine in the package that turns any assessment the builder can generate,
+a quiz, an exam, or a written assignment, into a printable form: one fixed
+draw from the same question pools under a seed, rendered through Quarto to
+a Word document (and PDF) with the stems, tables, figures, and answer
+choices inline, plus a separate answer key that names the item ids and the
+seed, so a paper form can be re-created and graded against the same bank.
+For written assignments it prints the description and submission
+instructions. The first user is ECON 202's final, taken in the room through
+Canvas on 2026-12-22 with a paper version available on request; the ECON 202
+repo's `TODO.md` carries the same item as deferred there. Reads the R schema
+after M15; before that it can read the Python generate blocks directly. Done
+when: `print_assessment(course, item, seed)` produces a document a student
+could sit, the key matches the document item for item, and a re-run with
+the same seed is byte-identical apart from the date.
+
 ---
 
 ## 7. What blocks what
