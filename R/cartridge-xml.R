@@ -183,8 +183,8 @@ for (k in names(pages)) {
            "nothing in it.")
   } else {
     src <- interp_urls(p$iframe, urls)
-    extra <- if (isTRUE(p$video))
-      ' allowfullscreen="allowfullscreen" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"' else ''
+    allow <- if (isTRUE(p$video))
+      ' allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"' else ''
 
     # WHY EVERY FRAME IS TITLED, AND WHY THE TITLE COMES FROM THE PAGE.
     # An <iframe> with no title is announced by a screen reader as "frame" and
@@ -216,10 +216,19 @@ for (k in names(pages)) {
            "title. A frame with no accessible name is announced only as ",
            "'frame'. Give the page a title:, or an iframe_title: for the ",
            "frame alone.")
+    if (is.null(p$height))
+      stop("page '", k, "' declares iframe: but no height:")
 
-    inner <- paste0('<p><iframe title="', xesc(ftitle), '" src="', xesc(src),
-                    '" width="', p$width,
-                    '" height="', p$height, '"', extra, ' loading="lazy"></iframe></p>')
+    inner <- paste0(
+'<div style="width: 100%; max-width: 100%; margin: 0 auto;">\n',
+'  <iframe title="', xesc(ftitle), '" src="', xesc(src), '" width="', p$width,
+'" height="', p$height, '" style="border: 0;" loading="lazy" allowfullscreen=""',
+allow, '></iframe>\n',
+'  <p style="margin-top: 10px; font-size: 0.9em;">\n',
+'    <a href="', xesc(src),
+'" target="_blank" style="color: #0066cc;">Open in new tab</a>\n',
+'  </p>\n',
+'</div>')
   }
 
   writef(file.path(stage, "wiki_content", paste0(k, ".html")), paste0(

@@ -45,6 +45,17 @@ test_that("a body page with a missing or empty body file refuses to build", {
   unlink(f);        expect_error(build_cartridge(p), "content/canvas/chapter-one.html")
 })
 
+test_that("iframe pages use the one titled template, with the allow list only for video", {
+  b <- built()
+  w <- paste(readLines(file.path(b$stage, "wiki_content", "welcome.html")), collapse = "\n")
+  expect_match(w, '<iframe title="Welcome" src="https://example.invalid/course/welcome.html" width="100%" height="800" style="border: 0;" loading="lazy" allowfullscreen=""></iframe>', fixed = TRUE)
+  expect_match(w, '<a href="https://example.invalid/course/welcome.html" target="_blank"', fixed = TRUE)
+  v <- paste(readLines(file.path(b$stage, "wiki_content", "video-one.html")), collapse = "\n")
+  expect_match(v, 'allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"', fixed = TRUE)
+  p <- b$p; edit_yaml(p, "modules.yml", '    height: "800"', "")
+  expect_error(build_cartridge(p), "no height:")
+})
+
 test_that("the quiz assignment body carries the questions and not the key; the homework body carries the directions", {
   b <- built()
   qdir <- list.files(b$stage, pattern = "module-1-quiz\\.html$", recursive = TRUE, full.names = TRUE)

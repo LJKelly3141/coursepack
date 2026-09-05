@@ -23,6 +23,7 @@ modules:
       - assignment: quiz-1
       - assignment: todo-1
       - quiz: q-sample
+      - page: video-one
   - title: "Module 2: Unpublished"
     published: false
     items:
@@ -38,6 +39,12 @@ pages:
   - slug: chapter-one
     title: Chapter One
     body: true
+  - slug: video-one
+    title: A Video
+    iframe: "https://www.youtube-nocookie.com/embed/xyz"
+    width: "560"
+    height: "315"
+    video: true
 assignments:
   - id: hw-1
     title: Homework 1

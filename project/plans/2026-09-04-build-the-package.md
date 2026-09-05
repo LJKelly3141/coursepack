@@ -2382,7 +2382,7 @@ test_that("iframe pages use the one titled template, with the allow list only fo
 })
 ```
 
-- [ ] **Step 3: Code and fixture.** Replace the `inner <- paste0('<p><iframe ...` construction with the template above (keep the comment block on why every frame is titled). Fixture `modules.yml`: add under `pages:` `- slug: video-one`, `title: A Video`, `iframe: "https://www.youtube-nocookie.com/embed/xyz"`, `width: "560"`, `height: "315"`, `video: true`, and an item `- page: video-one` in Module 1 after `chapter-one`.
+- [ ] **Step 3: Code and fixture.** Replace the `inner <- paste0('<p><iframe ...` construction with the template above (keep the comment block on why every frame is titled). Fixture `modules.yml`: add under `pages:` `- slug: video-one`, `title: A Video`, `iframe: "https://www.youtube-nocookie.com/embed/xyz"`, `width: "560"`, `height: "315"`, `video: true`, and an item `- page: video-one` at the end of Module 1 (after every existing item, so no other item's position-derived id changes). The `items` and `page` fixture counts in `test-manifests.R` become 13 and 3.
 
 - [ ] **Step 4: Regeneration procedure.** Expected: `changed:` `wiki_content/welcome.html`, `imsmanifest.xml`, `course_settings/module_meta.xml`; `extra:` `wiki_content/video-one.html`. `Version: 0.1.0.9004`; NEWS line.
 
