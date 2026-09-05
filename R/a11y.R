@@ -35,7 +35,7 @@
 audit_course <- function(repos, proj = ".",
                          out_dir = file.path(proj, "project", "accessibility"),
                          port = 8766L,
-                         cartridge_dirs = c("build/coursepack", "reference"),
+                         cartridge_dirs = CARTRIDGE_SEARCH_DIRS,
                          video_fetch = default_youtube_fetch) {
   if (!length(repos)) {
     stop("usage: audit_course(<repo> [, <repo> ...])\n",

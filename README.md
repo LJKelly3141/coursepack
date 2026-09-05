@@ -3,13 +3,13 @@
 Build tools for plain-text course authoring. One installed copy serves any
 number of courses.
 
-**Status: the builder has converged (0.2.0).** `check_manifests()`, `build_cartridge()`,
-`diff_against_reference()`, `build_qti()`, `build_preview()`, and `course_tile()` are
-in the package. Since the byte-identical move, every output change has been made on
-purpose and recorded in the gate: assignment groups routed by name, optional grading
-standard and late policy, one known-key list for `canvas:`, one titled iframe template,
-id overrides, course prose in `course.yml`, `textbook_docs: none`, two pre-zip guards,
-and a stale-height report. Nothing has been imported into Canvas from this package yet.
+**Status: the accessibility audit is in the package (0.3.0).** `check_manifests()`,
+`build_cartridge()`, `diff_against_reference()`, `build_qti()`, `build_preview()`,
+`course_tile()`, and now `audit_course()` are in the package. The builder converged in
+0.2.0: since the byte-identical move, every output change has been made on purpose and
+recorded in the gate. The audit's seven files moved with their test script ported
+section by section; a real pa11y run is exercised by an opt-in test. Nothing has been
+imported into Canvas from this package yet.
 
 ## What it is for
 

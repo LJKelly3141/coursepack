@@ -135,7 +135,8 @@ test_that("a topic body with a bare-URL link produces one 2.4.4 finding, attribu
   skip_if_no("zip")
   z <- write_a11y_cartridge(tempfile(fileext = ".imscc"),
          topics = list(list(id = "gtopic1", title = "Week 1", html = '<p>See <a href="https://example.invalid/x">https://example.invalid/x</a></p>')))
-  res <- audit_cartridge(z, surface = "t-cartridge")
+  res <- audit_cartridge(z, surface = "t-cartridge",
+                         video_fetch = function(id) unavailable_page)
   hit <- res[res$criterion == "2.4.4" & res$file == "gtopic1.xml", ]
   expect_equal(nrow(hit), 1L)
   expect_equal(attr(res, "topics_read"), 1L)
