@@ -265,6 +265,17 @@ test_that("a quiz with two body forms, or an assignment with none, is refused by
   expect_error(read_manifest(p2), "assignment 'memo-1' declares none of")
 })
 
+test_that("modules= stages only the named modules and the definitions they reference; unknown names stop", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  res <- build_cartridge(p, modules = "Module 2: Unpublished")
+  mm <- paste(readLines(file.path(res$stage, "course_settings", "module_meta.xml")), collapse = "\n")
+  expect_length(gregexpr("<module identifier=", mm)[[1]], 1L)
+  expect_false(dir.exists(file.path(res$stage, "wiki_content")) && file.exists(file.path(res$stage, "wiki_content", "welcome.html")))
+  expect_true(any(grepl("imsdt_xmlv1p1", readLines(file.path(res$stage, "imsmanifest.xml")))))
+  expect_error(build_cartridge(p, modules = "Module 9"), "modules= names modules not in modules.yml: Module 9")
+})
+
 test_that("the pre-zip scan refuses a manifest whose header lost its load-bearing tokens", {
   p_fail_msgs <- character(); p_fail <- function(...) p_fail_msgs <<- c(p_fail_msgs, paste0(...))
   d <- withr::local_tempdir(); dir.create(file.path(d, "course_settings"))

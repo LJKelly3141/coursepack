@@ -14,8 +14,42 @@ item_over_def <- function(it, def, title) {
   invisible(NULL)
 }
 
+# ---- which modules a build stages -----------------------------------------
+#
+# `modules =` on build_cartridge() names them by title. NULL is every module,
+# which is the whole course and the only form the byte gate stands behind.
+#
+# An unknown title STOPS, and the message lists the titles the manifest does
+# declare. A title is typed by hand, so a typo is the likely case rather than a
+# rare one, and a build that quietly dropped a name it did not recognise would
+# report a successful build of nothing: on the console that reads exactly like
+# a build of the modules that were asked for.
+#
+# Returns the POSITIONS of the selected modules in the declared order, so a
+# staged module keeps the position it holds in the whole course rather than
+# being renumbered from one.
+select_modules <- function(mods, modules) {
+  if (is.null(modules)) return(seq_along(mods))
+  titles <- vapply(mods, function(x) as.character(x$title %||% ""), "")
+  want <- unique(as.character(modules))
+  unknown <- setdiff(want, titles)
+  if (length(unknown))
+    stop("modules= names modules not in modules.yml: ",
+         paste(unknown, collapse = ", "), ". The modules it declares are: ",
+         paste(titles, collapse = ", "), call. = FALSE)
+  which(titles %in% want)
+}
+
 # ---- resolve every module item into a flat, fully-identified table --------
-resolve_items <- function(m) {
+#
+# `modules` restricts the walk to the modules it names; see select_modules().
+# Every id below is still computed for EVERY definition, because an id is a
+# fact about the definition rather than about this build, and a course that
+# names its own `resource_id:` must get the same one whichever modules are
+# staged. What the selection changes is `used`: the definitions the staged
+# items point at, in the order the manifest declares them, which is what the
+# writers loop over.
+resolve_items <- function(m, modules = NULL) {
 mods <- m$mods
 urls <- m$course$urls
 pages <- stats::setNames(mods$pages,       vapply(mods$pages,       `[[`, "", "slug"))
@@ -58,7 +92,11 @@ items <- list(); modmeta <- list()
 # rather than about the definition, so it is recorded here where the walk runs
 # instead of being searched for again by the writer.
 quiz_module <- character()
-for (mi in seq_along(mods$modules)) {
+# The definitions the walk actually reaches. A whole-course build reaches every
+# one of them, because check_manifests() already refuses a definition no item
+# references; a staged build reaches only what its modules point at.
+used_p <- character(); used_a <- character(); used_q <- character()
+for (mi in select_modules(mods$modules, modules)) {
   m <- mods$modules[[mi]]
   mrow <- list(id = check_gid(m$module_id, "module_id") %||% gid("module", m$title),
                title = m$title, position = mi,
@@ -78,6 +116,7 @@ for (mi in seq_along(mods$modules)) {
     } else if (!is.null(it$page)) {
       r$ctype <- "WikiPage"; r$title <- pages[[it$page]]$title
       r$mm_idref <- r$man_idref <- page_res[[it$page]]
+      used_p <- c(used_p, it$page)
 
     } else if (!is.null(it$link)) {
       r$ctype <- "ExternalUrl"; r$title <- oneline(it$link); r$url <- url_for(it, urls)
@@ -90,6 +129,7 @@ for (mi in seq_along(mods$modules)) {
       a <- asg[[it$assignment]]
       r$ctype <- "Assignment"; r$title <- a$title
       r$mm_idref <- r$man_idref <- asg_res[[it$assignment]]
+      used_a <- c(used_a, it$assignment)
       if (!isTRUE(a$published)) r$state <- "unpublished"
       item_over_def(it, a, r$title)
 
@@ -98,6 +138,7 @@ for (mi in seq_along(mods$modules)) {
       if (is.null(q)) stop("module item references undefined quiz: ", it$quiz)
       r$ctype <- "Quizzes::Quiz"; r$title <- q$title
       r$mm_idref <- r$man_idref <- quiz_res[[it$quiz]]
+      used_q <- c(used_q, it$quiz)
       if (!it$quiz %in% names(quiz_module)) quiz_module[[it$quiz]] <- m$title
       # Canvas writes <new_tab/> empty for quiz items, not "false".
       r$new_tab <- ""
@@ -117,10 +158,30 @@ for (mi in seq_along(mods$modules)) {
     mrow$items[[pi]] <- r
     items[[length(items) + 1]] <- r
   }
-  modmeta[[mi]] <- mrow
+  # Appended rather than indexed by mi: a staged build's selection has gaps,
+  # and modmeta[[mi]] would leave a NULL where every reader expects a module.
+  modmeta[[length(modmeta) + 1L]] <- mrow
 }
 
+# In DEFINITION order, not in the order the walk met them: a writer's output
+# order is the order the manifest declares its definitions in, and for a whole
+# course this hands back exactly the manifest it was given.
 list(items = items, modmeta = modmeta, quiz_module = quiz_module,
+     used = list(pages = intersect(names(pages), used_p),
+                 assignments = intersect(names(asg), used_a),
+                 quizzes = intersect(names(quiz), used_q)),
      ids = list(quiz_res = quiz_res, quiz_meta = quiz_meta, quiz_aid = quiz_aid,
                 asg_res = asg_res, asg_pos = asg_pos, page_res = page_res))
+}
+
+# The definitions the selected modules reference, in the order the manifest
+# declares them. Everything below the walk loops over these rather than over the
+# whole manifest, so a definition is written only when a staged item points at
+# it. For a whole course the two are the same list: an unreferenced definition
+# is already an orphan failure in check_manifests().
+selected_defs <- function(m, used) {
+  m$pages       <- m$pages[used$pages]
+  m$assignments <- m$assignments[used$assignments]
+  m$quizzes     <- m$quizzes[used$quizzes]
+  m
 }

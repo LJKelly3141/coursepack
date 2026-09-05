@@ -4,10 +4,12 @@
 \alias{build_cartridge}
 \title{Build a Canvas-importable Common Cartridge from course.yml and modules.yml}
 \usage{
-build_cartridge(proj = ".")
+build_cartridge(proj = ".", modules = NULL)
 }
 \arguments{
 \item{proj}{Course project root.}
+
+\item{modules}{Module titles to stage, or \code{NULL} for every module.}
 }
 \value{
 invisible(list(imscc, stage)).
@@ -78,5 +80,19 @@ udoit.json stays excluded: it is an accessibility-scanner artifact.
 
 A zip that builds proves nothing. Canvas discards malformed cartridges without
 reporting an error. This script says so at the end; do not delete that.
+}
+
+\section{Staging part of a course}{
+
+\verb{modules =} names the modules to stage, by the \verb{title:} they carry in
+modules.yml. Only those modules are written, and with them only the pages,
+assignments and quizzes their items point at; a title the manifest does not
+declare stops the build rather than being skipped. Announcements are a
+property of the course rather than of a module and are staged either way.
+
+The whole course, \code{modules = NULL}, is the form the byte gate stands behind
+and the only one to import when the course is being replaced. A staged
+cartridge is a partial course: importing it into a shell that already holds
+the rest is the case it is for.
 }
 

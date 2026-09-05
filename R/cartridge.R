@@ -60,10 +60,23 @@
 #' A zip that builds proves nothing. Canvas discards malformed cartridges without
 #' reporting an error. This script says so at the end; do not delete that.
 #'
+#' @section Staging part of a course:
+#' `modules =` names the modules to stage, by the `title:` they carry in
+#' modules.yml. Only those modules are written, and with them only the pages,
+#' assignments and quizzes their items point at; a title the manifest does not
+#' declare stops the build rather than being skipped. Announcements are a
+#' property of the course rather than of a module and are staged either way.
+#'
+#' The whole course, `modules = NULL`, is the form the byte gate stands behind
+#' and the only one to import when the course is being replaced. A staged
+#' cartridge is a partial course: importing it into a shell that already holds
+#' the rest is the case it is for.
+#'
 #' @param proj Course project root.
+#' @param modules Module titles to stage, or `NULL` for every module.
 #' @return invisible(list(imscc, stage)).
 #' @export
-build_cartridge <- function(proj = ".") {
+build_cartridge <- function(proj = ".", modules = NULL) {
   proj <- normalizePath(proj, mustWork = TRUE)
   out_root <- file.path(proj, "build", "coursepack"); stage <- file.path(out_root, "staging")
   # Purge staging every run. Nothing recreates it wholesale -- writef() makes
@@ -73,25 +86,35 @@ build_cartridge <- function(proj = ".") {
   # Without the purge a removed item could also ship inside the zip unnoticed.
   unlink(stage, recursive = TRUE)
   m <- read_manifest(proj); course <- m$course; mods <- m$mods
+  # The walk runs FIRST, before anything is read off disk for it, because it is
+  # what `modules =` selects on: an unknown module title stops here rather than
+  # after a stale-height report and a source cartridge have been read for
+  # modules that were never going to be staged.
+  r <- resolve_items(m, modules)                         # items, modmeta, ids, used
+  # `sel` is the manifest narrowed to the definitions the staged items point
+  # at. Every writer below reads it instead of `m`, and for a whole course the
+  # two are the same manifest. See selected_defs() in R/cartridge-items.R.
+  sel <- selected_defs(m, r$used)
   # Warning-level, and printed on every build: a hand-measured iframe height is
   # an observation with an expiry date, and one that has expired shows students
-  # a scrollbar or dead space. The build proceeds; see R/stale.R.
-  check_stale_heights(proj, course, m$pages)
+  # a scrollbar or dead space. The build proceeds; see R/stale.R. Only the pages
+  # being staged are reported: a height that is not shipping is not this
+  # build's problem to report on.
+  check_stale_heights(proj, course, sel$pages)
   ann <- read_announcements(proj, course)
   # The zone is read only when something needs it: a due: on any definition,
   # or announcements. An extracted course (Phase 4) has neither and must build
   # without a term: block.
-  tz <- if (needs_timezone(m, ann)) read_timezone(course) else NULL
+  tz <- if (needs_timezone(sel, ann)) read_timezone(course) else NULL
   tb_docs <- textbook_docs_path(course, proj)
   # reference.yml's source: names a cartridge a course can carry resources out
   # of. Nothing carries one yet, so a declared source with no definition naming
   # a source_ref is REPORTED rather than passed over: a source that is declared
   # and does nothing looks exactly like a source that was read and found empty.
   ref <- read_reference(proj)
-  if (!is.null(ref$source) && !any_source_ref(m))
+  if (!is.null(ref$source) && !any_source_ref(sel))
     cat("  source declared, 0 resources carried\n")
 
-  r <- resolve_items(m)                                  # items, modmeta, ids
   tile <- stage_course_card(proj, stage)
   write_course_settings(stage, course, tile)
   groups <- assignment_group_ids(course)
@@ -99,16 +122,16 @@ build_cartridge <- function(proj = ".") {
   write_course_settings_files(stage, course)
   write_module_meta(stage, r$modmeta)
   write_weblinks(stage, r$items)
-  write_wiki_pages(stage, proj, m$pages, r$ids$page_res, course$urls)
-  write_assignments(stage, m$assignments, r$ids, course, tb_docs, groups, proj, tz)
+  write_wiki_pages(stage, proj, sel$pages, r$ids$page_res, course$urls)
+  write_assignments(stage, sel$assignments, r$ids, course, tb_docs, groups, proj, tz)
   # Three ways a quiz reaches the cartridge, and a definition declares exactly
   # one of them (check_definition_shape()): `source_ref:` carries it out of the
   # source cartridge, `bank:` generates it from a JSON question bank, `qti:`
   # embeds an R/exams zip. A generated one hands back the <resource> blocks it
   # needs, figures included, because only it knows how many there are.
   generated <- list()
-  for (k in names(m$quizzes)) {
-    q <- m$quizzes[[k]]
+  for (k in names(sel$quizzes)) {
+    q <- sel$quizzes[[k]]
     if (!is.null(q$source_ref)) next                   # carried, not generated
     ag_id <- group_id_for(q$group %||% course$assignment_defaults$group,
                           groups, paste0("quiz '", k, "'"))
@@ -119,8 +142,8 @@ build_cartridge <- function(proj = ".") {
   # needs the carried <resource> blocks. It writes nothing at all unless every
   # path the source declares is safe; see R/cartridge-carry.R.
   carried <- no_carry()
-  if (any_source_ref(m)) {
-    cdefs <- carried_defs(m)
+  if (any_source_ref(sel)) {
+    cdefs <- carried_defs(sel)
     src <- read_source_cartridge(source_path(ref, proj, cdefs[[1]]$name))
     carried <- carry_resources(cdefs, src, stage)
     cat(sprintf("  carried %d resources, %d files out of %s\n",
@@ -147,7 +170,7 @@ build_cartridge <- function(proj = ".") {
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)
   settings_res <- write_manifest(stage, course, r$modmeta, r$items, r$ids, tile,
-                                 ann_ids, m, carried, generated)
+                                 ann_ids, sel, carried, generated)
 
   cat("=== pre-zip validation ===\n")
   problems <- character(); p_fail <- function(...) problems <<- c(problems, paste0(...))
