@@ -28,6 +28,13 @@ read_yaml_under <- function(proj, name) {
 #'   `height_measured:` on an iframe page records when `height:` was last
 #'   measured. The cartridge builder reads `height:` and ignores this one.
 #'
+#'   `homework_intro:` and `submission_note:` under `assignment_defaults:` in
+#'   `course.yml`, or on one assignment definition, are the HTML that sits
+#'   above and below the copied directions in an assignment body.
+#'   `homework_intro:` fills `{href}` and `{title}` from the textbook link and
+#'   defaults to one neutral sentence; `submission_note:` defaults to empty,
+#'   and an empty note appends nothing.
+#'
 #'   `source:` in `reference.yml` names a cartridge whose resources a course
 #'   can carry forward, and `source_ref:` on a definition names one of them.
 #'   Nothing carries a resource yet; a declared source with nothing carried is

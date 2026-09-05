@@ -66,6 +66,19 @@ test_that("the quiz assignment body carries the questions and not the key; the h
   expect_match(hw, "Instructions"); expect_no_match(hw, "Step 1")
 })
 
+test_that("the homework body uses the package intro and no submission note unless the course declares them", {
+  b <- built()
+  hw <- paste(readLines(list.files(b$stage, pattern = "homework-1\\.html$", recursive = TRUE, full.names = TRUE)), collapse = "\n")
+  expect_match(hw, "copied from <a[^>]*>Chapter One Homework</a> in the course textbook")
+  expect_no_match(hw, "Quarto"); expect_no_match(hw, "MS Word")
+  p <- b$p
+  edit_yaml(p, "course.yml", "  group: Assignments", "  group: Assignments\n  submission_note: \"<p>Upload a PDF.</p>\"\n  homework_intro: \"<p>See {title}.</p>\"")
+  build_cartridge(p)
+  hw <- paste(readLines(list.files(b$stage, pattern = "homework-1\\.html$", recursive = TRUE, full.names = TRUE)), collapse = "\n")
+  expect_match(hw, "<p>See Chapter One Homework.</p>", fixed = TRUE)
+  expect_match(hw, "<p>Upload a PDF.</p>", fixed = TRUE)
+})
+
 test_that("a bare due: takes due_time; a clock time is used as given; no due_time is a stop", {
   b <- built()
   all_due <- unlist(lapply(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE),

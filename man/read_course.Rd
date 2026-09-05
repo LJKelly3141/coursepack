@@ -43,6 +43,13 @@ than the definition holds.
 \verb{height_measured:} on an iframe page records when \verb{height:} was last
 measured. The cartridge builder reads \verb{height:} and ignores this one.
 
+\verb{homework_intro:} and \verb{submission_note:} under \verb{assignment_defaults:} in
+\code{course.yml}, or on one assignment definition, are the HTML that sits
+above and below the copied directions in an assignment body.
+\verb{homework_intro:} fills \code{{href}} and \code{{title}} from the textbook link and
+defaults to one neutral sentence; \verb{submission_note:} defaults to empty,
+and an empty note appends nothing.
+
 \verb{source:} in \code{reference.yml} names a cartridge whose resources a course
 can carry forward, and \verb{source_ref:} on a definition names one of them.
 Nothing carries a resource yet; a declared source with nothing carried is

@@ -268,16 +268,23 @@ inner, '\n',
 # Do not remove any of the three on the grounds that the others cover it.
 # Where the RENDERED textbook lives. Case study directions are copied out of it.
 # Same resolution build_preview.R uses, so the two read the same files.
-# The submission boilerplate, shared by every case study. Task 19 moves it to YAML.
-HOMEWORK_SUBMISSION_NOTE <- paste0(
-  '<p>This assignment is to be conducted within the class assignment workspace provided to you.',
-  ' You will create an R Quarto document, incorporating code and analysis as demonstrated in the',
-  ' provided examples. Follow the structure provided in the example code and explanations to guide',
-  ' your analysis. Each required step should correspond to a separate section within your R Quarto',
-  ' document. Utilize the headings feature in Quarto to organize your document (<code>#</code>',
-  '&nbsp;for main sections,&nbsp;<code>##</code>&nbsp;for subsections). Once you have completed the',
-  ' analysis and are satisfied with your document, compile it into an MS Word document and submit',
-  ' the document here.</p>')
+# THE ONLY ASSIGNMENT PROSE THE PACKAGE OWNS.
+#
+# The sentence above the copied directions. It says the one thing that is true
+# of any course whose directions are copied out of a textbook: where the copy
+# came from, and which of the two wins. `{href}` and `{title}` are filled in
+# with the textbook link and the section's title.
+#
+# A course overrides it with `assignment_defaults.homework_intro:` in
+# course.yml, or per assignment with the same key. Anything that names a tool, a
+# file format or a submission workflow is that course's own policy, not a fact
+# about assignments, so it goes in that course's
+# `assignment_defaults.submission_note:`, which is appended after the
+# directions and defaults to empty, so nothing is appended.
+HOMEWORK_INTRO_DEFAULT <- paste0(
+  '<p>The directions below are copied from <a class="inline_disabled" ',
+  'title="Link" href="{href}" target="_blank">{title}</a> in the course ',
+  'textbook, which is the source of record.</p>')
 
 assignment_body <- function(a, course, tb_docs) {
   if (!is.null(a$quiz_file))
@@ -300,13 +307,14 @@ assignment_body <- function(a, course, tb_docs) {
   href <- paste0(base, "/", hw$chapter, ".html#", hw$anchor)
   directions <- homework_section_html(hw$chapter, hw$anchor, tb_docs, base, a$id)
 
-  paste0(
-    '<p>The full directions are reproduced below. They are copied from ',
-    '<a class="inline_disabled" title="Link" href="', xesc(href), '" target="_blank">',
-    xesc(hw$title), '</a> in the course textbook, which is the source of record. ',
-    'If the two ever disagree, follow the textbook and tell me.</p>\n<hr>\n',
-    directions,
-    '\n<hr>\n', HOMEWORK_SUBMISSION_NOTE)
+  d <- course$assignment_defaults
+  intro <- a$homework_intro %||% d$homework_intro %||% HOMEWORK_INTRO_DEFAULT
+  note  <- a$submission_note %||% d$submission_note %||% ""
+  intro <- gsub("{title}", xesc(hw$title %||% hw$chapter),
+                gsub("{href}", xesc(href), intro, fixed = TRUE), fixed = TRUE)
+
+  paste0(intro, '\n<hr>\n', directions,
+         if (nzchar(note)) paste0('\n<hr>\n', note) else '')
 }
 
 write_assignments <- function(stage, asg, ids, course, tb_docs, groups, proj, tz) {

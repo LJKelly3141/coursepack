@@ -1,5 +1,6 @@
 # coursepack 0.1.0
 
+* The homework intro and submission note come from `course.yml`; no course prose remains in package code.
 * Schema: `published:` on items, `item_id:`, `module_id:`, `resource_id:` overrides, `height_measured:`, `source:` in `reference.yml`.
 * Iframe pages use one titled template with a fallback link, a video allow-list, and a required height.
 * Grading standard and late policy are optional; `canvas:` keys come from one known-key list and an unknown key stops the build.
