@@ -39,6 +39,30 @@ test_that("an unknown post: form stops, and a body whose h2 disagrees with the t
   expect_error(build_cartridge(p), "the body's <h2> reads")
 })
 
+test_that("the term window is required only when an announcement posts on a date", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  # A fresh scaffold's shape: the registrar's dates are not in yet, so the term
+  # window is null, and the one announcement posts on import.
+  edit_yaml(p, "course.yml", "  first_day: 2026-09-01\n  last_day: 2026-12-15\n",
+            "  first_day: null\n  last_day: null\n")
+  now <- c("body_dir: content/announcements", "announcements:",
+           "  - id: welcome", "    title: Welcome to the course",
+           "    body: welcome.html", "    post: immediately")
+  writeLines(now, file.path(p, "announcements.yml"))
+  res <- build_cartridge(p)
+  allx <- vapply(list.files(res$stage, pattern = "\\.xml$", full.names = TRUE),
+                 function(f) paste(readLines(f), collapse = ""), "")
+  expect_false(any(grepl("delayed_post_at", allx, fixed = TRUE)))
+
+  # One dated post and the window is required again, because that post time is
+  # the thing the window exists to check.
+  writeLines(c(now, "  - id: week-2", "    title: Week 2 begins",
+               "    body: week-2.html", "    post: 2026-09-08"),
+             file.path(p, "announcements.yml"))
+  expect_error(build_cartridge(p), "needs term: timezone, first_day and last_day")
+})
+
 test_that("announcements.yml without term: reads the zone and window from course.yml", {
   skip_if_no("zip"); skip_if_no("pandoc")
   p <- copy_course(); zip_fixture_qti(p)

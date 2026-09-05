@@ -13,7 +13,8 @@ read_announcements(proj, course = NULL)
 \code{announcements.yml} omits it.}
 }
 \value{
-\code{NULL} when the file is absent, else \code{list(body_dir, tz, first_day, last_day, announcements)}.
+\code{NULL} when the file is absent, else \code{list(body_dir, tz, first_day, last_day, announcements)}. \code{first_day} and \code{last_day} are \code{NULL} when no
+announcement posts on a date.
 }
 \description{
 Optional as a file, binding once present. Every message below is the one
@@ -25,4 +26,12 @@ stops the build before anything is staged.
 come from \code{course$term}, which is where every other dated thing in the course
 reads them, so the two files cannot drift apart. Present, it wins, because a
 course that deliberately posts on a different calendar has to be able to say so.
+
+The zone is always required: it is what a post time is read in. The window,
+\code{first_day} and \code{last_day}, is required only when at least one announcement
+posts on a date, because that window exists to catch a post time outside the
+term and an announcement that posts on import has no time to catch. A fresh
+scaffold is exactly that case: its term dates are null until someone reads
+them off the registrar's calendar, and its one announcement posts on import,
+so it builds before those dates are in without any of them being invented.
 }

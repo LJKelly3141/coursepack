@@ -65,6 +65,247 @@ template_dest <- function(rel) {
   else file.path(dir, TEMPLATE_DOTFILES[[base]])
 }
 
+# ---- the scaffold --------------------------------------------------------
+#
+# Asking is a fallback, not the interface. Every value this needs is an
+# argument, so a scaffold can be written from a script and, more to the point,
+# from a test; the prompts exist for the person typing the call at a console and
+# run only when `ask` is on AND the session is interactive, because readline()
+# in a non-interactive session returns "" without waiting and would turn a
+# missing argument into an empty one.
+#
+# An empty answer is not an answer. It stops with the same message a missing
+# argument gets, and that matters most for the timezone. `Sys.timezone()` is
+# printed beside the prompt as a suggestion and is never accepted by pressing
+# return: the machine's zone is a fact about the machine, and a course whose
+# zone was never typed by anyone is a course whose every deadline and every
+# announcement is off by hours while the generated XML reads perfectly.
+
+ask_value <- function(prompt, suggestion = NULL) {
+  msg <- if (is.null(suggestion) || !nzchar(suggestion)) paste0(prompt, ": ")
+         else paste0(prompt, "\n  (this machine is set to ", suggestion,
+                     "; type it if that is right): ")
+  trimws(readline(msg))
+}
+
+need_value <- function(value, name, prompt, asking, suggestion = NULL) {
+  v <- if (is.null(value)) "" else trimws(paste(as.character(value), collapse = ""))
+  if (!nzchar(v) && asking) v <- ask_value(prompt, suggestion)
+  if (!nzchar(v)) stop(name, " is required", call. = FALSE)
+  v
+}
+
+# What the export does not carry, written back over what it does. Canvas stores
+# every date as a UTC instant and no zone; the site address, the local textbook
+# checkout and the clock a bare `due:` means are facts about this repository
+# rather than about the course inside Canvas, and the export has never seen any
+# of them. Every other key the extractor read stays exactly as it read it, which
+# is why this is a parse and a rewrite rather than a template.
+#
+# The comments the extractor wrote into the file do not survive the rewrite.
+# They are restated in what init_course() prints, and the one they exist to warn
+# about is printed as its own line when it applies.
+reapply_course_facts <- function(f, code, title, site_url, timezone,
+                                 textbook_docs, due_time) {
+  cy <- yaml::yaml.load_file(f)
+  cy$code <- code
+  cy$title <- title
+  cy$urls <- if (is.list(cy$urls)) cy$urls else list()
+  cy$urls$site <- site_url
+  cy$term <- if (is.list(cy$term)) cy$term else list()
+  cy$term$timezone <- timezone
+  cy$textbook_docs <- textbook_docs
+  cy$due_time <- due_time
+  yaml::write_yaml(cy, f)
+  invisible(cy)
+}
+
+#' Scaffold a course repository
+#'
+#' Write a new course under `path`: the two manifests, the containment
+#' scaffold, the Makefile whose every target calls a function in this package,
+#' and, optionally, the skills. With `from_export` it starts from a Canvas
+#' export instead of from placeholders.
+#'
+#' Nothing here is guessed. `code`, `title`, `site_url` and `timezone` have no
+#' defaults, and a missing one stops unless `ask` is on and the session is
+#' interactive, in which case it is prompted for. `Sys.timezone()` is shown
+#' beside the timezone prompt as a suggestion and is never used silently: a
+#' wrong zone moves every deadline and every announcement by hours and looks
+#' correct in the generated XML.
+#'
+#' No date is written. `term: first_day:` and `last_day:` are `null`, because
+#' those come from the registrar's calendar and counting weeks is how a course
+#' ends up with a deadline on a day it does not meet. The scaffold still builds:
+#' its one announcement posts on import, and a term window is required only for
+#' an announcement that posts on a date.
+#'
+#' `path` must not exist or must be empty, and nothing is ever overwritten.
+#'
+#' @section Starting from a Canvas export:
+#' `from_export` names an `.imscc`. The scaffold is written first, then
+#' [extract_manifest()] replaces `course.yml`, `modules.yml` and
+#' `reference.yml` with the export's own structure and copies the export under
+#' `reference/`. The caller's `code`, `title`, `site_url`, `timezone`,
+#' `textbook_docs` and the template's `due_time` are then written back into the
+#' extracted `course.yml`, because an export carries none of them.
+#'
+#' The zone is the one to be careful with. The extractor writes every carried
+#' `due:` as the UTC instant Canvas stored and `term: timezone: UTC` above them,
+#' so those two lines belong to each other. Naming a different zone here moves
+#' every carried deadline by the offset between them, and the extracted `due:`
+#' dates have to be rewritten to match. The closing summary says so when it
+#' applies.
+#'
+#' @param path Directory to scaffold into. Must not exist, or be empty.
+#' @param code Course code, for example `"ABCD 101"`. The `slug:` is derived
+#'   from it and every derived Canvas identifier from that.
+#' @param title Course title.
+#' @param site_url Where the rendered site is published. Must start with
+#'   `https://`.
+#' @param timezone IANA zone name, validated against `OlsonNames()`.
+#' @param institution Optional institution name.
+#' @param textbook_url Optional base URL of a separate textbook site, which a
+#'   `{textbook}` token in `modules.yml` resolves against.
+#' @param textbook_docs A checkout of the rendered textbook, or `"none"`.
+#' @param skills Whether to install the shipped skills under `.claude/skills/`.
+#' @param claude_md Whether to write the course's `CLAUDE.md`.
+#' @param git Whether to run `git init` in `path`. Nothing is committed, ever.
+#' @param from_export Optional path to a Canvas `.imscc` to start from.
+#' @param ask Whether to prompt for a missing required value. Prompts only when
+#'   this is `TRUE` and the session is interactive.
+#' @return `path`, invisibly.
+#' @export
+init_course <- function(path, code, title, site_url, timezone,
+                        institution = NULL, textbook_url = NULL,
+                        textbook_docs = "none", skills = TRUE,
+                        claude_md = TRUE, git = TRUE, from_export = NULL,
+                        ask = interactive()) {
+  # Refuse before asking anything. Four prompts answered and then a refusal
+  # because the directory was never empty is four answers thrown away.
+  if (file.exists(path) && !dir.exists(path))
+    stop(path, " is a file, not an empty directory. init_course() never ",
+         "overwrites anything.", call. = FALSE)
+  if (dir.exists(path) && length(list.files(path, all.files = TRUE, no.. = TRUE)))
+    stop(path, " is not empty. init_course() never overwrites anything: ",
+         "scaffold into a new directory.", call. = FALSE)
+
+  asking <- isTRUE(ask) && interactive()
+  code <- need_value(if (missing(code)) NULL else code, "code",
+                     "Course code, for example ABCD 101", asking)
+  title <- need_value(if (missing(title)) NULL else title, "title",
+                      "Course title", asking)
+  site_url <- need_value(if (missing(site_url)) NULL else site_url, "site_url",
+                         "Published site URL, for example https://user.github.io/repo",
+                         asking)
+  timezone <- need_value(if (missing(timezone)) NULL else timezone, "timezone",
+                         "Course timezone, an IANA name such as America/Chicago",
+                         asking, suggestion = Sys.timezone())
+
+  if (!startsWith(site_url, "https://"))
+    stop("site_url must start with https://, got: ", site_url,
+         ". Every asset the cartridge points at is an absolute URL under it, ",
+         "and a page served over http inside the Canvas frame is blocked.",
+         call. = FALSE)
+  if (!timezone %in% OlsonNames())
+    stop("timezone '", timezone, "' is not an IANA zone name (for example ",
+         "America/Chicago). Every due date and every announcement is read in ",
+         "it.", call. = FALSE)
+  if (!is.null(from_export) && !file.exists(from_export))
+    stop("from_export names no file: ", from_export, call. = FALSE)
+
+  root <- system.file("templates", "course", package = "coursepack")
+  if (!nzchar(root)) stop("coursepack templates are not installed", call. = FALSE)
+
+  values <- list(code = code, title = title,
+                 institution = institution %||% "",
+                 slug = slugify(code),
+                 site_url = site_url,
+                 textbook_url = textbook_url %||% "",
+                 textbook_docs = textbook_docs,
+                 timezone = timezone,
+                 canary = LEAK_CANARY,
+                 version = coursepack_version())
+
+  rel <- sort(list.files(root, recursive = TRUE, all.files = TRUE, no.. = TRUE))
+  if (!isTRUE(claude_md)) rel <- setdiff(rel, "CLAUDE.md")
+
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  path <- normalizePath(path, mustWork = TRUE)
+  written <- character()
+  for (f in rel) {
+    dst_rel <- template_dest(f)
+    dst <- file.path(path, dst_rel)
+    if (file.exists(dst))
+      stop("refusing to overwrite ", dst, call. = FALSE)
+    dir.create(dirname(dst), recursive = TRUE, showWarnings = FALSE)
+    src <- file.path(root, f)
+    # An empty template is written empty. The .gitkeep files are what this is
+    # for: a placeholder whose whole content is its name.
+    if (isTRUE(file.size(src) == 0)) file.create(dst)
+    else writeLines(render_template(readLines(src, warn = FALSE), values), dst)
+    written <- c(written, dst_rel)
+  }
+
+  # Read back off disk rather than hard-coded here, so the clock a bare due:
+  # means is the template's own and the two cannot drift apart.
+  due_time <- yaml::yaml.load_file(file.path(path, "course.yml"))$due_time
+
+  carried_dates <- FALSE
+  if (!is.null(from_export)) {
+    cat("\n")
+    extract_manifest(from_export, path, overwrite = TRUE)
+    reapply_course_facts(file.path(path, "course.yml"), code, title, site_url,
+                         timezone, textbook_docs, due_time)
+    mods <- read_modules(path)
+    carried_dates <- any(vapply(c(mods$assignments, mods$quizzes),
+                                function(d) !is.null(d$due), TRUE))
+    written <- union(written, c("course.yml", "modules.yml", "reference.yml",
+                                file.path("reference", basename(from_export))))
+    cat("\n")
+  }
+
+  cat("=== scaffolded ===\n")
+  cat("  ", path, "\n", sep = "")
+  for (f in sort(written)) cat("    ", f, "\n", sep = "")
+  cat("  ", length(written), " file", if (length(written) == 1L) "" else "s",
+      "\n", sep = "")
+
+  if (isTRUE(skills)) install_skills(path)
+
+  if (isTRUE(git)) {
+    if (!nzchar(Sys.which("git"))) {
+      cat("  git is not on the PATH, so no repository was initialised here\n")
+    } else {
+      st <- system2("git", c("init", shQuote(path)), stdout = FALSE, stderr = FALSE)
+      cat(if (identical(as.integer(st), 0L))
+            "  git init, and nothing else. Nothing is committed here, ever\n"
+          else "  git init failed; initialise the repository by hand\n")
+    }
+  }
+
+  version_line("init_course")
+
+  if (carried_dates && !identical(timezone, "UTC")) {
+    cat("\n  READ THIS: the extracted due: dates are the UTC instants Canvas\n")
+    cat("  stored, and term: timezone: now reads ", timezone, ". Rewrite those\n", sep = "")
+    cat("  dates into that zone before the first build, or every carried\n")
+    cat("  deadline moves by the offset between the two.\n")
+  }
+
+  cat("\nNext:\n")
+  cat("  1. Fill in term: first_day: and last_day: from the registrar's calendar.\n")
+  cat("  2. quarto render, then make leakcheck.\n")
+  cat("  3. Commit, push, and enable Pages from main /docs. The site has to\n")
+  cat("     answer before a cartridge built from it is imported.\n")
+  cat("  4. make coursepack.\n")
+  cat("  5. Import into a throwaway Canvas shell, look at it, export it back\n")
+  cat("     out, and compare.\n")
+  cat("\nStep 5 is not optional. A zip that builds proves nothing: Canvas\n")
+  cat("discards malformed content silently and reports a successful import.\n")
+  invisible(path)
+}
+
 # ---- the containment check -----------------------------------------------
 #
 # A course repository holds answer keys and a public web site in one tree. The

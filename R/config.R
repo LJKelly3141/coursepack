@@ -160,10 +160,20 @@ read_reference <- function(proj) {
 #' come from `course$term`, which is where every other dated thing in the course
 #' reads them, so the two files cannot drift apart. Present, it wins, because a
 #' course that deliberately posts on a different calendar has to be able to say so.
+#'
+#' The zone is always required: it is what a post time is read in. The window,
+#' `first_day` and `last_day`, is required only when at least one announcement
+#' posts on a date, because that window exists to catch a post time outside the
+#' term and an announcement that posts on import has no time to catch. A fresh
+#' scaffold is exactly that case: its term dates are null until someone reads
+#' them off the registrar's calendar, and its one announcement posts on import,
+#' so it builds before those dates are in without any of them being invented.
 #' @param proj Course project root.
 #' @param course A parsed `course.yml`, or `NULL`. Supplies `term:` when
 #'   `announcements.yml` omits it.
-#' @return `NULL` when the file is absent, else `list(body_dir, tz, first_day, last_day, announcements)`.
+#' @return `NULL` when the file is absent, else `list(body_dir, tz, first_day,
+#'   last_day, announcements)`. `first_day` and `last_day` are `NULL` when no
+#'   announcement posts on a date.
 #' @export
 read_announcements <- function(proj, course = NULL) {
   ann_file <- file.path(proj, "announcements.yml")
@@ -172,29 +182,9 @@ read_announcements <- function(proj, course = NULL) {
   if (is.null(ay$body_dir) || !nzchar(ay$body_dir))
     stop("announcements.yml has no body_dir:", call. = FALSE)
   body_dir <- proj_path(proj, ay$body_dir)
-  tm <- ay$term
-  if (is.null(tm)) {
-    tm <- if (is.list(course$term)) course$term else NULL
-    if (is.null(tm$timezone) || is.null(tm$first_day) || is.null(tm$last_day))
-      stop("announcements.yml has no term: and course.yml term: lacks timezone, ",
-           "first_day or last_day", call. = FALSE)
-  }
-  if (is.null(tm$timezone) || is.null(tm$first_day) || is.null(tm$last_day))
-    stop("announcements.yml needs term: timezone, first_day and last_day. ",
-         "Every post time is read in that zone and must fall inside that window.", call. = FALSE)
-  tz <- as.character(tm$timezone)
-  if (!tz %in% OlsonNames())
-    stop("announcements.yml: timezone '", tz, "' is not an IANA zone name ",
-         "(for example America/Chicago)", call. = FALSE)
-  ymd <- function(x, what) {
-    x <- as.character(x)
-    if (!grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", x))
-      stop("announcements.yml: ", what, " must be YYYY-MM-DD, got: ", x, call. = FALSE)
-    d <- as.Date(x); if (is.na(d)) stop("announcements.yml: ", what, " is not a real date: ", x, call. = FALSE)
-    d
-  }
-  first <- ymd(tm$first_day, "term first_day"); last <- ymd(tm$last_day, "term last_day")
-  if (first > last) stop("announcements.yml: term first_day is after last_day", call. = FALSE)
+
+  # The declarations are read before the term, because whether a term window is
+  # needed at all is a property of what they say.
   anns <- ay$announcements
   if (is.null(anns) || !length(anns))
     stop("announcements.yml declares no announcements. Delete the file if none are wanted; ",
@@ -208,6 +198,41 @@ read_announcements <- function(proj, course = NULL) {
     v <- vapply(anns, function(a) as.character(a[[fld]]), "")
     if (anyDuplicated(v))
       stop("announcements.yml: duplicate ", fld, ": ", paste(unique(v[duplicated(v)]), collapse = ", "), call. = FALSE)
+  }
+  # Anything that is not the literal `immediately` is treated as a post time
+  # here, including a form `parse_when()` will later refuse. A window is then
+  # asked for on a value that turns out to be unparseable, which is the safe
+  # way round: the alternative is deciding a malformed post: needs no checking.
+  dated <- names(anns)[vapply(anns, function(a)
+    !identical(trimws(as.character(a$post)), "immediately"), TRUE)]
+
+  tm <- ay$term
+  if (is.null(tm)) tm <- if (is.list(course$term)) course$term else NULL
+  if (is.null(tm$timezone))
+    stop("announcements.yml needs term: timezone:, in its own term: block or in ",
+         "course.yml. Every post time is read in that zone.", call. = FALSE)
+  tz <- as.character(tm$timezone)
+  if (!tz %in% OlsonNames())
+    stop("announcements.yml: timezone '", tz, "' is not an IANA zone name ",
+         "(for example America/Chicago)", call. = FALSE)
+
+  first <- NULL; last <- NULL
+  if (length(dated)) {
+    if (is.null(tm$first_day) || is.null(tm$last_day))
+      stop("announcements.yml needs term: timezone, first_day and last_day. ",
+           "Every post time is read in that zone and must fall inside that window. ",
+           "The window is needed because these post on a date: ",
+           paste(dated, collapse = ", "),
+           ". An announcement that posts immediately needs no window.", call. = FALSE)
+    ymd <- function(x, what) {
+      x <- as.character(x)
+      if (!grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", x))
+        stop("announcements.yml: ", what, " must be YYYY-MM-DD, got: ", x, call. = FALSE)
+      d <- as.Date(x); if (is.na(d)) stop("announcements.yml: ", what, " is not a real date: ", x, call. = FALSE)
+      d
+    }
+    first <- ymd(tm$first_day, "term first_day"); last <- ymd(tm$last_day, "term last_day")
+    if (first > last) stop("announcements.yml: term first_day is after last_day", call. = FALSE)
   }
   list(body_dir = body_dir, tz = tz, first_day = first, last_day = last, announcements = anns)
 }

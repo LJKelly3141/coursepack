@@ -4051,7 +4051,7 @@ test_that("the scaffold writes every file, parses, and installs the skills", {
   expect_equal(m$course$code, "ABCD 101"); expect_equal(read_timezone(m$course), "America/Chicago")
   expect_equal(m$course$slug, "abcd-101"); expect_true(!is.null(m$assignments[["first-assignment"]]$todo))
   q <- yaml::yaml.load_file(file.path(p, "_quarto.yml"))
-  expect_equal(q$project$render, list("index.qmd", "content/**/*.qmd"))
+  expect_equal(q$project$render, c("index.qmd", "content/**/*.qmd"))
   expect_true(any(grepl(LEAK_CANARY, readLines(file.path(p, "assessments", "leak-canary.qmd")), fixed = TRUE)))
 })
 
