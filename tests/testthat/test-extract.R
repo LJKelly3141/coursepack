@@ -17,6 +17,28 @@ test_that("extract writes three files the package can read, and copies the expor
   expect_equal(m$course$code, "SRC 100"); expect_equal(m$course$urls$site, "https://example.invalid/course")
   expect_equal(m$course$assignment_groups[[1]]$id, "g0000000000000000000000000000000b")
   expect_equal(read_reference(out)$source, "reference/source.imscc")
+  # The export carries <course_code>, which is the Canvas course code and not
+  # the code: the two whole-course identifiers are derived from, so both are
+  # read out of the export rather than re-derived from a code that differs.
+  expect_equal(m$course$course_id, "g00000000000000000000000000000f03")
+  expect_equal(m$course$manifest_id, "g00000000000000000000000000000f01")
+  expect_false(m$course$carry$repair_html)
+})
+
+test_that("the dates and the new_tab an export carries come back", {
+  out <- extracted(); m <- read_manifest(out)
+  # The source's carried assignment is due at a UTC instant whose local all-day
+  # date falls on the day before, which is what all_day_date: exists to hold.
+  a <- m$assignments[["old-assignment-title"]]
+  expect_equal(a$due, "2025-02-01 05:59:59"); expect_equal(a$all_day_date, "2025-01-31")
+  expect_equal(m$course$term$timezone, "UTC")
+  # The source's quiz carries an empty <due_at>, so no date is invented for it.
+  expect_null(m$quizzes[["old-quiz-title"]]$due)
+  # new_tab is read for a link and for nothing else: the export writes it empty
+  # for a quiz and false for every other form, both of which follow from the
+  # content type. The true case is covered end to end in test-roundtrip.R.
+  expect_false(m$mods$modules[[1]]$items[[6]]$new_tab)
+  expect_null(m$mods$modules[[1]]$items[[1]]$new_tab)
 })
 
 test_that("a pure wrapper page becomes iframe:, everything else becomes source_ref:", {

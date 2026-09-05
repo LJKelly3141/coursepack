@@ -22,10 +22,11 @@
 #      emits from (review 12). A setting this writes is a setting the builder
 #      writes back out, and a key on neither list is not silently invented here.
 #
-# What the export does not carry is not written: no `due:`, no `due_time:`, no
-# term calendar, and no `height_measured:`. An extracted height is exactly the
-# undated, possibly ancient measurement the stale check exists to flag, so the
-# first build after an extraction reports every one of them as unchecked.
+# What the export does not carry is not written: no `due_time:`, no term
+# calendar beyond the zone the dates below are read in, and no
+# `height_measured:`. An extracted height is exactly the undated, possibly
+# ancient measurement the stale check exists to flag, so the first build after
+# an extraction reports every one of them as unchecked.
 
 # One element of a list by name, or NULL when there is none. `[[` on a name a
 # list does not carry is an error, not NULL, and every lookup below is asking
@@ -45,6 +46,60 @@ child_text <- function(node, name, default = "") {
 node_attr <- function(node, name) {
   v <- xml2::xml_attr(node, name)
   if (is.na(v) || !nzchar(v)) NULL else v
+}
+
+# The text of one element, read out of a file as TEXT rather than parsed. What
+# a rebuild has to reproduce is the bytes the export holds, and a date that has
+# been through a parser and back is a date that may have moved.
+element_text <- function(txt, tag) {
+  m <- regexpr(paste0("<", tag, ">[^<]*</", tag, ">"), txt)
+  if (m < 0) return("")
+  trimws(substr(txt, m + nchar(tag) + 2L, m + attr(m, "match.length") - nchar(tag) - 4L))
+}
+
+# Every file one resource declares, plus every file its dependencies declare. A
+# quiz keeps its settings in the meta resource it depends on, so the dates are
+# one edge away from the id a module item points at.
+resource_files <- function(src, id, seen = character()) {
+  if (id %in% seen || is.null(src$resources[[id]])) return(character())
+  seen <- c(seen, id)
+  r <- src$resources[[id]]
+  out <- r$files
+  for (d in r$deps) out <- c(out, resource_files(src, d, seen))
+  unique(out)
+}
+
+# The deadline one exported assignment or quiz carries: the UTC instant Canvas
+# stores in <due_at>, and the local calendar day it shows in <all_day_date>.
+# Those two fall on different days whenever the course zone is behind UTC, so
+# both are read; the zone that would relate them is not in the export at all.
+#
+# A stamp in any other shape than the one Canvas writes is left alone rather
+# than guessed at: an unread date is visible in the manifest as a missing due:,
+# and a misread one is not visible anywhere.
+exported_due <- function(src, id) {
+  files <- resource_files(src, id)
+  files <- files[basename(files) %in% DATED_FILES & files %in% src$names]
+  due <- ""; all_day <- ""
+  for (f in files) {
+    txt <- read_zip_text(src$zip, f)
+    if (!nzchar(due)) due <- element_text(txt, "due_at")
+    if (!nzchar(all_day)) all_day <- element_text(txt, "all_day_date")
+  }
+  if (!grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$", due))
+    return(list(due = NULL, all_day = NULL))
+  list(due = sub("T", " ", due, fixed = TRUE),
+       all_day = if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", all_day)) all_day else NULL)
+}
+
+# Insert commented guidance above a line of the written YAML. The comment sits
+# beside the key rather than in a header, because the key is where the reader
+# who has to act on it is looking.
+annotate_yaml <- function(path, pattern, note) {
+  ct <- readLines(path)
+  at <- grep(pattern, ct)
+  if (!length(at)) return(invisible(NULL))
+  writef(path, paste(append(ct, note, after = at[[1]] - 1L), collapse = "\n"))
 }
 
 # Parse one file out of the export, namespaces stripped so the XPath below is
@@ -141,14 +196,23 @@ write_extracted <- function(path, header, x) {
 #' course's own rather than a template's.
 #'
 #' @section What comes back:
-#' The course title and code; the `canvas:` settings on `CANVAS_SETTINGS_KEYS`,
-#' which is the same list the builder emits from; the assignment groups with
-#' their identifiers, positions and weights, the identifiers because a carried
-#' quiz or assignment references its group by identifier and a fresh one would
-#' dangle every reference; the module tree with every module and item
-#' identifier, title, indent and published state; and, for a page whose body is
-#' the builder's iframe wrapper and nothing else, that frame's target, width,
-#' height and title.
+#' The course title and code; `course_id:` and `manifest_id:`, the two
+#' identifiers a course carries as a whole, because both are otherwise derived
+#' from `code:` and an export carries only the Canvas course code; the `canvas:`
+#' settings on `CANVAS_SETTINGS_KEYS`, which is the same list the builder emits
+#' from; the assignment groups with their identifiers, positions and weights,
+#' the identifiers because a carried quiz or assignment references its group by
+#' identifier and a fresh one would dangle every reference; the module tree with
+#' every module and item identifier, title, indent, published state and, on a
+#' link, `new_tab:`; each assignment's and quiz's deadline as `due:` and, where
+#' the export shows one, `all_day_date:`, with `term: timezone: UTC` above them
+#' because that is the zone Canvas stored those instants in; and, for a page
+#' whose body is the builder's iframe wrapper and nothing else, that frame's
+#' target, width, height and title.
+#'
+#' `carry: repair_html: false` is written too. An extracted course is carried
+#' bytes throughout, and the repair changes them, so it starts off and the first
+#' rebuild reproduces the export. Turn it on deliberately.
 #'
 #' @section What does not:
 #' Everything else about a page, an assignment or a quiz becomes a `source_ref:`
@@ -159,10 +223,11 @@ write_extracted <- function(path, header, x) {
 #' generated from: a course that authored its own pages and then extracts its
 #' own export gets a manifest that is structurally exact and source blind, and
 #' nothing here can tell that case from a course that has no sources at all.
-#' `due:` and `height_measured:` are not written either. An extracted height is
-#' the undated measurement the stale check exists to flag, so the first build
-#' after an extraction classifies every height as undated, or as unmappable
-#' where the site has no local mirror under `docs/` to compare against.
+#' `due_time:`, the term calendar and `height_measured:` are not written either.
+#' An extracted height is the undated measurement the stale check exists to
+#' flag, so the first build after an extraction classifies every height as
+#' undated, or as unmappable where the site has no local mirror under `docs/` to
+#' compare against.
 #'
 #' @section Why it refuses to overwrite:
 #' The extractor this ports wrote `course.extracted.yml` beside an existing
@@ -198,6 +263,12 @@ extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
 
   settings <- export_xml(src, "course_settings/course_settings.xml")
   modmeta  <- export_xml(src, "course_settings/module_meta.xml")
+  # The two identifiers a course carries as a whole. Both are derived from
+  # `code:` when a course does not name them, and an export carries only
+  # <course_code>, which is the Canvas course code and not necessarily that
+  # `code:`. Reading them here is what lets a rebuild name the same course.
+  course_id <- node_attr(xml2::xml_root(settings), "identifier")
+  manifest_id <- node_attr(xml2::xml_root(export_xml(src, "imsmanifest.xml")), "identifier")
   groups_file <- "course_settings/assignment_groups.xml"
   groups <- if (groups_file %in% src$names) {
     lapply(xml2::xml_find_all(export_xml(src, groups_file), "//assignmentGroup"), function(g) {
@@ -256,7 +327,11 @@ extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
         if (!nzchar(url))
           stop("module item '", title, "' is an ExternalUrl carrying no <url>. ",
                "A link with no target is not a link.", call. = FALSE)
-        list(link = title, url = url)
+        # <new_tab> is read only for a link, which is the one item form the
+        # builder writes it from. Canvas writes it empty for a quiz and false
+        # for everything else, and both of those follow from the content type.
+        list(link = title, url = url,
+             new_tab = identical(child_text(it, "new_tab"), "true"))
 
       } else if (identical(ctype, "WikiPage")) {
         p <- pick(pages, ref)
@@ -289,9 +364,13 @@ extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
           stop("module item '", title, "' has a title that slugifies to nothing, ",
                "so it cannot be given a key in modules.yml.", call. = FALSE)
         claim(kind, key, ref, title)
-        if (is.null(pick(defs[[kind]], key)))
-          defs[[kind]][[key]] <- list(id = key, title = title,
-                                      published = published, source_ref = ref)
+        if (is.null(pick(defs[[kind]], key))) {
+          dt <- exported_due(src, ref)
+          d <- list(id = key, title = title, published = published)
+          d$due <- dt$due; d$all_day_date <- dt$all_day
+          d$source_ref <- ref
+          defs[[kind]][[key]] <- d
+        }
         stats::setNames(list(key), kind)
 
       } else {
@@ -319,11 +398,25 @@ extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
     cs[[key]] <- if (t %in% c("true", "false")) identical(t, "true") else t
   }
 
+  # A due: was read for at least one definition, so the dates below need a zone
+  # to be read in. The export has none: Canvas stores every date as a UTC
+  # instant and the zone is a property of the course, not of the cartridge. UTC
+  # is written because it is the zone those instants are already in, so a
+  # rebuild reproduces the export rather than moving every deadline.
+  dated <- any(vapply(c(defs$assignment, defs$quiz),
+                      function(d) !is.null(d$due), TRUE))
   course <- list(code = child_text(settings, "course_code"),
                  title = child_text(settings, "title"),
+                 course_id = course_id,
+                 manifest_id = manifest_id,
                  urls = list(site = site),
                  textbook_docs = "none",
-                 term = list(timezone = NULL),
+                 term = list(timezone = if (dated) "UTC" else NULL),
+                 # Carried bytes are the only copy of a carried resource, and an
+                 # extracted course is carried bytes throughout. The repair is
+                 # declared off so the first rebuild reproduces the export; turn
+                 # it on deliberately, and diff the result against the export.
+                 carry = list(repair_html = FALSE),
                  canvas = cs,
                  assignment_groups = groups)
   modules_out <- list(modules = mods)
@@ -343,18 +436,23 @@ extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
     "# Course metadata, read out of a Canvas export.",
     paste0("# Source: ", base),
     "# Every value here was read from that export, not invented. What the export",
-    "# does not carry is not here: the term calendar, the due dates, and the",
-    "# link from a page back to the source it was generated from."), course)
+    "# does not carry is not here: the term calendar, the due_time, and the link",
+    "# from a page back to the source it was generated from."), course)
   # The one line a course must fill in before it can build anything dated. It is
   # written as a comment beside the key rather than as a plausible default,
-  # because a wrong zone moves every due date by hours while looking fine.
-  ct <- readLines(file.path(out_dir, "course.yml"))
-  at <- grep("^  timezone: ~$", ct)
-  if (length(at)) {
-    ct <- append(ct, "  # set this; every due: and announcement is read in it",
-                 after = at[[1]] - 1L)
-    writef(file.path(out_dir, "course.yml"), paste(ct, collapse = "\n"))
-  }
+  # because a wrong zone moves every due date by hours while looking fine. The
+  # dated case says the same thing the other way round: the zone that is there
+  # is the one the export's own instants are in, and it may not be moved on its
+  # own without moving every date written under it.
+  cyml <- file.path(out_dir, "course.yml")
+  annotate_yaml(cyml, "^  timezone: ", if (dated) c(
+    "  # the export stores each date as a UTC instant and carries no zone, so",
+    "  # the due: dates below are written in UTC. Set your own zone and rewrite",
+    "  # them together; moving this line alone moves every one of them.")
+    else "  # set this; every due: and announcement is read in it")
+  annotate_yaml(cyml, "^  repair_html: ", c(
+    "  # off so the first rebuild reproduces the export byte for byte. Turn it",
+    "  # on to repair the two accessibility defects in the carried HTML."))
 
   write_extracted(file.path(out_dir, "modules.yml"), c(
     "# Module structure and item ordering, read out of a Canvas export.",
@@ -364,7 +462,11 @@ extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
     "# dropping it flattens every module. The item order is the exported order.",
     "# Every page that is not a plain iframe wrapper, and every assignment and",
     "# quiz, carries its exported bytes forward with source_ref: rather than",
-    "# being regenerated, because the export is the only copy of them."),
+    "# being regenerated, because the export is the only copy of them.",
+    "#",
+    "# due: is the instant the export stored, read in the zone course.yml names.",
+    "# all_day_date: beside it is the local day Canvas displays; the two fall on",
+    "# different days whenever the course zone is behind UTC."),
     modules_out)
   write_extracted(file.path(out_dir, "reference.yml"), character(),
                   list(export = ref_rel, source = ref_rel))

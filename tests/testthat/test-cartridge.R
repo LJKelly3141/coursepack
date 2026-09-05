@@ -150,6 +150,21 @@ test_that("item, module and resource id overrides appear where the derived ids w
   expect_error(build_cartridge(p), "resource_id must be g plus 32 hex")
 })
 
+test_that("course_id: and manifest_id: overrides appear where the derived ids would", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "course.yml", "title: Example Course",
+            paste0("title: Example Course\ncourse_id: gdddddddddddddddddddddddddddddddd",
+                   "\nmanifest_id: geeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"))
+  res <- build_cartridge(p)
+  cs <- paste(readLines(file.path(res$stage, "course_settings", "course_settings.xml")), collapse = "\n")
+  expect_match(cs, 'course identifier="gdddddddddddddddddddddddddddddddd"', fixed = TRUE)
+  man <- paste(readLines(file.path(res$stage, "imsmanifest.xml")), collapse = "\n")
+  expect_match(man, 'manifest identifier="geeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"', fixed = TRUE)
+  edit_yaml(p, "course.yml", "gdddddddddddddddddddddddddddddddd", "not-an-id")
+  expect_error(build_cartridge(p), "course_id must be g plus 32 hex")
+})
+
 test_that("an item-level published: false unpublishes a page item; published over an unpublished definition stops", {
   skip_if_no("zip"); skip_if_no("pandoc")
   p <- copy_course(); zip_fixture_qti(p)

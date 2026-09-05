@@ -26,14 +26,23 @@ course's own rather than a template's.
 }
 \section{What comes back}{
 
-The course title and code; the \verb{canvas:} settings on \code{CANVAS_SETTINGS_KEYS},
-which is the same list the builder emits from; the assignment groups with
-their identifiers, positions and weights, the identifiers because a carried
-quiz or assignment references its group by identifier and a fresh one would
-dangle every reference; the module tree with every module and item
-identifier, title, indent and published state; and, for a page whose body is
-the builder's iframe wrapper and nothing else, that frame's target, width,
-height and title.
+The course title and code; \verb{course_id:} and \verb{manifest_id:}, the two
+identifiers a course carries as a whole, because both are otherwise derived
+from \verb{code:} and an export carries only the Canvas course code; the \verb{canvas:}
+settings on \code{CANVAS_SETTINGS_KEYS}, which is the same list the builder emits
+from; the assignment groups with their identifiers, positions and weights,
+the identifiers because a carried quiz or assignment references its group by
+identifier and a fresh one would dangle every reference; the module tree with
+every module and item identifier, title, indent, published state and, on a
+link, \verb{new_tab:}; each assignment's and quiz's deadline as \verb{due:} and, where
+the export shows one, \verb{all_day_date:}, with \code{term: timezone: UTC} above them
+because that is the zone Canvas stored those instants in; and, for a page
+whose body is the builder's iframe wrapper and nothing else, that frame's
+target, width, height and title.
+
+\code{carry: repair_html: false} is written too. An extracted course is carried
+bytes throughout, and the repair changes them, so it starts off and the first
+rebuild reproduces the export. Turn it on deliberately.
 }
 
 \section{What does not}{
@@ -46,10 +55,11 @@ written. Neither is the link from a resource back to the plain text it was
 generated from: a course that authored its own pages and then extracts its
 own export gets a manifest that is structurally exact and source blind, and
 nothing here can tell that case from a course that has no sources at all.
-\verb{due:} and \verb{height_measured:} are not written either. An extracted height is
-the undated measurement the stale check exists to flag, so the first build
-after an extraction classifies every height as undated, or as unmappable
-where the site has no local mirror under \verb{docs/} to compare against.
+\verb{due_time:}, the term calendar and \verb{height_measured:} are not written either.
+An extracted height is the undated measurement the stale check exists to
+flag, so the first build after an extraction classifies every height as
+undated, or as unmappable where the site has no local mirror under \verb{docs/} to
+compare against.
 }
 
 \section{Why it refuses to overwrite}{

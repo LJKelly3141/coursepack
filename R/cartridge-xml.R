@@ -406,7 +406,7 @@ due_xml, '  <lock_at/>\n  <unlock_at/>\n',
 }
 
 write_manifest <- function(stage, course, modmeta, items, ids, tile, ann_ids, m,
-                           carried_raw = character()) {
+                           carried = no_carry()) {
 pages <- m$pages
 asg <- m$assignments
 quiz <- m$quizzes
@@ -421,8 +421,41 @@ ann_res <- ann_ids$ann_res
 ann_meta <- ann_ids$ann_meta
 anns <- ann_res
 weblinks <- Filter(function(r) r$ctype == "ExternalUrl", items)
+
+# ---- where a carried <resource> block goes --------------------------------
+#
+# In the slot its definition occupies, verbatim, exactly where the generated
+# block for that definition would have gone. A resource appears where the
+# course declares it, whether this builder wrote it or the source cartridge
+# did.
+#
+# The blocks used to be appended after everything generated. That made the
+# manifest's order depend on WHICH definitions happened to be carried rather
+# than on what the course declares, so a cartridge rebuilt from an export of
+# itself, where every generated resource has become a carried one, listed the
+# same resources in a different order. Nothing downstream reads the order, but
+# a builder whose output moves when nothing about the course moved is a builder
+# whose diffs cannot be read.
+#
+# The blocks a definition depends on follow its own, in the order the walk
+# visited them, which is the order the generated writers emit a quiz's
+# assessment and meta resources in.
+raw_by <- stats::setNames(as.character(carried$raw), carried$carried)
+def_refs <- unique(unlist(lapply(c(pages, asg, quiz), function(d) d$source_ref)))
+runs <- list(); cur <- NULL
+for (id in carried$carried) {
+  if (id %in% def_refs) cur <- id
+  if (!is.null(cur)) runs[[cur]] <- c(runs[[cur]], id)
+}
+emitted <- character()
+carried_blocks <- function(ref) {
+  run <- runs[[ref]] %||% ref
+  emitted <<- c(emitted, run)
+  paste0("    ", raw_by[run])
+}
+
 man <- c('<?xml version="1.0" encoding="UTF-8"?>',
-paste0('<manifest identifier="', gid("manifest", course$code, course$title), '" ',
+paste0('<manifest identifier="', manifest_identifier(course), '" ',
 'xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1" ',
 'xmlns:lom="http://ltsc.ieee.org/xsd/imsccv1p1/LOM/resource" ',
 'xmlns:lomimscc="http://ltsc.ieee.org/xsd/imsccv1p1/LOM/manifest" ', XSI, ' ',
@@ -506,7 +539,9 @@ for (r in weblinks) man <- c(man,
   '    </resource>')
 
 for (k in names(pages)) {
-  if (!is.null(pages[[k]]$source_ref)) next            # its block is carried below
+  if (!is.null(pages[[k]]$source_ref)) {               # carried, verbatim, here
+    man <- c(man, carried_blocks(pages[[k]]$source_ref)); next
+  }
   h <- paste0("wiki_content/", k, ".html")
   man <- c(man,
     paste0('    <resource identifier="', page_res[[k]], '" type="webcontent" href="', h, '">'),
@@ -514,7 +549,9 @@ for (k in names(pages)) {
 }
 
 for (k in names(asg)) {
-  if (!is.null(asg[[k]]$source_ref)) next              # its block is carried below
+  if (!is.null(asg[[k]]$source_ref)) {                 # carried, verbatim, here
+    man <- c(man, carried_blocks(asg[[k]]$source_ref)); next
+  }
   rid <- asg_res[[k]]; h <- paste0(rid, "/", slugify(asg[[k]]$title), ".html")
   man <- c(man,
     paste0('    <resource identifier="', rid,
@@ -524,7 +561,9 @@ for (k in names(asg)) {
 }
 
 for (k in names(quiz)) {
-  if (!is.null(quiz[[k]]$source_ref)) next             # its block is carried below
+  if (!is.null(quiz[[k]]$source_ref)) {                # carried, verbatim, here
+    man <- c(man, carried_blocks(quiz[[k]]$source_ref)); next
+  }
   man <- c(man,
     paste0('    <resource identifier="', quiz_res[[k]],
            '" type="imsqti_xmlv1p2/imscc_xmlv1p1/assessment">'),
@@ -552,10 +591,12 @@ for (k in names(anns)) man <- c(man,
   paste0('      <file href="', ann_meta[[k]], '.xml"/>'),
   '    </resource>')
 
-# Carried <resource> blocks, verbatim, after everything this file generated.
-# The span starts at the "<resource" itself, so the four spaces that put it at
-# the same depth as the generated blocks are added back here.
-if (length(carried_raw)) man <- c(man, paste0("    ", carried_raw))
+# Anything the walk carried that no definition claimed. Nothing produces one
+# today, because the walk starts at the definitions; it is written out rather
+# than dropped, because a resource staged on disk and left out of the manifest
+# fails the pre-zip check with no clue as to which writer forgot it.
+left <- setdiff(carried$carried, emitted)
+if (length(left)) man <- c(man, paste0("    ", raw_by[left]))
 
 man <- c(man, '  </resources>', '</manifest>')
 writef(file.path(stage, "imsmanifest.xml"), paste(man, collapse = "\n"))

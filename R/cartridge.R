@@ -140,7 +140,7 @@ build_cartridge <- function(proj = ".") {
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)
   settings_res <- write_manifest(stage, course, r$modmeta, r$items, r$ids, tile,
-                                 ann_ids, m, carried$raw)
+                                 ann_ids, m, carried)
 
   cat("=== pre-zip validation ===\n")
   problems <- character(); p_fail <- function(...) problems <<- c(problems, paste0(...))

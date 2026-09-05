@@ -36,6 +36,19 @@ step travels untouched. The ones a course may write today:
 on a page, assignment or quiz definition replace the derived Canvas id.
 Each must be "g" plus 32 hex; see \code{check_gid()}.
 
+\verb{course_id:} and \verb{manifest_id:} in \code{course.yml} do the same for the two
+identifiers a course carries as a whole: the one on \verb{<course>} in
+\code{course_settings.xml} and the one on \verb{<manifest>} in \code{imsmanifest.xml}.
+Both are otherwise derived from \verb{code:}, and both must be "g" plus 32 hex.
+\code{extract_manifest()} writes them, because an export carries the Canvas
+course code rather than the \verb{code:} those ids were derived from.
+
+\verb{all_day_date:} on a carried assignment or quiz definition is the local
+calendar day Canvas displays for an end-of-day deadline. Without it the
+day is the \verb{due:} date's own, which is right for a course whose \verb{due:} is
+local and wrong for one whose \verb{due:} is the UTC instant an export stored.
+It needs a \verb{due:} beside it and must be \code{YYYY-MM-DD}.
+
 \verb{published:} on a module item. On a header, page or link it is that
 item's own state. On an assignment or quiz item it may not claim more
 than the definition holds.

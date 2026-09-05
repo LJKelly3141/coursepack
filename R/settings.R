@@ -28,7 +28,7 @@ course_settings_xml <- function(course, tile, has_grading_standard) {
 
   lines <- paste0(
     '<?xml version="1.0" encoding="UTF-8"?>\n',
-    '<course identifier="', gid("course", course$code), '" ', CCV, '>\n',
+    '<course identifier="', course_identifier(course), '" ', CCV, '>\n',
     '  <title>', xesc(course$title), '</title>\n'
   )
   for (key in CANVAS_SETTINGS_KEYS) {

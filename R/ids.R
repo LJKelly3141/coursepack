@@ -18,6 +18,26 @@ check_gid <- function(x, what = "resource_id") {
   x
 }
 
+# The two identifiers a course carries as a whole, rather than per object: the
+# one on <course> in course_settings.xml and the one on <manifest> in
+# imsmanifest.xml. Both are derived from course.yml's `code:`, and both may be
+# overridden by hand for the same reason `resource_id:` may: an import that
+# names the ids Canvas already holds updates what is there instead of creating a
+# duplicate beside it.
+#
+# The overrides also close the one asymmetry `extract_manifest()` cannot close
+# on its own. A Canvas export carries <course_code>, which is the Canvas course
+# code and not necessarily the `code:` these ids are derived from, so an
+# extracted course rebuilds with two identifiers the export never had. Writing
+# the exported identifiers into `course_id:` and `manifest_id:` makes the
+# rebuild name the same course the export did.
+course_identifier <- function(course)
+  check_gid(course$course_id, "course_id") %||% gid("course", course$code)
+
+manifest_identifier <- function(course)
+  check_gid(course$manifest_id, "manifest_id") %||%
+    gid("manifest", course$code, course$title)
+
 xesc <- function(x) {
   if (is.null(x)) return("")
   x <- gsub("&",  "&amp;",  x, fixed = TRUE)

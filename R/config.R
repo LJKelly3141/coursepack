@@ -21,6 +21,19 @@ read_yaml_under <- function(proj, name) {
 #'   on a page, assignment or quiz definition replace the derived Canvas id.
 #'   Each must be "g" plus 32 hex; see `check_gid()`.
 #'
+#'   `course_id:` and `manifest_id:` in `course.yml` do the same for the two
+#'   identifiers a course carries as a whole: the one on `<course>` in
+#'   `course_settings.xml` and the one on `<manifest>` in `imsmanifest.xml`.
+#'   Both are otherwise derived from `code:`, and both must be "g" plus 32 hex.
+#'   `extract_manifest()` writes them, because an export carries the Canvas
+#'   course code rather than the `code:` those ids were derived from.
+#'
+#'   `all_day_date:` on a carried assignment or quiz definition is the local
+#'   calendar day Canvas displays for an end-of-day deadline. Without it the
+#'   day is the `due:` date's own, which is right for a course whose `due:` is
+#'   local and wrong for one whose `due:` is the UTC instant an export stored.
+#'   It needs a `due:` beside it and must be `YYYY-MM-DD`.
+#'
 #'   `published:` on a module item. On a header, page or link it is that
 #'   item's own state. On an assignment or quiz item it may not claim more
 #'   than the definition holds.

@@ -300,22 +300,32 @@ xunesc <- function(x) {
 
 # Rewrite the text of the first <title> element, or of every one when `all` is
 # TRUE, to `title`. A slot that already says the same thing once unescaped is
-# left exactly as the source wrote it. Matches run back to front so an earlier
-# match's offset is still valid after a later one has been replaced.
-retitle <- function(txt, title, all = FALSE) {
+# left exactly as the source wrote it, and `also` names further renderings that
+# count as already saying it. Matches run back to front so an earlier match's
+# offset is still valid after a later one has been replaced.
+retitle <- function(txt, title, all = FALSE, also = character()) {
   m <- gregexpr("<title>[^<]*</title>", txt)[[1]]
   if (m[[1]] < 0L) return(txt)
+  says <- c(title, also)
   which_slots <- if (all) seq_along(m) else 1L
   for (i in rev(which_slots)) {
     at <- m[[i]]; len <- attr(m, "match.length")[[i]]
     inner <- substr(txt, at + 7L, at + len - 9L)      # inside <title> ... </title>
-    if (identical(xunesc(inner), title)) next
+    if (xunesc(inner) %in% says) next
     txt <- paste0(substr(txt, 1L, at - 1L),
                   "<title>", xesc(title), "</title>",
                   substring(txt, at + len))
   }
   txt
 }
+
+# The <title> this builder writes into an assignment's own HTML page. The page
+# is not the assignment, it is the document holding its directions, so the
+# generated form names it that way. A carried page whose title already reads
+# this way is naming THIS assignment and is left as it is; without that, a
+# cartridge rebuilt from an export of one this builder made lost the prefix on
+# every assignment page it had written itself.
+assignment_page_title <- function(title) paste0("Assignment: ", title)
 
 # Push each carried assignment's and quiz's title: into the carried bytes. The
 # quiz meta holds TWO of them, the outer <quiz> and the nested <assignment>
@@ -330,12 +340,13 @@ sync_carried_titles <- function(carried, defs, stage) {
     for (f in carried_own_files(carried, d$ref)) {
       b <- basename(f)
       every <- identical(b, "assessment_meta.xml")
-      titled <- every || identical(b, "assignment_settings.xml") ||
-        grepl("\\.html?$", b, ignore.case = TRUE)
+      html <- grepl("\\.html?$", b, ignore.case = TRUE)
+      titled <- every || identical(b, "assignment_settings.xml") || html
       if (!titled) next
       p <- file.path(stage, f)
       old <- carried_text(p)
-      new <- retitle(old, title, all = every)
+      new <- retitle(old, title, all = every,
+                     also = if (html) assignment_page_title(title) else character())
       if (!identical(new, old)) { write_carried_text(p, new); changed <- changed + 1L }
     }
   }
@@ -349,9 +360,21 @@ sync_carried_titles <- function(carried, defs, stage) {
 set_element <- function(txt, tag, value) {
   pat <- paste0("<", tag, "(/>|>[^<]*</", tag, ">)")
   m <- gregexpr(pat, txt)[[1]]
-  n <- if (m[[1]] < 0L) 0L else length(m)
-  if (n) txt <- gsub(pat, paste0("<", tag, ">", value, "</", tag, ">"), txt)
-  list(txt = txt, n = n)
+  if (m[[1]] < 0L) return(list(txt = txt, n = 0L))
+  want <- paste0("<", tag, ">", value, "</", tag, ">")
+  empty <- paste0("<", tag, "/>")
+  for (i in rev(seq_along(m))) {
+    at <- m[[i]]; len <- attr(m, "match.length")[[i]]
+    hit <- substr(txt, at, at + len - 1L)
+    # An element that already holds this value keeps the bytes the source wrote,
+    # self-closing form included: rewriting <due_at/> into <due_at></due_at>
+    # moves bytes in a file whose whole contract is that its bytes do not move,
+    # and says nothing about the date that the source did not already say.
+    if (identical(hit, want)) next
+    if (!nzchar(value) && identical(hit, empty)) next
+    txt <- paste0(substr(txt, 1L, at - 1L), want, substring(txt, at + len))
+  }
+  list(txt = txt, n = length(m))
 }
 
 count_element <- function(txt, tag) {
@@ -373,10 +396,29 @@ count_element <- function(txt, tag) {
 # the cartridge does not carry (review 13). The stop is raised BEFORE the stamp
 # is computed, so the message names the real problem rather than the timezone.
 #
+# <all_day_date> is the LOCAL calendar day Canvas shows for an end-of-day
+# deadline, and it is the due date's own day unless the definition names one.
+# `all_day_date:` exists because a Canvas export stores the deadline as a UTC
+# instant and the local day beside it, and those two fall on different days
+# whenever the course zone is behind UTC. An extracted course reads both back
+# and declares both, so a rebuild reproduces the export rather than moving every
+# all-day date onto the UTC day.
+#
 # Returns list(dated, blanked): the counts of files written each way.
 apply_carried_dates <- function(carried, defs, stage, course, tz) {
   dated <- 0L; blanked <- 0L
   for (d in defs) {
+    ad <- d$def$all_day_date
+    if (!is.null(ad)) {
+      ad <- trimws(as.character(ad))
+      if (is.null(d$def$due))
+        stop("definition '", d$name, "' declares all_day_date but no due:. The ",
+             "all-day date is the local day of a deadline; without a deadline ",
+             "there is no day for it to name.", call. = FALSE)
+      if (length(ad) != 1L || !grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", ad))
+        stop("definition '", d$name, "' has all_day_date: ", paste(ad, collapse = " "),
+             ", which is not a YYYY-MM-DD date", call. = FALSE)
+    }
     files <- carried_own_files(carried, d$ref)
     files <- files[basename(files) %in% DATED_FILES]
     paths <- file.path(stage, files)
@@ -393,7 +435,7 @@ apply_carried_dates <- function(carried, defs, stage, course, tz) {
       stop("definition '", d$name, "' has due: but its carried file has no ",
            "due_at to rewrite", call. = FALSE)
     stamp <- due_stamp(due, course$due_time, tz)
-    local <- substr(trimws(as.character(due)), 1L, 10L)
+    local <- ad %||% substr(trimws(as.character(due)), 1L, 10L)
     for (i in seq_along(paths)) {
       new <- set_element(set_element(txts[[i]], "due_at", stamp)$txt, "all_day_date", local)$txt
       if (!identical(new, txts[[i]])) { write_carried_text(paths[[i]], new); dated <- dated + 1L }
