@@ -356,17 +356,66 @@ test_that("round trip", {
 })
 
 test_that("distinct rows in one file get distinct ids", {
-  # HAND-OFF. The source section drove this through the three custom checks
-  # (missing fig-alt, filename-as-alt, colour-only), building a fixture with
-  # two real, distinct violations in ONE file and requiring both nrow() and
-  # the number of DISTINCT ids to equal 2. Those checks arrive with the
-  # checks library in a later task; the fixture-driven form belongs with them
-  # in that file. What can be asserted here is the property they depend on,
-  # in the layer that provides it: the id key's discriminators. 30 of 40 real
-  # findings once vanished silently because every row a check produced for
-  # one file shared a single id (no selector, no code), and a bare nrow()
-  # check on the pre-dedup list would still have passed, because rbind() does
-  # not care whether two rows share an id.
+  # Coordinator review, 2026-08-13, after Task 7's acceptance run: 30 of 40
+  # real check_missing_fig_alt() findings vanished silently because every row
+  # it produced for the same file shared one id (no selector, no code). Every
+  # other custom check that can legitimately produce more than one finding for
+  # the same file is audited the same way: build a fixture with two real,
+  # distinct violations in ONE file, and require both nrow() and the number of
+  # DISTINCT ids to equal 2. A regression that reintroduces a shared-key bug
+  # would still pass a bare nrow() == 2 check on the pre-dedup list (rbind()
+  # does not care whether two rows share an id), so both assertions are
+  # necessary; only the second one would have caught the original bug.
+  qr_fig2 <- file.path(tempdir(), "qmdrepo_fig2"); unlink(qr_fig2, recursive = TRUE)
+  dir.create(qr_fig2)
+  writeLines(c(
+    "---", "title: t", "---",
+    "```{r}",
+    "#| label: fig-first-bare",
+    "plot(1:10)",
+    "```",
+    "",
+    "```{r}",
+    "#| label: fig-second-bare",
+    "plot(1:5)",
+    "```"), file.path(qr_fig2, "ch1.qmd"))
+  mf2 <- check_missing_fig_alt(qr_fig2, "textbook", exclude = character())
+  expect_identical(nrow(mf2), 2L,
+    info = "fig-alt: two undescribed chunks in one file both reported")
+  expect_identical(length(unique(mf2$id)), 2L,
+    info = "fig-alt: the two rows get two DISTINCT ids, not one shared id")
+
+  h_alt2 <- file.path(tempdir(), "alt2.html")
+  writeLines(paste0(
+    "<html lang='en'><body>",
+    "<img src='chart-a.png' alt='chart1.png'>",
+    "<img src='chart-b.png' alt='chart1.png'>",
+    "</body></html>"), h_alt2)
+  fa2 <- check_filename_alt(h_alt2, "textbook", "alt2.html")
+  expect_identical(nrow(fa2), 2L,
+    info = "filename-alt: two different images sharing the SAME bad alt text both reported")
+  expect_identical(length(unique(fa2$id)), 2L,
+    info = "filename-alt: two DISTINCT ids even though the alt value alone collides")
+
+  qr_col2 <- file.path(tempdir(), "qmdrepo_col2"); unlink(qr_col2, recursive = TRUE)
+  dir.create(qr_col2)
+  writeLines(c(
+    "---", "title: t", "---",
+    "```{r}",
+    "ggplot(mtcars, aes(x = wt, y = mpg, colour = factor(cyl))) + geom_point()",
+    "ggplot(iris, aes(x = Sepal.Length, fill = Species)) + geom_histogram()",
+    "```"), file.path(qr_col2, "ch1.qmd"))
+  co2 <- check_colour_only(qr_col2, "textbook", exclude = character())
+  expect_identical(nrow(co2), 2L,
+    info = "colour-only: two violations in one file both reported")
+  expect_identical(length(unique(co2$id)), 2L,
+    info = "colour-only: two DISTINCT ids, not one shared id")
+
+  # The property those three depend on, asserted in the layer that provides
+  # it: the id key's discriminators. These stood in for the fixture-driven
+  # assertions above while the checks library had not moved yet, and they stay,
+  # because a shape the three checks happen not to produce today would still be
+  # covered here.
   two_selectors <- rbind(
     finding("textbook", "ch1.qmd", "1.1.1", NA_character_, "no alt",
             "#fig-first > img", "serious", source = "custom"),
@@ -503,11 +552,10 @@ test_that("negative control: a dedup collision halts, an ordinary duplicate does
   # genuine, non-colliding duplicate must produce OPPOSITE outcomes through
   # that one real function.
   #
-  # HAND-OFF: the source section's third assertion is static coupling to the
-  # driver, that it really calls halt_on_collision() on its findings frame
-  # rather than retaining an inert reference to it. The driver moves into the
-  # package in a later task, so that assertion belongs in the driver's own
-  # test file, where the source it reads exists.
+  # The source section's third assertion is static coupling to the driver,
+  # that it really calls halt_on_collision() on its findings frame rather than
+  # retaining an inert reference to it. It lives in test-a11y-driver.R, where
+  # the source it reads exists.
   col_df <- rbind(
     finding(surface = "textbook", file = "ch1.qmd", criterion = "1.1.1",
             level = NA_character_, issue = "issue A, chunk one",

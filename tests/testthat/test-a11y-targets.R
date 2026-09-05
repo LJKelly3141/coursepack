@@ -403,12 +403,11 @@ test_that("I5 addendum: declared pass-through directories are excluded from the 
     TRUE,
     info = "I5x: a non-character exclusion is rejected rather than silently coerced")
 
-  # HAND-OFF to test-a11y-driver.R. Four assertions of this section read the
-  # audit driver's own source and require that it builds the exclusion from
-  # discovery's resource_dirs and unproduced_sources and passes the union, and
-  # that no course directory name appears in its executable lines. The driver
-  # has not moved into the package yet; they belong with the task that moves
-  # it.
+  # Four assertions of this section read the audit driver's own source and
+  # require that it builds the exclusion from discovery's resource_dirs and
+  # unproduced_sources and passes the union, and that no course directory name
+  # appears in its executable lines. They live in test-a11y-driver.R, with the
+  # driver whose source they read.
   #
   # The fifth, that no course directory name reaches an executable line of the
   # checks, is asserted here against the deparsed function bodies and the

@@ -1,3 +1,9 @@
+# coursepack 0.2.0.9004
+
+* The accessibility audit's driver moved into the package as `audit_course()`, the last of the audit's seven files. The repositories to audit, the project root, the output directory, the server port, the cartridge search directories and the video fetcher are all arguments; nothing is read from the environment and no repository is assumed. An empty `repos` stops with the usage text. The return value is `invisible(list(findings, meta, files))`, and the closing console block prints the version line last.
+* Its tests are ported from the snapshot's audit test script. The three sections that read the driver's own source read it by deparsing `audit_course()` rather than by reading a script file, which gives the same comment-free code the snapshot's grep gave; the one anchored pattern loses its `^`, because a function body is indented where a script's top level was not.
+* The last three hand-offs land, and none is left. The four assertions that require the driver to build its source exclusion from discovery's `resource_dirs` and `unproduced_sources` and to name no course directory, and the static coupling proving it calls `halt_on_collision()` on its findings frame, are in `test-a11y-driver.R`. The fixture-driven distinct-id section now drives the three custom checks directly, beside the finding-model assertions that stood in for it.
+
 # coursepack 0.2.0.9003
 
 * The accessibility audit's cartridge checks and its report renderer moved into the package: `audit_cartridge()`, `cartridges_in()`, `check_untitled_iframes()`, `check_weak_link_text()`, `video_caption_state()`, `inventory_media()`, `classify_fixes()`, `render_report()`, `render_plan()`, and `level_for()`. `cartridges_in()` gained a `dirs` argument, defaulting to the conventional pair, so a differently shaped repository does not have to move its files.
