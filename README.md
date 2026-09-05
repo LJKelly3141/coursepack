@@ -3,13 +3,15 @@
 Build tools for plain-text course authoring. One installed copy serves any
 number of courses.
 
-**Status: the accessibility audit is in the package (0.3.0).** `check_manifests()`,
-`build_cartridge()`, `diff_against_reference()`, `build_qti()`, `build_preview()`,
-`course_tile()`, and now `audit_course()` are in the package. The builder converged in
-0.2.0: since the byte-identical move, every output change has been made on purpose and
-recorded in the gate. The audit's seven files moved with their test script ported
-section by section; a real pa11y run is exercised by an opt-in test. Nothing has been
-imported into Canvas from this package yet.
+**Status: carry, extract, generate and print are in the package (0.4.0).**
+`check_manifests()`, `build_cartridge()`, `diff_against_reference()`, `build_qti()`,
+`build_preview()`, `course_tile()`, `audit_course()`, and now `extract_manifest()`,
+`convert_python_manifests()`, `announcements_from_schedule()`, and `print_assessment()`
+are in the package. The builder carries resources out of a source cartridge by
+`source_ref`, generates quizzes from JSON question banks at byte parity with the
+generator it replaces, builds `description:` assignments, and stages a build by module
+title. Build, extract, build reproduces the staging tree on the synthetic course. Nothing
+has been imported into Canvas from this package yet.
 
 ## What it is for
 
