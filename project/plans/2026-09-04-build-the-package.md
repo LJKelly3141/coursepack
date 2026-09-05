@@ -1024,7 +1024,8 @@ test_that("gate_check names missing, extra and changed files, and passes on iden
   expect_error(gate_check(d, exp), "changed: x.txt")
   unlink(file.path(d, "x.txt"))
   expect_error(gate_check(d, exp), "missing: x.txt")
-})```
+})
+```
 
 - [ ] **Step 2: Write the cartridge gate test, skipping until Task 10**
 
