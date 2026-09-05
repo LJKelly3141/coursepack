@@ -328,6 +328,31 @@ test_that("negative control: the driver's declared surfaces, against hand-author
     info = "negative control: cartridge_surface_name() suffixes exactly '-cartridge', hand-typed")
 })
 
+test_that("intended_surfaces() searches the cartridge directories it is given", {
+  skip_if_no("zip")
+  # The declaration and the audit loop must read the SAME set of files, or the
+  # report's coverage cross-check compares a measurement taken over one set of
+  # cartridges against a declaration built from another. intended_surfaces()
+  # called cartridges_in() with the package default while audit_course() passed
+  # its own `cartridge_dirs` to the audit loop, so at any non-default value the
+  # two silently looked in different places.
+  cd <- file.path(tempdir(), "cart-dirs-repo"); unlink(cd, recursive = TRUE)
+  dir.create(file.path(cd, "docs"), recursive = TRUE)
+  writeLines("project:\n  type: default\n", file.path(cd, "_quarto.yml"))
+  writeLines("<html lang='en'><title>a</title><body>a</body></html>",
+             file.path(cd, "docs", "a.html"))
+  dir.create(file.path(cd, "reference"), recursive = TRUE)
+  write_a11y_cartridge(file.path(cd, "reference", "one.imscc"))
+
+  expect_identical("cart-dirs-repo-cartridge" %in% names(intended_surfaces(cd)), TRUE,
+    info = "the fixture really does hold a cartridge under the default directories")
+  expect_identical(
+    "cart-dirs-repo-cartridge" %in%
+      names(intended_surfaces(cd, cartridge_dirs = "nowhere")),
+    FALSE,
+    info = "pointed somewhere with no cartridge, the declaration names no cartridge surface")
+})
+
 test_that("I5 addendum: declared pass-through directories are excluded from the source scan", {
   # Working files that are not distributed to students must not be scanned.
   # The exclusion is not a directory name written into the package: it is

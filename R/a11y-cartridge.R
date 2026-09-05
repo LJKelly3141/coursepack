@@ -562,6 +562,157 @@ check_video_captions <- function(wiki_files, surface,
   out
 }
 
+# ---- announcement bodies ----------------------------------------------------
+# Added 2026-09-05. An announcement is a real page a student reads, and until
+# now nothing in this file could see one. The checks above read
+# wiki_content/*.html and the <webLink> resource files; an announcement is
+# neither. Its body lives XML-ESCAPED inside an imsdt_v1p1 <topic>'s
+# <text texttype="text/html"> element (R/cartridge-announcements.R writes
+# exactly that shape), so the raw .xml on disk reads `&lt;a href=...`, which
+# every HTML-shaped pattern in this file would correctly report as containing
+# no tags at all. Unescaping first is what makes the body auditable. xml2 does
+# that as part of reading the text node, so there is no second entity table
+# here to drift away from the one the writer uses.
+#
+# This is NEW COVERAGE, not a correction: finding counts on a course that has
+# announcements go up the first time this runs, and none of those findings is a
+# regression.
+#
+# Two things these findings say differently from every other finding in this
+# file:
+#
+#   file        the topic's own .xml, never the temp .html the body is written
+#               to so the shared checks can read it as a document. A reader has
+#               to be able to open what the finding names.
+#   fix_target  the announcement body file. Everything else here names the
+#               generator, because a wiki fragment is generated and editing the
+#               zip is pointless. An announcement body is the opposite: it is
+#               AUTHORED, one HTML file per announcement, and the builder
+#               copies it through with only its leading <h2> removed. Sending
+#               someone to modules.yml for a bare-URL link in an announcement
+#               sends them to a file that does not contain it.
+ANNOUNCEMENT_BODY_TARGET <- "the announcement body file"
+
+# The id hashes (surface, file, criterion, selector, code), so `file` cannot be
+# rewritten after a finding is built without recomputing it. Two topics
+# carrying the byte-identical defect would otherwise keep the one id they were
+# both built with, and report_and_dedup() would silently discard the second as
+# "the same finding, seen twice": the false-negative path this file's header
+# spends its first hundred lines guarding against. Recomputed through
+# finding_id() itself rather than through a second copy of the key formula.
+reattribute_finding <- function(f, file, fix_target) {
+  f$file       <- file
+  f$id         <- finding_id(f$surface, file, f$criterion, f$selector)
+  f$fix_target <- fix_target
+  f
+}
+
+# The unescaped HTML body of one imsdt topic, or NULL when the file is not one.
+# Every .xml in a cartridge passes through here (the manifest, the weblinks,
+# the topicMetas, the assignment settings), so anything that is not a <topic>
+# with an HTML body is skipped rather than guessed at.
+topic_html_body <- function(path) {
+  x <- tryCatch({ d <- xml2::read_xml(path); xml2::xml_ns_strip(d); d },
+                error = function(e) NULL)
+  if (is.null(x) || !identical(xml2::xml_name(x), "topic")) return(NULL)
+  n <- xml2::xml_find_first(x, "text[@texttype='text/html']")
+  if (inherits(n, "xml_missing")) return(NULL)
+  xml2::xml_text(n)
+}
+
+# check_weak_link_text()'s three rules, applied to real <a> elements instead of
+# a <webLink> resource's <title>. Same criterion, same severity, same two issue
+# strings, because it is the same defect: a link whose accessible name says
+# nothing when it is read out of the page, which is how a screen reader user
+# navigates a link list.
+#
+# The empty-text rule carries one guard the weblink version does not need. A
+# <webLink> has nothing inside it but its title, while an <a> in authored prose
+# can wrap an image, and `<a href="x"><img alt="Week 1 map"></a>` has a perfectly
+# good accessible name that comes from the alt text rather than from any text
+# node. Reporting that as "no text at all" would be a false positive, so an
+# anchor carrying a real alt, aria-label or title is left alone. Weak text and a
+# bare URL are still flagged in that case, because those are about what the name
+# SAYS, not whether one exists.
+ANCHOR_RE <- stringr::regex("<a\\b[^>]*>(.*?)</a>", ignore_case = TRUE,
+                            dotall = TRUE)
+ANCHOR_OPEN_RE <- stringr::regex("<a\\b[^>]*>", ignore_case = TRUE)
+ANCHOR_HREF_RE <- stringr::regex("\\shref\\s*=\\s*[\"']([^\"']*)[\"']",
+                                 ignore_case = TRUE)
+ACCESSIBLE_NAME_RE <- stringr::regex(
+  "\\s(?:alt|aria-label|title)\\s*=\\s*[\"'][^\"'[:space:]][^\"']*[\"']",
+  ignore_case = TRUE)
+
+check_weak_anchor_text <- function(html_file, surface, file, fix_target) {
+  out <- list()
+  txt <- paste(readLines(html_file, warn = FALSE), collapse = "\n")
+  m   <- stringr::str_match_all(txt, ANCHOR_RE)[[1]]
+  if (!nrow(m)) return(out)
+  for (i in seq_len(nrow(m))) {
+    whole <- m[i, 1]
+    open  <- stringr::str_extract(whole, ANCHOR_OPEN_RE)
+    href  <- stringr::str_match(open, ANCHOR_HREF_RE)[, 2]
+    # The accessible name a person hears: the element's text with any nested
+    # markup removed and its whitespace collapsed, the way it would be read out
+    # of a link list.
+    text  <- trimws(gsub("\\s+", " ", gsub("<[^>]*>", " ", m[i, 2])))
+    named <- stringr::str_detect(whole, ACCESSIBLE_NAME_RE)
+    is_empty <- !nzchar(text) && !named
+    is_weak  <- grepl(WEAK_LINK_RE, tolower(text))
+    is_url   <- grepl("^https?://", text)
+    if (!(is_empty || is_weak || is_url)) next
+    f <- finding(
+      surface = surface, file = file, criterion = "2.4.4",
+      level = NA_character_,
+      issue = if (is_empty)
+        "link has no text at all, so it has no accessible name"
+      else
+        "link text does not describe its destination out of context",
+      selector = sprintf("a[href='%s']", href %||% "?"),
+      severity = "moderate",
+      detail = sprintf("text=\"%s\"", text), source = "custom")
+    f$fix_target <- fix_target
+    out[[length(out) + 1]] <- f
+  }
+  out
+}
+
+# Every announcement body in a cartridge, audited as the HTML it actually is.
+#
+# Returns the findings AND the number of bodies read, as two elements of a list
+# rather than as a findings attribute: the caller c()s these into a list of
+# other checks' findings, and an attribute would not survive that. The count is
+# of bodies actually read and audited, never of <topic> files seen, for the same
+# reason wiki_pages_read counts pages the audit really opened: a coverage number
+# that includes something the audit could not read overstates what the report
+# covers.
+#
+# The temp directory is a tempfile() name cleaned up on every exit path,
+# including an error, matching audit_cartridge()'s own extraction directory
+# (finding 6): a deterministic name would let two concurrent audits race on it.
+check_announcement_bodies <- function(xml_files, surface) {
+  hold <- tempfile("topic-")
+  dir.create(hold, recursive = TRUE)
+  on.exit(unlink(hold, recursive = TRUE), add = TRUE)
+
+  out <- list(); n <- 0L
+  for (x in xml_files) {
+    body <- topic_html_body(x)
+    if (is.null(body)) next
+    n <- n + 1L
+    as_file <- basename(x)
+    tmp <- file.path(hold, paste0(as_file, ".html"))
+    writeLines(body, tmp)
+    for (f in check_untitled_iframes(tmp, surface)) {
+      out[[length(out) + 1]] <-
+        reattribute_finding(f, as_file, ANNOUNCEMENT_BODY_TARGET)
+    }
+    out <- c(out, check_weak_anchor_text(tmp, surface, as_file,
+                                         ANNOUNCEMENT_BODY_TARGET))
+  }
+  list(findings = out, topics_read = n)
+}
+
 # ---- putting the cartridge checks together ----------------------------------
 # Amended 2026-08-13, coordinator review, finding 6 (minor): the extraction
 # directory used to be a deterministic name derived only from the input
@@ -642,10 +793,11 @@ cartridge_wiki_page_count <- function(imscc_path) {
 
 #' Audit one cartridge
 #'
-#' Unzips the cartridge, runs the four checks a Common Cartridge is
-#' responsible for (untitled iframes, weblink text, broken embeds, captions),
-#' and reports how many wiki pages it actually read as the `wiki_pages_read`
-#' attribute of the result.
+#' Unzips the cartridge, runs the checks a Common Cartridge is responsible for
+#' (untitled iframes, weblink text, broken embeds, captions, and the same
+#' iframe and link-text rules over every announcement body), and reports how
+#' many wiki pages and how many announcement bodies it actually read, as the
+#' `wiki_pages_read` and `topics_read` attributes of the result.
 #'
 #' @param imscc_path Path to the `.imscc` file.
 #' @param surface The caller's course-of-origin label. Required, not
@@ -654,7 +806,7 @@ cartridge_wiki_page_count <- function(imscc_path) {
 #' @param video_fetch The watch-page fetcher passed to [video_caption_state()].
 #'   Defaults to the real network fetcher.
 #' @return A findings data frame, possibly with no rows, carrying the
-#'   `wiki_pages_read` attribute.
+#'   `wiki_pages_read` and `topics_read` attributes.
 #' @export
 audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_fetch) {
   tmp <- tempfile("imscc-")
@@ -671,10 +823,17 @@ audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_f
   # checks read the identical state for it (finding C2).
   states <- resolve_video_states(wiki, fetch = video_fetch)
 
+  # Announcement bodies, which are HTML inside an XML element rather than files
+  # of their own, so they reach the same iframe and link-text rules only after
+  # being unescaped and written out. New coverage: a course with announcements
+  # reports more findings than it did before this ran.
+  ann <- check_announcement_bodies(xmls, surface)
+
   out <- c(check_untitled_iframes(wiki, surface),
            check_weak_link_text(xmls, surface),
            check_unavailable_videos(wiki, surface, states = states),
-           check_video_captions(wiki, surface, states = states))
+           check_video_captions(wiki, surface, states = states),
+           ann$findings)
 
   res <- if (!length(out)) finding("x","x","x","x","x","x","x")[0, ]
          else do.call(rbind, out)
@@ -687,6 +846,11 @@ audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_f
   # an attribute for the same reason check_missing_fig_alt()'s `mode` does:
   # it must not become a findings column that rbind() would have to carry.
   attr(res, "wiki_pages_read") <- length(wiki)
+  # The same measurement, one surface further in: how many announcement bodies
+  # this call actually read. A cartridge with no announcements reports an honest
+  # 0 rather than no attribute at all, which is the distinction wiki_pages_read
+  # already draws between "examined nothing" and "was never run".
+  attr(res, "topics_read") <- ann$topics_read
   res
 }
 

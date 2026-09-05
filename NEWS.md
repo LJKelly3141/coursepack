@@ -1,3 +1,8 @@
+# coursepack 0.2.0.9006
+
+* The cartridge audit reads announcement bodies; counts on a course with announcements rise. Every `imsdt_xmlv1p1` topic's `<text texttype="text/html">` body is XML-unescaped and audited for untitled iframes and for link text that says nothing out of context, with the finding attributed to the topic's own `.xml` and its fix target set to the announcement body file, which is authored rather than generated. `audit_cartridge()` reports how many bodies it read as `topics_read`, beside `wiki_pages_read`.
+* `intended_surfaces()` gained a `cartridge_dirs` argument and `audit_course()` passes its own through, so the declaration and the audit loop can no longer read different sets of cartridges at any non-default value.
+
 # coursepack 0.2.0.9005
 
 * A real pa11y run is now exercised end to end in `test-a11y-integration.R`, against a fixture page carrying three planted defects: no `lang` on `<html>`, an alt attribute that is really a filename, and link text that says nothing out of context. It asserts that the custom filename-as-alt check fired where axe cannot see a defect at all, that the missing language criterion came back, that the audit wrote its findings JSON, and that both runners actually reported. The runner claim is checked against pa11y's own issue list, because a finding's `source` records the producer rather than the runner and nothing downstream of `from_pa11y()` can tell htmlcs and axe apart.

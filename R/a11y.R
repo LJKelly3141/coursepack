@@ -146,11 +146,12 @@ audit_course <- function(repos, proj = ".",
     }
 
     srv <- serve_dir(tgt$output_dir, port = port)
-    # finally, not the file-level on.exit() the draft used: on.exit() has no
-    # effect at top level (there is no enclosing function frame for it to
-    # attach to in a plain Rscript), so it was silently doing nothing. A
-    # tryCatch(..., finally=) around the actual work is the version of "clean
-    # up even on an early error" that is real at top level. serve_dir()'s own
+    # finally, not on.exit(): the server has to stop on EVERY exit path out of
+    # this block, an error raised inside the page loop included, and it has to
+    # stop HERE rather than whenever audit_course() eventually returns. This
+    # loop runs once per repo, so an on.exit() attached to the function frame
+    # would hold every repo's server open until the whole audit finished and
+    # the next repo would meet a port that is still bound. serve_dir()'s own
     # port_is_free() check turns any leak this still misses into a loud
     # failure on the next run rather than a silent one, so this is belt, not
     # suspenders alone.
@@ -260,7 +261,10 @@ audit_course <- function(repos, proj = ".",
   # call briefly fed pages_examined as well. That made the declaration and the
   # measurement the same number, and the renderer's coverage cross-check
   # compared it against itself. It is meta$surfaces and meta$declared only.
-  declared <- intended_surfaces(repos)
+  # cartridge_dirs is passed through, not left to the package default: the
+  # audit loop above searched THIS caller's directories, and a declaration
+  # built over a different set of files could not cross-check it.
+  declared <- intended_surfaces(repos, cartridge_dirs)
 
   full_df <- do.call(rbind, Filter(function(x) !is.null(x) && nrow(x), all))
   if (is.null(full_df)) full_df <- finding("x","x","x","x","x","x","x")[0, ]

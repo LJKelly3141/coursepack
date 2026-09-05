@@ -6,7 +6,16 @@
 # attribute rather than count tags; one weblink whose text says nothing out of
 # context; and one embedded video, in a TITLED frame, so the video checks have
 # something to resolve without adding a second untitled-iframe finding.
-write_a11y_cartridge <- function(zip_path) {
+#
+# `topics` adds announcement topics, each a list of id, title and html. Empty
+# by default, so every caller written before announcements were audited gets
+# the identical cartridge it always got. The shape is the one
+# R/cartridge-announcements.R writes: an imsdt_v1p1 <topic> whose body is
+# XML-ESCAPED inside <text texttype="text/html">. The escaping is written out
+# below rather than borrowed from the builder's own xtext(), so the audit's
+# unescape is checked against an independent implementation of the escape and
+# not against the same three lines that produced it.
+write_a11y_cartridge <- function(zip_path, topics = list()) {
   d <- withr::local_tempdir(.local_envir = parent.frame())
   dir.create(file.path(d, "wiki_content"))
   writeLines(paste0(
@@ -27,6 +36,19 @@ write_a11y_cartridge <- function(zip_path) {
     '  <title>click here</title>',
     '  <url href="https://example.invalid/reading"/>',
     '</webLink>'), file.path(d, "weblink.xml"))
+  esc <- function(s) {
+    s <- gsub("&", "&amp;", s, fixed = TRUE)
+    s <- gsub("<", "&lt;",  s, fixed = TRUE)
+    gsub(">", "&gt;", s, fixed = TRUE)
+  }
+  for (tp in topics) {
+    writeLines(c(
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<topic xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imsdt_v1p1">',
+      paste0('  <title>', esc(tp$title), '</title>'),
+      paste0('  <text texttype="text/html">', esc(tp$html), '</text>'),
+      '</topic>'), file.path(d, paste0(tp$id, ".xml")))
+  }
   old <- setwd(d); on.exit(setwd(old), add = TRUE)
   utils::zip(zip_path, list.files(".", recursive = TRUE), flags = "-q -X")
   zip_path

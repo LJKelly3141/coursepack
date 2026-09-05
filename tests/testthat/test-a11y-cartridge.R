@@ -131,6 +131,113 @@ test_that("cartridge: iframes, weblinks, and broken embeds, synthetic export", {
     info = "the audit reports the wiki pages it actually read")
 })
 
+test_that("a topic body with a bare-URL link produces one 2.4.4 finding, attributed to the body file", {
+  skip_if_no("zip")
+  z <- write_a11y_cartridge(tempfile(fileext = ".imscc"),
+         topics = list(list(id = "gtopic1", title = "Week 1", html = '<p>See <a href="https://example.invalid/x">https://example.invalid/x</a></p>')))
+  res <- audit_cartridge(z, surface = "t-cartridge")
+  hit <- res[res$criterion == "2.4.4" & res$file == "gtopic1.xml", ]
+  expect_equal(nrow(hit), 1L)
+  expect_equal(attr(res, "topics_read"), 1L)
+})
+
+test_that("cartridge: announcement bodies, discrimination and attribution", {
+  skip_if_no("zip")
+  # The body arrives XML-ESCAPED inside <text texttype="text/html">, so a
+  # check that read the raw .xml would see `&lt;a href=...` and find no tags at
+  # all. Four topics side by side: one bare-URL link (flagged), one link whose
+  # text describes its destination (not flagged), one untitled iframe
+  # (flagged), and one titled iframe (not flagged). A check that reported
+  # everything fails the two negatives; one that reported nothing fails the two
+  # positives; one that skipped the unescape fails all four.
+  z <- write_a11y_cartridge(
+    tempfile(fileext = ".imscc"),
+    topics = list(
+      list(id = "gtopicA", title = "Week 1", html = paste0(
+        '<p>See <a href="https://example.invalid/a">https://example.invalid/a</a>',
+        ' and <a href="https://example.invalid/b">the week 1 reading list</a></p>')),
+      list(id = "gtopicB", title = "Week 2", html = paste0(
+        '<p><iframe src="https://example.invalid/untitled"></iframe>',
+        '<iframe title="Week 2 walkthrough" src="https://example.invalid/titled"></iframe></p>'))))
+  res <- audit_cartridge(z, surface = "ann-cartridge",
+                         video_fetch = function(id) unavailable_page)
+
+  weak <- res[res$criterion == "2.4.4" & res$file == "gtopicA.xml", , drop = FALSE]
+  expect_identical(nrow(weak), 1L,
+    info = "exactly the bare-URL link in the announcement body is flagged")
+  expect_identical(grepl("example.invalid/a", weak$selector[1], fixed = TRUE), TRUE,
+    info = "and the finding names that link, not the descriptive one beside it")
+  expect_identical(weak$fix_target[1], "the announcement body file",
+    info = "an announcement body is authored, so the fix goes to the body file, not the generator")
+
+  frames <- res[res$criterion == "4.1.2" & res$file == "gtopicB.xml", , drop = FALSE]
+  expect_identical(nrow(frames), 1L,
+    info = "exactly the untitled iframe inside the announcement body is flagged")
+  expect_identical(grepl("untitled", frames$selector[1], fixed = TRUE), TRUE,
+    info = "and it is the untitled one, not the titled one beside it")
+  expect_identical(frames$fix_target[1], "the announcement body file",
+    info = "the iframe finding is attributed to the body file too")
+
+  expect_identical(attr(res, "topics_read"), 2L,
+    info = "both topic bodies are counted as read")
+  expect_identical(attr(res, "wiki_pages_read"), 2L,
+    info = "and the wiki-page count is unchanged by the topics beside it")
+
+  # The id hashes the file, so re-attributing a finding to the topic it came
+  # from has to recompute it. Two topics carrying the byte-identical defect
+  # would otherwise share one id and report_and_dedup() would silently drop the
+  # second as "the same finding, seen twice".
+  same <- write_a11y_cartridge(
+    tempfile(fileext = ".imscc"),
+    topics = list(
+      list(id = "gtopicC", title = "One", html = '<p><iframe src="https://example.invalid/same"></iframe></p>'),
+      list(id = "gtopicD", title = "Two", html = '<p><iframe src="https://example.invalid/same"></iframe></p>')))
+  res2 <- audit_cartridge(same, surface = "twin-cartridge",
+                          video_fetch = function(id) unavailable_page)
+  twins <- res2[res2$criterion == "4.1.2" &
+                res2$file %in% c("gtopicC.xml", "gtopicD.xml"), , drop = FALSE]
+  expect_identical(nrow(twins), 2L,
+    info = "the identical defect in two topics is two findings")
+  expect_identical(length(unique(twins$id)), 2L,
+    info = "with distinct ids, so neither disappears into the other as a duplicate")
+})
+
+test_that("cartridge: a textless link in an announcement body, and the one that only looks textless", {
+  skip_if_no("zip")
+  # An announcement body is authored prose, so unlike a <webLink> resource its
+  # links can wrap other elements. A link holding nothing at all has no
+  # accessible name and fails 2.4.4 exactly as an empty <title></title> does; a
+  # link wrapping an image with real alt text has a perfectly good name that
+  # simply is not a text node, and reporting it would be a false positive.
+  z <- write_a11y_cartridge(
+    tempfile(fileext = ".imscc"),
+    topics = list(list(id = "gtopicE", title = "Week 3", html = paste0(
+      '<p><a href="https://example.invalid/textless"></a>',
+      '<a href="https://example.invalid/mapped">',
+      '<img src="map.png" alt="The week 3 study map"></a></p>'))))
+  res <- audit_cartridge(z, surface = "textless-cartridge",
+                         video_fetch = function(id) unavailable_page)
+  weak <- res[res$criterion == "2.4.4" & res$file == "gtopicE.xml", , drop = FALSE]
+  expect_identical(nrow(weak), 1L,
+    info = "exactly the link with no accessible name at all is flagged")
+  expect_identical(grepl("textless", weak$selector[1], fixed = TRUE), TRUE,
+    info = "and it is the empty one, not the image link beside it")
+  expect_identical(grepl("no text at all", weak$issue[1]), TRUE,
+    info = "the textless issue text is distinct from the weak-text one, as it is for weblinks")
+})
+
+test_that("cartridge: a cartridge with no topics reports topics_read 0", {
+  skip_if_no("zip")
+  # The counter must exist and read zero, rather than being absent, on a
+  # cartridge that holds no announcements at all: absent and zero are the same
+  # distinction wiki_pages_read already draws.
+  z <- write_a11y_cartridge(tempfile(fileext = ".imscc"))
+  res <- audit_cartridge(z, surface = "no-topics-cartridge",
+                         video_fetch = function(id) unavailable_page)
+  expect_identical(attr(res, "topics_read"), 0L,
+    info = "no topics in the cartridge is an honest 0, not a missing attribute")
+})
+
 test_that("cartridge: discrimination fixture (positive and negative in one cartridge)", {
   skip_if_no("zip")
   # Builds one small real .imscc-shaped zip carrying, side by side: an iframe

@@ -18,11 +18,12 @@ Defaults to the real network fetcher.}
 }
 \value{
 A findings data frame, possibly with no rows, carrying the
-\code{wiki_pages_read} attribute.
+\code{wiki_pages_read} and \code{topics_read} attributes.
 }
 \description{
-Unzips the cartridge, runs the four checks a Common Cartridge is
-responsible for (untitled iframes, weblink text, broken embeds, captions),
-and reports how many wiki pages it actually read as the \code{wiki_pages_read}
-attribute of the result.
+Unzips the cartridge, runs the checks a Common Cartridge is responsible for
+(untitled iframes, weblink text, broken embeds, captions, and the same
+iframe and link-text rules over every announcement body), and reports how
+many wiki pages and how many announcement bodies it actually read, as the
+\code{wiki_pages_read} and \code{topics_read} attributes of the result.
 }

@@ -504,6 +504,15 @@ bump_examined <- function(v, surface, n = 1L) {
 # left the page count and the surface list both intact, fired no banner, and
 # the report read as a clean audit. pages_examined is now accumulated inside
 # the loops that do the work, via bump_examined() above. Do not re-merge them.
+#
+# Amended 2026-09-05. `cartridge_dirs` is an argument, defaulting to the
+# package's own list, because this function called cartridges_in() with that
+# default unconditionally while audit_course() passed ITS OWN `cartridge_dirs`
+# to the audit loop. At the default value the two agreed and nothing showed; at
+# any other value the declaration and the audit read different sets of files,
+# so the coverage cross-check compared a count measured over one set of
+# cartridges against a scope declared over another. That is the same class of
+# defect as building both numbers from one call, arriving by a different route.
 #' The surfaces a run intends to declare
 #'
 #' One entry per page surface, valued at its real page count, plus one entry
@@ -518,9 +527,13 @@ bump_examined <- function(v, surface, n = 1L) {
 #' one, classifying one course's findings against the other's stylesheet.
 #'
 #' @param repos Character vector of repository paths.
+#' @param cartridge_dirs Directories under each repository to search for
+#'   cartridges, passed to [cartridges_in()]. The caller's own value, not the
+#'   package default, because a declaration built over one set of directories
+#'   and an audit run over another cannot cross-check each other.
 #' @return A named integer vector, surface name to count.
 #' @export
-intended_surfaces <- function(repos) {
+intended_surfaces <- function(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS) {
   halt_on_surface_collision(repos)
   out <- integer(0)
   for (r in repos) {
@@ -528,7 +541,7 @@ intended_surfaces <- function(repos) {
     out[page_surface_name(tgt)] <- length(tgt$pages)
   }
   for (r in repos) {
-    imsccs <- cartridges_in(r)
+    imsccs <- cartridges_in(r, cartridge_dirs)
     if (length(imsccs)) {
       out[cartridge_surface_name(r)] <-
         sum(vapply(imsccs, cartridge_wiki_page_count, integer(1)))
