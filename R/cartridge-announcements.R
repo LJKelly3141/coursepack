@@ -8,7 +8,7 @@ ann_tz <- ann$tz
 # announcements, and nothing in this section runs.
 #
 # Canvas packages an announcement as TWO files plus two manifest resources,
-# confirmed against build/coursepack/the first course-export.imscc, a real
+# confirmed against a real round-trip export of the first course, a real
 # round-trip export of this course carrying all seven of them:
 #
 #   <id>.xml       an imsdt_v1p1 <topic>: the title and the HTML body, nothing else
