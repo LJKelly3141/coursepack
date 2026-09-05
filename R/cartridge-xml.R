@@ -216,6 +216,10 @@ for (k in names(pages)) {
            "title. A frame with no accessible name is announced only as ",
            "'frame'. Give the page a title:, or an iframe_title: for the ",
            "frame alone.")
+    # `height:` is the only height this writer reads. An iframe page may also
+    # carry `height_measured:`, the timestamp of the last measurement, which is
+    # recorded so a stale height can be found later and is deliberately not
+    # used here: the frame ships at whatever the course declares.
     if (is.null(p$height))
       stop("page '", k, "' declares iframe: but no height:")
 

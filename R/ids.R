@@ -1,6 +1,23 @@
 # ---- helpers -------------------------------------------------------------
 gid <- function(...) paste0("g", digest::digest(paste(..., sep = ""), algo = "md5"))
 
+# An id written by hand in the YAML, overriding the derived one. Used when a
+# course is adopting ids that already exist in Canvas, so an import updates the
+# object that is already there instead of creating a duplicate beside it.
+#
+# NULL means no override and the derived id stands. Anything else must be a
+# Canvas identifier, "g" plus 32 hex, because a malformed id is exactly the
+# defect Canvas accepts and then silently drops: the item imports pointing at a
+# resource that is not there, and nothing reports it. `what` names the key, so
+# the message says which line of which file to fix.
+check_gid <- function(x, what = "resource_id") {
+  if (is.null(x)) return(NULL)
+  x <- as.character(x)
+  if (length(x) != 1L || !grepl("^g[0-9a-f]{32}$", x))
+    stop(what, " must be g plus 32 hex, got: ", paste(x, collapse = " "), call. = FALSE)
+  x
+}
+
 xesc <- function(x) {
   if (is.null(x)) return("")
   x <- gsub("&",  "&amp;",  x, fixed = TRUE)

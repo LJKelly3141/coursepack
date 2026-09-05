@@ -79,6 +79,13 @@ build_cartridge <- function(proj = ".") {
   # without a term: block.
   tz <- if (needs_timezone(m, ann)) read_timezone(course) else NULL
   tb_docs <- textbook_docs_path(course, proj)
+  # reference.yml's source: names a cartridge a course can carry resources out
+  # of. Nothing carries one yet, so a declared source with no definition naming
+  # a source_ref is REPORTED rather than passed over: a source that is declared
+  # and does nothing looks exactly like a source that was read and found empty.
+  ref <- read_reference(proj)
+  if (!is.null(ref$source) && !any_source_ref(m))
+    cat("  source declared, 0 resources carried\n")
 
   r <- resolve_items(m)                                  # items, modmeta, ids
   tile <- stage_course_card(proj, stage)
@@ -117,6 +124,14 @@ build_cartridge <- function(proj = ".") {
   cat("\nA zip that builds proves NOTHING. Canvas discards malformed cartridges\n")
   cat("without reporting an error. Import into a throwaway shell and look.\n")
   invisible(list(imscc = outfile, stage = stage))
+}
+
+# Does any page, assignment or quiz definition ask for something out of the
+# source cartridge? False for every course today; the key is read here so the
+# reporting line above is written once and stays correct when carrying lands.
+any_source_ref <- function(m) {
+  defs <- c(m$pages, m$assignments, m$quizzes)
+  any(vapply(defs, function(d) !is.null(d$source_ref), TRUE))
 }
 
 needs_timezone <- function(m, ann) {

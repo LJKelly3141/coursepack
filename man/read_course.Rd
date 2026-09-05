@@ -27,3 +27,25 @@ under \code{proj}. \code{read_manifest()} parses both and names the \verb{pages:
 \verb{assignments:} and \verb{quizzes:} definitions by slug or id, stopping on a
 duplicate, because every later step indexes by those names.
 }
+\section{Optional keys these readers pass through}{
+
+Nothing here validates a key it does not use, so a key added for a later
+step travels untouched. The ones a course may write today:
+
+\verb{module_id:} on a module, \verb{item_id:} on a module item, and \verb{resource_id:}
+on a page, assignment or quiz definition replace the derived Canvas id.
+Each must be "g" plus 32 hex; see \code{check_gid()}.
+
+\verb{published:} on a module item. On a header, page or link it is that
+item's own state. On an assignment or quiz item it may not claim more
+than the definition holds.
+
+\verb{height_measured:} on an iframe page records when \verb{height:} was last
+measured. The cartridge builder reads \verb{height:} and ignores this one.
+
+\verb{source:} in \code{reference.yml} names a cartridge whose resources a course
+can carry forward, and \verb{source_ref:} on a definition names one of them.
+Nothing carries a resource yet; a declared source with nothing carried is
+reported by \code{build_cartridge()}.
+}
+

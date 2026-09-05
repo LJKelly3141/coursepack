@@ -12,6 +12,26 @@ read_yaml_under <- function(proj, name) {
 #' under `proj`. `read_manifest()` parses both and names the `pages:`,
 #' `assignments:` and `quizzes:` definitions by slug or id, stopping on a
 #' duplicate, because every later step indexes by those names.
+#'
+#' @section Optional keys these readers pass through:
+#' Nothing here validates a key it does not use, so a key added for a later
+#' step travels untouched. The ones a course may write today:
+#'
+#'   `module_id:` on a module, `item_id:` on a module item, and `resource_id:`
+#'   on a page, assignment or quiz definition replace the derived Canvas id.
+#'   Each must be "g" plus 32 hex; see `check_gid()`.
+#'
+#'   `published:` on a module item. On a header, page or link it is that
+#'   item's own state. On an assignment or quiz item it may not claim more
+#'   than the definition holds.
+#'
+#'   `height_measured:` on an iframe page records when `height:` was last
+#'   measured. The cartridge builder reads `height:` and ignores this one.
+#'
+#'   `source:` in `reference.yml` names a cartridge whose resources a course
+#'   can carry forward, and `source_ref:` on a definition names one of them.
+#'   Nothing carries a resource yet; a declared source with nothing carried is
+#'   reported by `build_cartridge()`.
 #' @param proj Course project root.
 #' @return `read_manifest()` returns `list(course, mods, pages, assignments, quizzes)`.
 #' @export

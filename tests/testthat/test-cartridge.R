@@ -119,6 +119,43 @@ test_that("an undeclared group on an assignment stops the build", {
   expect_error(build_cartridge(p), "names assignment group 'Nowhere'")
 })
 
+test_that("item, module and resource id overrides appear where the derived ids would", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "modules.yml", '  - title: "Module 1: Start Here"', '  - title: "Module 1: Start Here"\n    module_id: gaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+  edit_yaml(p, "modules.yml", "      - page: welcome\n        indent: 1", "      - page: welcome\n        indent: 1\n        item_id: gbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+  edit_yaml(p, "modules.yml", "    title: Welcome\n", "    title: Welcome\n    resource_id: gcccccccccccccccccccccccccccccccc\n")
+  res <- build_cartridge(p)
+  mm <- paste(readLines(file.path(res$stage, "course_settings", "module_meta.xml")), collapse = "\n")
+  expect_match(mm, 'module identifier="gaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"', fixed = TRUE)
+  expect_match(mm, 'item identifier="gbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"', fixed = TRUE)
+  expect_match(mm, "<identifierref>gcccccccccccccccccccccccccccccccc</identifierref>", fixed = TRUE)
+  expect_true(file.exists(file.path(res$stage, "wiki_content", "welcome.html")))
+  man <- paste(readLines(file.path(res$stage, "imsmanifest.xml")), collapse = "\n")
+  expect_match(man, 'resource identifier="gcccccccccccccccccccccccccccccccc"', fixed = TRUE)
+  edit_yaml(p, "modules.yml", "gcccccccccccccccccccccccccccccccc", "not-an-id")
+  expect_error(build_cartridge(p), "resource_id must be g plus 32 hex")
+})
+
+test_that("an item-level published: false unpublishes a page item; published over an unpublished definition stops", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "modules.yml", "      - page: welcome\n        indent: 1", "      - page: welcome\n        indent: 1\n        published: false")
+  res <- build_cartridge(p)
+  mm <- paste(readLines(file.path(res$stage, "course_settings", "module_meta.xml")), collapse = "\n")
+  expect_match(mm, "<workflow_state>unpublished</workflow_state>\\s*<title>Welcome</title>")
+  edit_yaml(p, "modules.yml", "      - assignment: todo-1", "      - assignment: todo-1\n        published: true")
+  expect_error(build_cartridge(p), "is published but its definition is not")
+})
+
+test_that("height_measured is accepted, and a declared source with nothing carried is reported", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "modules.yml", '    height: "800"', '    height: "800"\n    height_measured: "2026-09-01T10:00:00"')
+  writeLines("source: reference/none.imscc", file.path(p, "reference.yml"))
+  expect_output(build_cartridge(p), "source declared, 0 resources carried")
+})
+
 test_that("without grading_standard: and late_policy: the two files are neither written nor declared", {
   skip_if_no("zip"); skip_if_no("pandoc")
   p <- copy_course(); zip_fixture_qti(p)
