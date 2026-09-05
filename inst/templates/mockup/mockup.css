@@ -1,0 +1,148 @@
+/* Canvas-ish, not Canvas. Enough structure to judge organization at a glance. */
+
+/* EVERY colour is a token. Adding dark mode meant tokenising a dozen literals
+   that had been inlined into rules; a literal left behind reads as a bright
+   patch in dark mode and is easy to miss when only one rule uses it. If you add
+   a rule, use a token or add one. Do not inline a hex value. */
+:root {
+  --line: #d7dade; --ink: #2d3b45; --muted: #6b7780; --bg: #f5f5f5;
+  --card: #ffffff; --accent: #0374b5; --bad: #c72f30; --warn: #b3690f;
+  --bad-fg: #ffffff;
+  --row-line: #eef0f2; --head-bg: #f0f1f3; --subhead-bg: #fafbfc;
+  --hover: #f0f7fb; --open-bg: #e8f4fb; --preview-bg: #fbfbfb;
+  --warn-bg: #fdf6ec; --warn-border: #e6c9a0; --grip: #c3c8cc;
+  --note-bg: #fffdf3; --note-border: #ddd2a8; --note-ink: #6b5d2f;
+  --field-bg: #ffffff; --shadow: rgba(0,0,0,.14);
+  /* The textbook renders its own light HTML, so the frame stays light in both
+     themes. A dark frame behind a light page looks like a rendering fault. */
+  --frame-bg: #ffffff;
+}
+
+/* Three states: explicit light, explicit dark, and OS default with no attribute
+   set. The media query is guarded so an explicit light choice still wins under
+   a dark OS, and the [data-theme] rule below wins in the other direction. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --line: #3a4149; --ink: #dee3e8; --muted: #98a2ac; --bg: #131619;
+    --card: #1b1f23; --accent: #4aa8e0; --bad: #ff7b7b; --warn: #e0a355;
+    --bad-fg: #1b1f23;
+    --row-line: #262c32; --head-bg: #22282e; --subhead-bg: #1f242a;
+    --hover: #212f39; --open-bg: #1d323f; --preview-bg: #171b1e;
+    --warn-bg: #2a2317; --warn-border: #4d4128; --grip: #4a5158;
+    --note-bg: #22231a; --note-border: #4b4b2e; --note-ink: #d8cf9a;
+    --field-bg: #131619; --shadow: rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"] {
+  --line: #3a4149; --ink: #dee3e8; --muted: #98a2ac; --bg: #131619;
+  --card: #1b1f23; --accent: #4aa8e0; --bad: #ff7b7b; --warn: #e0a355;
+  --bad-fg: #1b1f23;
+  --row-line: #262c32; --head-bg: #22282e; --subhead-bg: #1f242a;
+  --hover: #212f39; --open-bg: #1d323f; --preview-bg: #171b1e;
+  --warn-bg: #2a2317; --warn-border: #4d4128; --grip: #4a5158;
+  --note-bg: #22231a; --note-border: #4b4b2e; --note-ink: #d8cf9a;
+  --field-bg: #131619; --shadow: rgba(0,0,0,.5);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+header {
+  background: var(--card); border-bottom: 1px solid var(--line); padding: 16px 24px;
+  display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+}
+.hdr-text { flex: 1; min-width: 260px; }
+header h1 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+.stats { color: var(--muted); font-size: 13px; }
+.stats b { color: var(--ink); }
+.badge {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 3px;
+  background: var(--accent); color: #fff; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.themebtn {
+  background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 4px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+}
+.themebtn:hover { background: var(--hover); }
+
+#banner:not(:empty) {
+  margin: 16px 24px 0; padding: 10px 14px; border-left: 4px solid var(--warn);
+  background: var(--warn-bg); font-size: 13px;
+}
+main { padding: 16px 24px 96px; max-width: 1100px; }
+.module {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 4px; margin-bottom: 16px; overflow: hidden;
+}
+.mhead {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: var(--head-bg); border-bottom: 1px solid var(--line);
+  cursor: pointer; font-weight: 700; user-select: none;
+}
+.mhead .caret { color: var(--muted); width: 12px; }
+.mhead .count { margin-left: auto; font-weight: 400; color: var(--muted); font-size: 12px; }
+.items { list-style: none; margin: 0; padding: 0; }
+.items.hidden { display: none; }
+.row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-bottom: 1px solid var(--row-line);
+}
+.row:last-child { border-bottom: 0; }
+.row.clickable { cursor: pointer; }
+.row.clickable:hover { background: var(--hover); }
+.row.open { background: var(--open-bg); }
+.grip { color: var(--grip); cursor: grab; }      /* inert: reorder is future work */
+.icon { width: 18px; text-align: center; }
+.row.header-row { background: var(--subhead-bg); font-weight: 700; }
+.row.header-row .title { color: var(--ink); }
+.title { flex: 1; }
+.meta { color: var(--muted); font-size: 12px; }
+.flag { font-size: 12px; padding: 1px 6px; border-radius: 3px; }
+.flag.unpub { color: var(--muted); border: 1px solid var(--line); }
+.flag.todo  { color: var(--warn); border: 1px solid var(--warn-border); background: var(--warn-bg); }
+.flag.bad   { color: var(--bad-fg); background: var(--bad); }
+.preview { border-bottom: 1px solid var(--row-line); background: var(--preview-bg); padding: 10px 14px; }
+.preview iframe { width: 100%; border: 1px solid var(--line); background: var(--frame-bg); }
+.preview .src { color: var(--muted); font-size: 11px; margin-bottom: 6px; word-break: break-all; }
+
+/* ---- notes ------------------------------------------------------------- */
+/* Notes are one-shot by design: they live in memory, get composed into a
+   prompt, and are copied to the clipboard. Nothing is written to disk, so
+   nothing survives a reload. beforeunload guards against losing a review. */
+.notebtn {
+  border: 1px solid transparent; background: none; color: var(--muted);
+  cursor: pointer; font-size: 13px; padding: 1px 6px; border-radius: 3px;
+  line-height: 1.4;
+}
+.notebtn:hover { border-color: var(--line); color: var(--ink); }
+.notebtn.has-note { color: var(--note-ink); background: var(--note-bg); border-color: var(--note-border); }
+.notebox {
+  background: var(--note-bg); border-bottom: 1px solid var(--row-line);
+  padding: 8px 14px 10px;
+}
+.notebox.module-note { border-bottom: 1px solid var(--line); }
+.notebox label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.notebox textarea {
+  width: 100%; min-height: 62px; resize: vertical; padding: 7px 9px;
+  background: var(--field-bg); color: var(--ink);
+  border: 1px solid var(--note-border); border-radius: 3px;
+  font: inherit; font-size: 13px;
+}
+.notebox textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+#toolbar {
+  position: fixed; right: 20px; bottom: 20px; display: flex; gap: 8px;
+  align-items: center; z-index: 10;
+}
+#toolbar button {
+  border: 1px solid var(--line); border-radius: 4px; padding: 9px 15px;
+  font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px var(--shadow);
+  background: var(--card); color: var(--ink);
+}
+#toolbar button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#toolbar button:disabled { opacity: .45; cursor: default; box-shadow: none; }
+#toolbar .said { font-size: 12px; color: var(--muted); background: var(--card);
+  border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; }

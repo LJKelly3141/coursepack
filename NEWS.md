@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9011
+
+* `build_preview()`; mockup templates ship in `inst/templates/mockup/`; the sibling-layout textbook fallback is gone.
+
 # coursepack 0.0.0.9010
 
 * `build_qti()`; output goes under `proj`.
