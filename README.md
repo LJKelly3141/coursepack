@@ -1,42 +1,124 @@
 # coursepack
 
-Build tools for plain-text course authoring. One installed copy serves any
-number of courses.
+coursepack builds a Canvas course out of plain text: a course's declarative
+manifests become a Common Cartridge, a QTI 1.2 quiz package, a browsable local
+preview and a paper form of any assessment, and the rendered course site is
+audited against WCAG 2.1 AA. One installed copy serves any number of courses,
+because every entry point takes that course's project root as its first argument
+and reads nothing outside it.
 
-**Status: skills and the scaffold are in the package (0.5.0).** Every entry point the
-two course toolchains had is here: `check_manifests()`, `build_cartridge()`,
-`diff_against_reference()`, `build_qti()`, `build_preview()`, `course_tile()`,
-`audit_course()`, `extract_manifest()`, `convert_python_manifests()`,
-`announcements_from_schedule()`, `print_assessment()`, and now `init_course()` and
-`install_skills()`. Eight skills ship under `inst/skills/` and install into a course by
-copy. A fresh scaffold checks, builds, and contains its assessments. Nothing has been
-imported into Canvas from this package yet.
+## How a course is built
 
-## What it is for
+Canvas holds the structure and the course's own web site holds the content: the
+cartridge carries modules, items, deadlines and settings, while everything a
+student reads lives on the published site and is linked absolutely rather than
+embedded, so the only files inside a cartridge are the dashboard card and quiz
+figures. Containment is enforced twice over, by an allowlist and by a canary:
+the render allowlist keeps the private assessment sources out of the site, and a
+canary string planted in those sources is scanned for byte by byte in everything
+the site is about to publish, so a leak is a refusal rather than a warning.
+Every identifier the builder writes is derived from the manifests rather than
+generated fresh, so a second import updates the Canvas objects the first one
+created instead of standing up a second copy of the course beside them. A zip
+that builds proves nothing: Canvas discards malformed content silently and still
+reports a successful import, which is why every builder here says so in its
+closing lines. The proof is an import and a round trip: import into a throwaway
+Canvas shell, look at it, export it back out, and compare that export against
+what was built.
 
-Some courses are authored as plain text and delivered through Canvas, which has
-no API available to them, so every build ends in a manual import. The two course
-toolchains this package descends from had each grown their own copy of the same
-build scripts. This package is the one copy.
+## What you need
 
-## What moves in here, and what never does
+| To do this | You need |
+|---|---|
+| build a cartridge | R, `zip`, `pandoc` |
+| preview or audit | `python3`; Node, `npx` and a Chrome or Chromium binary for the audit; `quarto` for paper forms |
 
-Build tools move in. Course content does not.
+The audit drives pa11y, which npx fetches at run time and which needs a browser.
+That is the only reason Node appears anywhere here, and none of it is needed to
+build a cartridge, a quiz package or a preview.
+
+## Quick start
+
+```r
+remotes::install_github("LJKelly3141/coursepack")
+
+coursepack::init_course(
+  "abcd-101",
+  code     = "ABCD 101",
+  title    = "Introduction to Something",
+  site_url = "https://example.invalid/abcd-101/",
+  timezone = "America/Chicago"
+)
+```
+
+Then, in the new course directory: fill in `term: first_day:` and `last_day:`
+from the registrar's calendar, write the pages and the module tree in
+`course.yml` and `modules.yml`, and build.
 
 ```
-coursepack (this repo)                  each course repo (separate, always)
-  build the Common Cartridge              course.yml, modules.yml
-  build the QTI 1.2 quiz package          content, pages, data, images
-  build the local preview mockup          docs/ and the published site
-  check the manifests                     the writing itself
-  diff against a Canvas export            reference.yml
-  audit against WCAG 2.1 AA               log/, project/
+make coursepack
 ```
+
+That checks the manifests, stages the cartridge, zips it, and diffs it against
+the reference export if the course declares one. What comes out is a `.imscc`,
+and a `.imscc` that builds is not a course. Import it into a throwaway Canvas
+shell, look at every page, export the shell back out, and compare the export
+against what you built. That last step is the only evidence that any of this
+worked.
+
+## Two ways in
+
+A course that does not exist yet starts from the scaffold. `init_course()`
+writes about two dozen files, installs the authoring skills under
+`.claude/skills/`, and prints the file list and the next steps. Nothing is ever
+overwritten: the target directory has to be missing or empty. `code`, `title`,
+`site_url` and `timezone` have no defaults, and the machine's own zone is
+printed beside the timezone prompt as a suggestion rather than accepted by
+pressing return, because a wrong zone moves every deadline by hours while the
+generated XML still reads perfectly.
+
+A course that is already in Canvas starts from an export of itself. Export it,
+then hand the `.imscc` to the same function:
+
+```r
+coursepack::init_course("abcd-101", code = "ABCD 101", title = "Introduction to Something",
+                        site_url = "https://example.invalid/abcd-101/", timezone = "UTC",
+                        from_export = "abcd-101-export.imscc")
+```
+
+The scaffold is written first, then `extract_manifest()` replaces `course.yml`,
+`modules.yml` and `reference.yml` with the export's own structure and copies the
+export under `reference/`. A page whose body is the builder's own iframe wrapper
+is regenerated as a definition; everything else is carried forward byte for byte
+through `source_ref:`, so the first rebuild reproduces what Canvas already has
+before anything is changed on purpose. The zone is the thing to be careful with:
+every carried deadline is written as the UTC instant Canvas stored, with
+`term: timezone: UTC` above it, so those two lines belong to each other and
+naming a local zone means rewriting the dates to match.
+
+## What has been verified
+
+Nothing here has been imported into Canvas from this package yet. The table is
+the honest state of that.
+
+| Entry point | Verified by a real Canvas import | Date |
+|---|---|---|
+| `build_cartridge()` (generated items, announcements, embedded R/exams quiz) | the toolchain this package descends from, before the move | 2026-08-12, 2026-09-02 |
+| `build_cartridge()` from this package | not yet | |
+| carried resources, bank quizzes, `description:` assignments | not yet | |
+| `extract_manifest()` | synthetic round trip only | |
+| `init_course()` scaffold | not yet | |
+| `audit_course()` | ran end to end on two real courses before the move | 2026-09-01 |
+
+The package's own test suite is a different question and a much easier one. It
+holds a synthetic course to a byte-for-byte expected staging tree, so an
+unintended change to a single generated file fails the suite. That gate says the
+output did not change. It cannot say the output is right.
 
 ## The separation rule
 
-**The courses are separate and stay separate.** They share build tools and
-nothing else.
+**Courses are separate and stay separate.** They share build tools and nothing
+else.
 
 Every entry point takes the course project root, `proj`, as its first argument.
 Package code contains no absolute paths, no default pointing at any one course,
@@ -46,20 +128,9 @@ own YAML.
 A function that reads or writes outside the `proj` it was handed has broken the
 separation. That is a defect on its own terms, whatever it was trying to do.
 
-## Installing
-
-Not yet installable in any useful sense. When there is something to install:
-
-```r
-remotes::install_github("LJKelly3141/coursepack")
-```
-
-## Accessibility
-
-The WCAG audit is part of this package rather than a second one. It needs
-Node.js, `npx`, and a Chrome or Chromium binary, because it drives pa11y. Those
-are declared in `SystemRequirements` and are needed only for the audit. Building
-a cartridge, a quiz package, or a preview needs none of them.
+Course content never travels the other way either. Nothing in this repository is
+taken from a real course: the test fixtures are an invented course, `ABCD 101`,
+with hosts under `example.invalid`.
 
 ## Licence
 
@@ -81,10 +152,7 @@ tidy-up.
 Licensing this package does not license any course content. That lives in the
 course repositories and is not covered here.
 
-## The migration
+## Contributing
 
-Specified in `project/`. The plan it grew out of lives in one of the two course
-toolchains this package descends from, at
-`project/plans/2026-08-15-coursepack-extraction.md` and
-`project/coursepack-extraction-design.md`, which remain the record of why the
-design is shaped the way it is.
+See `CONTRIBUTING.md`. Whether contributions from outside are taken at all is
+still an open question there.
