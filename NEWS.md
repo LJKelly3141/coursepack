@@ -1,3 +1,10 @@
+# coursepack 0.2.0.9002
+
+* The accessibility audit's target discovery and source checks moved into the package: `discover_target()`, `intended_surfaces()`, `check_filename_alt()`, `check_missing_fig_alt()`, `check_colour_only()`, `contrast_ratio()`, and `suggest_passing_colour()`. `exclude` stays a required argument on both source checks, and `assessments` stays on the source exclusion list as a containment rule.
+* `glob_to_regex()` was copied byte for byte. Its three wildcard sentinels are the literal control characters U+0001, U+0002 and U+0003, which most editors render as nothing; the ported glob assertions fail loudly if an editor ever strips them.
+* Their tests are ported from the snapshot's audit test script. The section that ran discovery against whatever real repository an environment variable pointed at is replaced by the `pair/alpha` fixture with a `_quarto.yml` written into a copy of it, asserting the framework reads as `quarto`, that discovery finds real pages rather than zero, that every page sits at the output root, and that nothing under a declared pass-through copy is counted as a page.
+* Two further assertions wait on libraries that have not moved yet and are named in place: the three cartridge-bearing fixtures in the declared-surfaces negative control call the cartridge library, and four assertions in the pass-through-exclusion section read the audit driver's own source.
+
 # coursepack 0.2.0.9001
 
 * The accessibility audit's serving and finding-model libraries moved into the package: `serve_dir()`, `pa11y_raw()`, `finding()`, `write_findings()`, `read_findings()`, `diff_findings()`, and the axe-core criterion tables behind them. `serve_dir()` now refuses when `python3` is absent and `pa11y_raw()` when `npx` is, instead of failing later with a tool error nobody can read.
