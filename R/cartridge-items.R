@@ -1,5 +1,8 @@
 url_for <- function(it, urls) {
-  if (!is.null(it$url)) return(it$url)
+  # A link: item's url: takes the same {site} and {textbook} tokens an iframe
+  # page's src does. Until the phase 4 close the token reached module_meta.xml
+  # and the weblink resource literally, and nothing downstream noticed.
+  if (!is.null(it$url)) return(interp_urls(it$url, urls))
   chapter_url(it$chapter, it$anchor, urls$textbook)
 }
 
