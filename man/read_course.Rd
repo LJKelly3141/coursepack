@@ -54,5 +54,13 @@ and an empty note appends nothing.
 can carry forward, and \verb{source_ref:} on a definition names one of them. A
 carried definition needs a \verb{title:} and declares no body key of its own;
 a declared source with nothing carried is reported by \code{build_cartridge()}.
+
+\verb{carry:} in \code{course.yml} holds the settings that apply to carried
+resources. Its one key today is \verb{repair_html:}, which defaults to \code{true}
+and repairs two accessibility defects in the carried bytes on the way into
+the cartridge: a \verb{<th>} with no \code{scope}, and a leading bold paragraph used
+as a heading. Set it to \code{false} and every carried file travels exactly as
+the source wrote it, apart from the title and the due date. Anything other
+than \code{true} or \code{false} stops the build.
 }
 

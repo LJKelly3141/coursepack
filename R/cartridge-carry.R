@@ -18,6 +18,9 @@
 #      and the due date, because those describe this offering rather than the
 #      one the bytes came out of; that rewrite is textual and touches nothing
 #      else. See "the two facts this course owns" at the foot of this file.
+#      A third rewrite, the accessibility repair at the very foot of this file,
+#      is the only other exception; it is switchable off per course, and with it
+#      off every carried file except those two fields travels byte for byte.
 #   2. Only what is reachable travels. The walk starts at each `source_ref:`
 #      and follows <dependency> edges. A question bank nothing points at stays
 #      behind rather than riding along as dead weight Canvas will not read.
@@ -397,4 +400,156 @@ apply_carried_dates <- function(carried, defs, stage, course, tz) {
     }
   }
   list(dated = dated, blanked = blanked)
+}
+
+# ---- repairing carried HTML on the way in ---------------------------------
+#
+# Two accessibility defects live in HTML that was authored inside Canvas and is
+# carried through verbatim. Neither can be fixed at the source, because there is
+# no source: the bytes exist only in the export. This builder is the last place
+# they pass through before the next import, so this is where they are repaired.
+#
+#   1. A <th> with no scope. Nothing tells a screen reader whether a header
+#      governs its column or its row, so the table is announced as a grid of
+#      cells with no labels. A <th> in a table's first row is a column header
+#      and anything after that is a row header.
+#   2. <p><strong>Title</strong></p> standing in for a heading. Bold is a style
+#      and carries no structure, so it gives a screen reader nothing to
+#      navigate by. Only a LEADING bold paragraph is promoted; a <strong>
+#      further down is real emphasis and has to stay emphasis.
+#
+# What this deliberately does NOT do is wrap the header row in <thead>. Canvas
+# tables open with <tbody>, so inserting <thead> after it yields <tbody><thead>,
+# which is invalid nesting: the repair would leave a worse document than the
+# defect it fixed. A scope attribute is what the checker asks for and it is
+# sufficient on its own.
+#
+# The repair reaches CARRIED files only. A generated page comes from a source
+# the course can edit, where a missing scope is a defect to fix at the source
+# rather than to paper over at build time, and a builder that quietly rewrote
+# generated HTML would make the staged bytes stop matching what the course
+# wrote. A course that wants none of this writes `carry: repair_html: false`.
+
+# `carry: repair_html:` in course.yml. Absent means on. A value that is not
+# true or false stops rather than being read as off: a typo that silently
+# disabled the repair would look exactly like a course that asked for it.
+repair_html_on <- function(course) {
+  v <- course$carry$repair_html
+  if (is.null(v)) return(TRUE)
+  if (!is.logical(v) || length(v) != 1L || is.na(v))
+    stop("course.yml carry: repair_html: must be true or false, got: ",
+         paste(as.character(v), collapse = " "), call. = FALSE)
+  v
+}
+
+# Give every <th> in one row a scope, skipping any that already has one.
+# Matches are replaced back to front so an earlier match's offset is still
+# valid after a later one has been rewritten.
+scope_row_ths <- function(row, scope) {
+  m <- gregexpr("(?i)<th\\b[^>]*>", row, perl = TRUE)[[1]]
+  if (m[[1]] < 0L) return(list(txt = row, n = 0L))
+  n <- 0L
+  for (i in rev(seq_along(m))) {
+    at <- m[[i]]; len <- attr(m, "match.length")[[i]]
+    tag <- substr(row, at, at + len - 1L)
+    if (grepl("(?i)\\bscope\\s*=", tag, perl = TRUE)) next
+    # The attribute goes in before the tag's own close, so a self-closing <th/>
+    # comes back self-closing rather than as <th/ scope="col">.
+    close <- if (endsWith(tag, "/>")) "/>" else ">"
+    new <- paste0(trimws(substr(tag, 1L, len - nchar(close)), which = "right"),
+                  " scope=\"", scope, "\"", close)
+    row <- paste0(substr(row, 1L, at - 1L), new, substring(row, at + len))
+    n <- n + 1L
+  }
+  list(txt = row, n = n)
+}
+
+scope_one_table <- function(tbl) {
+  m <- gregexpr("(?is)<tr\\b.*?</tr>", tbl, perl = TRUE)[[1]]
+  if (m[[1]] < 0L) return(list(txt = tbl, n = 0L))
+  n <- 0L
+  for (i in rev(seq_along(m))) {
+    at <- m[[i]]; len <- attr(m, "match.length")[[i]]
+    row <- substr(tbl, at, at + len - 1L)
+    if (!grepl("(?i)<th\\b", row, perl = TRUE)) next
+    res <- scope_row_ths(row, if (i == 1L) "col" else "row")
+    n <- n + res$n
+    tbl <- paste0(substr(tbl, 1L, at - 1L), res$txt, substring(tbl, at + len))
+  }
+  list(txt = tbl, n = n)
+}
+
+# Returns list(txt, n): the repaired HTML and how many <th> gained a scope.
+scope_tables <- function(txt) {
+  m <- gregexpr("(?is)<table\\b.*?</table>", txt, perl = TRUE)[[1]]
+  if (m[[1]] < 0L) return(list(txt = txt, n = 0L))
+  n <- 0L
+  for (i in rev(seq_along(m))) {
+    at <- m[[i]]; len <- attr(m, "match.length")[[i]]
+    res <- scope_one_table(substr(txt, at, at + len - 1L))
+    n <- n + res$n
+    txt <- paste0(substr(txt, 1L, at - 1L), res$txt, substring(txt, at + len))
+  }
+  list(txt = txt, n = n)
+}
+
+# Promote a leading bold paragraph to a level-2 heading, once. Anchored at the
+# start, because the claim being made is that THIS paragraph is the title of
+# what follows; a bold paragraph in the middle is making no such claim.
+promote_leading_bold <- function(html) {
+  new <- sub("(?is)^\\s*<p>\\s*<strong>(.*?)</strong>\\s*</p>", "<h2>\\1</h2>",
+             html, perl = TRUE)
+  list(txt = new, n = if (identical(new, html)) 0L else 1L)
+}
+
+# Canvas stores an item's HTML description inside its XML, escaped. The repair
+# runs on the unescaped HTML and the result is escaped again with xtext(), which
+# writes & < > and leaves a quote raw: a quote is legal in element text, and
+# escaping it would rewrite every href="..." in the description for no reason.
+#
+# A description the repair did not change is left exactly as the source wrote
+# it rather than being re-escaped. An unescape and re-escape round trip is not
+# the identity on every input, and nothing here should move a byte unless a
+# defect was actually repaired.
+repair_descriptions <- function(txt) {
+  m <- gregexpr("(?s)<description>.*?</description>", txt, perl = TRUE)[[1]]
+  if (m[[1]] < 0L) return(list(txt = txt, th = 0L, headings = 0L))
+  th <- 0L; headings <- 0L
+  for (i in rev(seq_along(m))) {
+    at <- m[[i]]; len <- attr(m, "match.length")[[i]]
+    span <- substr(txt, at, at + len - 1L)
+    html <- xunesc(substr(span, nchar("<description>") + 1L,
+                          len - nchar("</description>")))
+    h <- promote_leading_bold(html)
+    s <- scope_tables(h$txt)
+    headings <- headings + h$n; th <- th + s$n
+    if (identical(s$txt, html)) next
+    txt <- paste0(substr(txt, 1L, at - 1L),
+                  "<description>", xtext(s$txt), "</description>",
+                  substring(txt, at + len))
+  }
+  list(txt = txt, th = th, headings = headings)
+}
+
+# Repair the carried files, in place, in the staging tree. An .html file is
+# HTML throughout; in a Canvas .xml the only HTML is inside <description>, so
+# that is the only place either repair is allowed to reach. A .xml.qti file is
+# neither and is left alone.
+#
+# Returns list(th, headings): how many <th> gained a scope and how many
+# descriptions gained a heading.
+repair_carried_html <- function(carried, stage) {
+  th <- 0L; headings <- 0L
+  for (f in carried$files) {
+    ext <- tolower(tools::file_ext(f))
+    if (!ext %in% c("html", "htm", "xml")) next
+    p <- file.path(stage, f)
+    old <- carried_text(p)
+    res <- if (identical(ext, "xml")) repair_descriptions(old) else {
+      s <- scope_tables(old); list(txt = s$txt, th = s$n, headings = 0L)
+    }
+    th <- th + res$th; headings <- headings + res$headings
+    if (!identical(res$txt, old)) write_carried_text(p, res$txt)
+  }
+  list(th = th, headings = headings)
 }

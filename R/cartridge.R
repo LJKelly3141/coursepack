@@ -126,6 +126,16 @@ build_cartridge <- function(proj = ".") {
     dates <- apply_carried_dates(carried, cdefs, stage, course, tz)
     cat(sprintf("  carried titles synced=%d  dates written=%d  blanked=%d\n",
                 n_titles, dates$dated, dates$blanked))
+    # Last of the three rewrites, and the only optional one: two accessibility
+    # defects in Canvas-authored HTML, repaired on the way in. Carried files
+    # only; a generated page is fixed at its source, never here.
+    if (repair_html_on(course)) {
+      rep <- repair_carried_html(carried, stage)
+      cat(sprintf("  carried html repaired: %d th scoped, %d headings\n",
+                  rep$th, rep$headings))
+    } else {
+      cat("  carried html repair off (carry: repair_html: false)\n")
+    }
   }
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)

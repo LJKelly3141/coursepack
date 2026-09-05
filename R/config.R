@@ -39,6 +39,14 @@ read_yaml_under <- function(proj, name) {
 #'   can carry forward, and `source_ref:` on a definition names one of them. A
 #'   carried definition needs a `title:` and declares no body key of its own;
 #'   a declared source with nothing carried is reported by `build_cartridge()`.
+#'
+#'   `carry:` in `course.yml` holds the settings that apply to carried
+#'   resources. Its one key today is `repair_html:`, which defaults to `true`
+#'   and repairs two accessibility defects in the carried bytes on the way into
+#'   the cartridge: a `<th>` with no `scope`, and a leading bold paragraph used
+#'   as a heading. Set it to `false` and every carried file travels exactly as
+#'   the source wrote it, apart from the title and the due date. Anything other
+#'   than `true` or `false` stops the build.
 #' @param proj Course project root.
 #' @return `read_manifest()` returns `list(course, mods, pages, assignments, quizzes)`.
 #' @export
