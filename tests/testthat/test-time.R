@@ -1,5 +1,5 @@
 test_that("local_to_utc reproduces the fixed-offset strings for every live 2026 date", {
-  # The 17 ECON 730 due dates all fall before 2026-11-01, so the old builder's
+  # The first course's seventeen due dates all fall before 2026-11-01, so the old builder's
   # `next day T04:59:00` arithmetic must be reproduced character for character.
   # Synthetic list spanning the same window, never read from modules.yml.
   dates <- as.Date("2026-09-11") + c(0, 7, 14, 21, 28, 35, 40, 42, 49)
