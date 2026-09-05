@@ -38,6 +38,13 @@ utils::zip(file.path(proj, "reference", "source.imscc"),
            list.files(".", recursive = TRUE), flags = "-q -X")
 setwd(old)
 
+# The question bank, copied under the course's questions/ directory exactly the
+# way copy_course() copies it. Both modes get it: the frozen script never looks
+# at the directory, and the package build draws its bank quiz from it.
+bank_src <- file.path(dirname(fixture), "bank")
+dir.create(file.path(proj, "questions"), recursive = TRUE, showWarnings = FALSE)
+file.copy(list.files(bank_src, full.names = TRUE), file.path(proj, "questions"), recursive = TRUE)
+
 if (mode == "script") {
   snap <- "project/econ730-toolchain/scripts"
   dir.create(file.path(proj, "scripts", "lib"), recursive = TRUE)

@@ -80,6 +80,18 @@ check_manifests <- function(proj = ".", textbook_docs = NULL) {
                   k, quiz[[k]]$source_ref))
       next
     }
+    # A generated quiz has no zip either: its questions come out of the bank.
+    # The pooling arithmetic is checked HERE, before anything is built, because
+    # every one of its refusals (a draw larger than its group, draws that do
+    # not sum to the points) is a defect in the manifest rather than in the
+    # build.
+    if (!is.null(quiz[[k]]$bank)) {
+      g <- bank_groups(quiz[[k]]$bank, proj, paste0("quiz '", k, "'"))
+      cat(sprintf("  quiz %-10s bank: %d groups, %d of %d questions drawn\n", k,
+                  length(g$groups), sum(g$draws),
+                  sum(vapply(g$groups, function(x) length(x$qs), 0L))))
+      next
+    }
     z <- quiz[[k]]$qti
     if (is.null(z)) { fail("quiz '", k, "' has no qti: path"); next }
     zp <- if (startsWith(z, "/")) z else file.path(proj, z)

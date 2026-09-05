@@ -53,6 +53,11 @@ asg_pos <- stats::setNames(seq_along(names(asg)), names(asg))
 page_res <- vapply(names(pages), function(k) res_id(pages[[k]], "page", k), "")
 
 items <- list(); modmeta <- list()
+# The module a quiz is FIRST used in. A generated quiz's default description
+# names it ("Quiz for <module>"), and the module title is a fact about the walk
+# rather than about the definition, so it is recorded here where the walk runs
+# instead of being searched for again by the writer.
+quiz_module <- character()
 for (mi in seq_along(mods$modules)) {
   m <- mods$modules[[mi]]
   mrow <- list(id = check_gid(m$module_id, "module_id") %||% gid("module", m$title),
@@ -93,6 +98,7 @@ for (mi in seq_along(mods$modules)) {
       if (is.null(q)) stop("module item references undefined quiz: ", it$quiz)
       r$ctype <- "Quizzes::Quiz"; r$title <- q$title
       r$mm_idref <- r$man_idref <- quiz_res[[it$quiz]]
+      if (!it$quiz %in% names(quiz_module)) quiz_module[[it$quiz]] <- m$title
       # Canvas writes <new_tab/> empty for quiz items, not "false".
       r$new_tab <- ""
       if (!isTRUE(q$published)) r$state <- "unpublished"
@@ -114,7 +120,7 @@ for (mi in seq_along(mods$modules)) {
   modmeta[[mi]] <- mrow
 }
 
-list(items = items, modmeta = modmeta,
+list(items = items, modmeta = modmeta, quiz_module = quiz_module,
      ids = list(quiz_res = quiz_res, quiz_meta = quiz_meta, quiz_aid = quiz_aid,
                 asg_res = asg_res, asg_pos = asg_pos, page_res = page_res))
 }

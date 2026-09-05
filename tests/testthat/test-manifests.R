@@ -20,8 +20,8 @@ test_that("the fixture course passes, reporting the textbook skip when docs are 
 
 test_that("counts in reference.yml are fatal when they disagree", {
   p <- ready()
-  writeLines(c("counts:", "  modules: 3", "  items: 16", "  header: 2", "  page: 4", "  link: 4",
-               "  assignment: 4", "  quiz: 2"), file.path(p, "reference.yml"))
+  writeLines(c("counts:", "  modules: 3", "  items: 18", "  header: 2", "  page: 4", "  link: 4",
+               "  assignment: 5", "  quiz: 3"), file.path(p, "reference.yml"))
   expect_no_error(check_manifests(p))
   writeLines(c("counts:", "  modules: 9"), file.path(p, "reference.yml"))
   expect_error(check_manifests(p), "modules: 3 vs 9")

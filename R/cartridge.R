@@ -101,12 +101,19 @@ build_cartridge <- function(proj = ".") {
   write_weblinks(stage, r$items)
   write_wiki_pages(stage, proj, m$pages, r$ids$page_res, course$urls)
   write_assignments(stage, m$assignments, r$ids, course, tb_docs, groups, proj, tz)
+  # Three ways a quiz reaches the cartridge, and a definition declares exactly
+  # one of them (check_definition_shape()): `source_ref:` carries it out of the
+  # source cartridge, `bank:` generates it from a JSON question bank, `qti:`
+  # embeds an R/exams zip. A generated one hands back the <resource> blocks it
+  # needs, figures included, because only it knows how many there are.
+  generated <- list()
   for (k in names(m$quizzes)) {
     q <- m$quizzes[[k]]
     if (!is.null(q$source_ref)) next                   # carried, not generated
     ag_id <- group_id_for(q$group %||% course$assignment_defaults$group,
                           groups, paste0("quiz '", k, "'"))
-    embed_quiz(k, q, r$ids, ag_id, stage, proj)
+    if (!is.null(q$bank)) generated[[k]] <- write_generated_quiz(k, q, r, course, proj, stage, groups)
+    else embed_quiz(k, q, r$ids, ag_id, stage, proj)
   }
   # Carrying runs after every generated writer and before the manifest, which
   # needs the carried <resource> blocks. It writes nothing at all unless every
@@ -140,7 +147,7 @@ build_cartridge <- function(proj = ".") {
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)
   settings_res <- write_manifest(stage, course, r$modmeta, r$items, r$ids, tile,
-                                 ann_ids, m, carried)
+                                 ann_ids, m, carried, generated)
 
   cat("=== pre-zip validation ===\n")
   problems <- character(); p_fail <- function(...) problems <<- c(problems, paste0(...))
@@ -164,6 +171,19 @@ build_cartridge <- function(proj = ".") {
   cat("\nA zip that builds proves NOTHING. Canvas discards malformed cartridges\n")
   cat("without reporting an error. Import into a throwaway shell and look.\n")
   invisible(list(imscc = outfile, stage = stage))
+}
+
+# One quiz generated from a question bank. Everything it writes is in
+# R/generate-quiz.R; what this adds is the one fact that comes from the walk
+# rather than from the definition, the title of the module the quiz is first
+# used in, which the default description names. A quiz no module item
+# references falls back to its own title and is caught a few lines later by the
+# orphan check, which is where an unused resource belongs.
+write_generated_quiz <- function(k, q, r, course, proj, stage, groups) {
+  mt <- unname(r$quiz_module[k])
+  if (is.na(mt)) mt <- as.character(q$title)
+  q$id <- q$id %||% k
+  generate_quiz_files(q, mt, course, proj, stage, r$ids, groups)
 }
 
 # Does any page, assignment or quiz definition ask for something out of the

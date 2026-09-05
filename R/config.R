@@ -69,6 +69,51 @@ read_course <- function(proj) read_yaml_under(proj, "course.yml")
 #' @export
 read_modules <- function(proj) read_yaml_under(proj, "modules.yml")
 
+# ---- one body form per definition ----------------------------------------
+#
+# Every page, assignment and quiz definition says exactly once where its
+# content comes from. The keys that say it, per kind:
+#
+#   page        iframe, body, source_ref
+#   assignment  homework, quiz_file, todo, description, source_ref
+#   quiz        qti, bank, source_ref
+#
+# Two of them on one definition is two different answers to that question, and
+# whichever the builder happened to prefer would be invisible in the output: a
+# quiz declaring both `qti:` and `source_ref:` builds either the R/exams zip or
+# the carried bytes, looks right in Canvas either way, and only a byte diff
+# tells which. None of them is a definition with no body at all, which imports
+# as an empty page or an assignment with no directions.
+#
+# The one admitted pair is `todo:` beside `homework:`. A placeholder names the
+# chapter it is waiting on, and the todo/published rule keeps it unpublished
+# until the chapter exists; the pair is checked below rather than merged into
+# one key so that rule keeps something to read.
+DEFINITION_FORMS <- list(
+  page = c("iframe", "body", "source_ref"),
+  assignment = c("homework", "quiz_file", "todo", "description", "source_ref"),
+  quiz = c("qti", "bank", "source_ref"))
+
+check_definition_shape <- function(defs, what) {
+  forms <- DEFINITION_FORMS[[what]]
+  said <- paste0(". Exactly one key says where a ", what, "'s content comes from.")
+  for (k in names(defs)) {
+    have <- intersect(names(defs[[k]]), forms)
+    # A placeholder that names its chapter carries both; the chapter is what the
+    # placeholder is waiting for, not a second body.
+    if (identical(what, "assignment") && all(c("todo", "homework") %in% have))
+      have <- setdiff(have, "todo")
+    if (length(have) > 1L)
+      stop(what, " '", k, "' declares more than one of ", paste(forms, collapse = ", "),
+           ": ", paste(have, collapse = " and "), said, call. = FALSE)
+    if (!length(have))
+      stop(what, " '", k, "' declares none of ", paste(forms, collapse = ", "), said,
+           " A definition with none has no body to build, and an empty one ",
+           "imports into Canvas without complaint.", call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 named_by <- function(x, key, what) {
   if (is.null(x) || !length(x)) return(stats::setNames(list(), character()))
   keys <- vapply(x, function(e) as.character(e[[key]] %||% ""), "")
@@ -86,12 +131,14 @@ read_manifest <- function(proj) {
             pages = named_by(mods$pages, "slug", "page"),
             assignments = named_by(mods$assignments, "id", "assignment"),
             quizzes = named_by(mods$quizzes, "id", "quiz"))
-  # The carried-definition shape is checked HERE rather than in the builder, so
+  # The definition shape is checked HERE rather than in the builder, so
   # check_manifests() rejects a definition that says both "carry these bytes"
-  # and "generate a body" before anything has been built.
-  check_carried_shape(m$pages, "page")
-  check_carried_shape(m$assignments, "assignment")
-  check_carried_shape(m$quizzes, "quiz")
+  # and "generate a body", or says neither, before anything has been built.
+  for (kind in c("page", "assignment", "quiz")) {
+    defs <- switch(kind, page = m$pages, assignment = m$assignments, quiz = m$quizzes)
+    check_definition_shape(defs, kind)
+    check_carried_shape(defs, kind)
+  }
   m
 }
 

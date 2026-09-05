@@ -16,7 +16,9 @@ test_that("read_manifest names pages by slug and definitions by id", {
           yml("modules.yml", paste(
             "modules:", "  - title: M", "    items:", "      - page: a", "      - assignment: hw",
             "pages:", "  - slug: a", "    title: A", "    body: true",
-            "assignments:", "  - id: hw", "    title: HW",
+            # Every definition names a body form, because read_manifest() now
+            # refuses one that names none; which form it is does not matter here.
+            "assignments:", "  - id: hw", "    title: HW", "    todo: not written yet",
             "quizzes:", "  - id: q1", "    title: Q", "    qti: build/qti/q1.zip", sep = "\n")))
   m <- read_manifest(d)
   expect_named(m$pages, "a"); expect_named(m$assignments, "hw"); expect_named(m$quizzes, "q1")

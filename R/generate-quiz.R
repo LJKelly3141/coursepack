@@ -257,7 +257,7 @@ QUIZ_META <- '<?xml version="1.0" encoding="UTF-8"?>
 <quiz identifier="{quiz_id}" xmlns="{ns}" xmlns:xsi="{xsi}" xsi:schemaLocation="{schema}">
   <title>{title}</title>
   <description>{description}</description>
-  <due_at></due_at>
+  <due_at>{due_at}</due_at>
 {window_xml}  <shuffle_answers>{shuffle_answers}</shuffle_answers>
   <scoring_policy>{scoring_policy}</scoring_policy>
   <hide_results></hide_results>
@@ -281,11 +281,11 @@ QUIZ_META <- '<?xml version="1.0" encoding="UTF-8"?>
   <module_locked>false</module_locked>
   <assignment identifier="{assignment_id}">
     <title>{title}</title>
-    <due_at></due_at>
+    <due_at>{due_at}</due_at>
     <lock_at>{lock_at}</lock_at>
     <unlock_at>{unlock_at}</unlock_at>
     <module_locked>false</module_locked>
-    <all_day_date></all_day_date>
+    <all_day_date>{all_day_date}</all_day_date>
     <assignment_group_identifierref>{group_id}</assignment_group_identifierref>
     <workflow_state>{workflow_state}</workflow_state>
     <assignment_overrides>
@@ -613,6 +613,26 @@ generate_quiz_files <- function(q, module_title, course, proj, stage, ids, group
   win <- c(lock_at = lock_at, unlock_at = unlock_at)
   win <- win[nzchar(win)]
   published <- isTRUE(q$published %||% TRUE)
+
+  # THE DEADLINE. The Python this ports left every quiz date to a separate
+  # apply_due_dates() pass keyed by the quiz's exact title; here the definition
+  # is the handle, so a `due:` on the definition writes the date and a
+  # definition with none leaves both slots empty, as the export does.
+  #
+  # Canvas keeps the deadline TWICE in this file, once on the quiz and once on
+  # the assignment it generates beside it, and reads the second one for the
+  # grade book. Filling only the first leaves the two disagreeing.
+  #
+  # <all_day_date> is the LOCAL calendar day Canvas displays for the deadline,
+  # which is the due: date's own day; the UTC instant beside it falls on the
+  # next day whenever the course zone is behind UTC. It is written by the same
+  # rule apply_carried_dates() uses on a carried quiz, so a cartridge rebuilt
+  # from an export of itself reproduces this file rather than moving the day.
+  due_at <- ""; all_day_date <- ""
+  if (!is.null(q$due)) {
+    due_at <- due_stamp(q$due, course$due_time, tz)
+    all_day_date <- substr(trimws(as.character(q$due)), 1L, 10L)
+  }
   writef(file.path(stage, quiz_id, "assessment_meta.xml"), fill(QUIZ_META, list(
     ns = CANVAS_NS, xsi = XSI_URI, schema = CANVAS_SCHEMA,
     quiz_id = quiz_id, assignment_id = assignment_id, group_id = group_id,
@@ -626,12 +646,34 @@ generate_quiz_files <- function(q, module_title, course, proj, stage, ids, group
     workflow_state = if (published) "published" else "unpublished",
     available = if (published) "true" else "false",
     lock_at = lock_at, unlock_at = unlock_at,
+    due_at = due_at, all_day_date = all_day_date,
     window_xml = if (length(win))
       paste0(paste0("  <", names(win), ">", win, "</", names(win), ">\n"), collapse = "") else "",
     position = as.character(as.integer(spec$position %||% 1L)),
     title = xtext(title), description = xtext(as.character(description)))))
 
-  # Manifest: the same two resources a carried quiz has, in the same order.
+  # Figures: copied under web_resources/ and declared the way the export
+  # declares its course image, as a webcontent resource.
+  hrefs <- character(); fids <- character()
+  for (fname in sort(names(images))) {
+    href <- paste0("web_resources/", QUIZ_IMAGE_DIR, "/", fname)
+    dest <- file.path(stage, href)
+    dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+    file.copy(images[[fname]], dest, overwrite = TRUE)
+    hrefs <- c(hrefs, href); fids <- c(fids, gid("file", href))
+  }
+
+  # Manifest: the same two resources a carried quiz has, in the same order,
+  # plus one webcontent resource per figure.
+  #
+  # THE FIGURE IS A DEPENDENCY OF THE META RESOURCE, not a resource standing on
+  # its own. A figure nothing points at is unreachable in two ways that both
+  # matter: the pre-zip orphan check reads it as dead weight, and the carry walk
+  # in R/cartridge-carry.R follows <dependency> edges, so a course that later
+  # carries this quiz out of its own export would bring the quiz and leave the
+  # picture behind. The dependency edge is the one line that says the quiz needs
+  # it. The Python generator this ports emitted the webcontent resource with no
+  # edge; that divergence is deliberate and recorded in NEWS.
   resources <- list(
     list(id = quiz_id, raw = paste0(
       '<resource identifier="', quiz_id, '" type="', TYPE_ASSESSMENT, '">\n',
@@ -643,22 +685,18 @@ generate_quiz_files <- function(q, module_title, course, proj, stage, ids, group
       '/assessment_meta.xml">\n',
       '      <file href="', quiz_id, '/assessment_meta.xml"/>\n',
       '      <file href="non_cc_assessments/', quiz_id, '.xml.qti"/>\n',
+      paste0('      <dependency identifierref="', fids, '"/>\n', collapse = ""),
       '    </resource>')))
-
-  # Figures: copied under web_resources/ and declared the way the export
-  # declares its course image, a webcontent resource with type before identifier.
-  hrefs <- character()
-  for (fname in sort(names(images))) {
-    href <- paste0("web_resources/", QUIZ_IMAGE_DIR, "/", fname)
-    dest <- file.path(stage, href)
-    dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
-    file.copy(images[[fname]], dest, overwrite = TRUE)
-    fid <- gid("file", href)
-    resources[[length(resources) + 1L]] <- list(id = fid, raw = paste0(
-      '<resource type="webcontent" identifier="', fid, '" href="', xesc(href), '">\n',
-      '      <file href="', xesc(href), '"/>\n',
+  # The identifier attribute comes FIRST, as it does on every other resource
+  # this builder writes. The Python wrote the type first, copying the attribute
+  # order of the export's course image; two readers here locate a resource by
+  # the literal string `<resource identifier="`, the pre-zip scan that proves no
+  # idref dangles and resource_span() in R/cartridge-carry.R, and a block in the
+  # other order is invisible to the first and a hard stop in the second.
+  for (i in seq_along(hrefs))
+    resources[[length(resources) + 1L]] <- list(id = fids[[i]], raw = paste0(
+      '<resource identifier="', fids[[i]], '" type="webcontent" href="', xesc(hrefs[[i]]), '">\n',
+      '      <file href="', xesc(hrefs[[i]]), '"/>\n',
       '    </resource>'))
-    hrefs <- c(hrefs, href)
-  }
   list(resources = resources, images = hrefs)
 }

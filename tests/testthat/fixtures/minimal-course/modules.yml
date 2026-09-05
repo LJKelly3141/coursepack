@@ -24,6 +24,8 @@ modules:
       - assignment: todo-1
       - quiz: q-sample
       - page: video-one
+      - quiz: q-bank
+      - assignment: memo-1
   - title: "Module 2: Unpublished"
     published: false
     items:
@@ -77,6 +79,15 @@ assignments:
     todo: "write this once the chapter exists"
     homework:
       chapter: ch02
+  - id: memo-1
+    title: Position Memo Draft
+    points: 2
+    grading_type: pass_fail
+    submission_types: online_upload
+    group: Assignments
+    published: true
+    due: "2026-09-17 09:30"
+    description: "<p>Upload your draft before class on Thursday.</p>"
   - id: carried-asg
     title: Carried Assignment
     published: true
@@ -88,6 +99,17 @@ quizzes:
     qti: build/qti/quiz-sample.zip
     published: true
     group: Quizzes
+  - id: q-bank
+    title: Module 1 Bank Quiz
+    group: Quizzes
+    published: true
+    due: 2026-09-25
+    bank:
+      dir: questions
+      chapters: [1, 2]
+      draws: [2, 1, 2]
+      points: 5
+      unlock_at: "2026-09-18 08:00:00"
   - id: carried-quiz
     title: Carried Quiz
     published: true

@@ -58,12 +58,48 @@ if (!grepl(paste0('href="', marker, '"'), resource_block(mh, settings_res), fixe
 
 if (grepl("IMS-CC-FILEBASE", mh, fixed = TRUE)) p_fail("manifest contains $IMS-CC-FILEBASE$")
 # .xml as well as .html since 2026-09-02: announcement bodies travel inside a
-# topic .xml, and a token there would have passed an html-only scan.
-allhtml <- list.files(stage, pattern = "\\.(html|xml)$", recursive = TRUE, full.names = TRUE)
-for (f in allhtml) {
-  h <- paste(readLines(f, warn = FALSE), collapse = "\n")
-  if (grepl("IMS-CC-FILEBASE", h, fixed = TRUE)) p_fail("IMS-CC-FILEBASE in ", basename(f))
+# topic .xml, and a token there would have passed an html-only scan. .xml.qti
+# since decision D15, because that is where a quiz's questions live and the one
+# admitted token now lives with them.
+#
+# DECISION D15, AND WHY IT IS A NARROW EXCEPTION RATHER THAN A RELAXATION.
+# $IMS-CC-FILEBASE$ is how a cartridge says "a file inside this course", and
+# the rule against it exists because a page that embeds a file makes the file
+# public on the site the pages mirror. A quiz figure cannot be published that
+# way: an exam question's picture would give the question away. So a figure is
+# the one thing that must travel INSIDE the cartridge, and the token is the
+# only way to point at it.
+#
+# The exception is therefore scoped three ways, and each way is checked:
+#   1. the token may appear only in a quiz's two QTI files,
+#   2. only in the form $IMS-CC-FILEBASE$/quiz_images/<file>, and
+#   3. every <file> named must be staged under web_resources/quiz_images/ AND
+#      declared in the manifest.
+# Anywhere else, in any other form, or pointing at a picture that is not there,
+# it is still a failure. A token pointing at an absent file is worse than no
+# figure: Canvas renders a broken image inside a graded question.
+quiz_qti <- "^non_cc_assessments/[^/]+\\.xml\\.qti$|^[^/]+/assessment_qti\\.xml$"
+figure_token <- "^\\$IMS-CC-FILEBASE\\$/quiz_images/[^/]+$"
+allhtml <- list.files(stage, pattern = "\\.(html|xml|qti)$", recursive = TRUE)
+n_fig <- 0L
+for (rel in allhtml) {
+  h <- staged_text(stage, rel)
+  if (!grepl("IMS-CC-FILEBASE", h, fixed = TRUE)) next
+  if (!grepl(quiz_qti, rel)) { p_fail("IMS-CC-FILEBASE in ", basename(rel)); next }
+  for (tok in unique(regmatches(h, gregexpr('\\$IMS-CC-FILEBASE\\$[^"\'<> ]*', h))[[1]])) {
+    if (!grepl(figure_token, tok)) {
+      p_fail("IMS-CC-FILEBASE in ", basename(rel), " is not a quiz figure: ", tok)
+      next
+    }
+    href <- sub("^\\$IMS-CC-FILEBASE\\$/", "web_resources/", tok)
+    n_fig <- n_fig + 1L
+    if (!file.exists(file.path(stage, href)))
+      p_fail("quiz figure named in ", basename(rel), " is not staged: ", href)
+    else if (!href %in% declared)
+      p_fail("quiz figure named in ", basename(rel), " is not declared in the manifest: ", href)
+  }
 }
+cat(sprintf("  quiz figure references: %d\n", n_fig))
 # Answer-key containment. A filename check was too blunt: Canvas's own quiz files
 # are legitimately called assessment_meta.xml and assessment_qti.xml. Check for
 # what actually must not be here instead.

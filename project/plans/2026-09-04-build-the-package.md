@@ -3484,7 +3484,7 @@ test_that("a bank quiz is generated with its window and due date; its figure is 
   expect_match(meta, "<available>true</available>", fixed = TRUE)
   expect_true(file.exists(file.path(b$stage, "web_resources", "quiz_images", "CH01_Q002.png")))
   expect_match(b$man, 'href="web_resources/quiz_images/CH01_Q002.png"', fixed = TRUE)
-  users <- Filter(function(f) any(grepl("IMS-CC-FILEBASE", readLines(f, warn = FALSE), fixed = TRUE)),
+  users <- Filter(function(f) any(suppressWarnings(grepl("IMS-CC-FILEBASE", readLines(f, warn = FALSE), fixed = TRUE))),
                   list.files(b$stage, recursive = TRUE, full.names = TRUE))
   expect_true(all(grepl("non_cc_assessments/|/assessment_qti\\.xml$", users)))
   expect_match(b$mm, "<content_type>Quizzes::Quiz</content_type>\\s*<workflow_state>active</workflow_state>\\s*<title>Module 1 Bank Quiz</title>")
@@ -3494,7 +3494,7 @@ test_that("a FILEBASE token outside the quiz files, or pointing at an undeclared
   msgs <- character(); p_fail <- function(...) msgs <<- c(msgs, paste0(...))
   d <- withr::local_tempdir(); dir.create(file.path(d, "wiki_content"))
   writeLines('<img src="$IMS-CC-FILEBASE$/quiz_images/x.png">', file.path(d, "wiki_content", "p.html"))
-  writeLines('<?xml version="1.0"?><manifest xmlns:lomimscc="x" xsi:schemaLocation="y"><metadata><schemaversion>1.1.0</schemaversion><lomimscc:lom/></metadata><organizations/><resources/></manifest>', file.path(d, "imsmanifest.xml"))
+  writeLines('<?xml version="1.0"?><manifest xmlns:lomimscc="x" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="y"><metadata><schemaversion>1.1.0</schemaversion><lomimscc:lom/></metadata><organizations/><resources/></manifest>', file.path(d, "imsmanifest.xml"))
   prezip_checks(d, "gx", character(), p_fail)
   expect_true(any(grepl("IMS-CC-FILEBASE in p.html", msgs)))
 })

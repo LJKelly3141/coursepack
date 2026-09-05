@@ -303,6 +303,8 @@ HOMEWORK_INTRO_DEFAULT <- paste0(
   'textbook, which is the source of record.</p>')
 
 assignment_body <- function(a, course, tb_docs) {
+  # The manifest holds the whole body. See R/generate-assignment.R.
+  if (!is.null(a$description)) return(description_body(a, a$id))
   if (!is.null(a$quiz_file))
     return(quiz_student_html(a$quiz_file, a$id, course$urls$site))
   hw   <- a$homework
@@ -375,38 +377,23 @@ assignment_body(body_def, course, tb_docs), '\n</body>\n</html>'))
   if (!is.null(a$due))
     due_xml <- paste0("  <due_at>", due_stamp(a$due, course$due_time, tz), "</due_at>\n")
 
-  writef(file.path(stage, rid, "assignment_settings.xml"), paste0(
-'<?xml version="1.0" encoding="UTF-8"?>\n',
-'<assignment identifier="', rid, '" ', CCV, '>\n',
-'  <title>', xesc(a$title), '</title>\n',
-due_xml, '  <lock_at/>\n  <unlock_at/>\n',
-'  <module_locked>false</module_locked>\n',
-'  <assignment_group_identifierref>', ag_id, '</assignment_group_identifierref>\n',
-'  <workflow_state>', state, '</workflow_state>\n',
-'  <assignment_overrides>\n  </assignment_overrides>\n',
-'  <allowed_extensions>', d$allowed_extensions, '</allowed_extensions>\n',
-'  <has_group_category>false</has_group_category>\n',
-'  <points_possible>', format(pts, nsmall = 1), '</points_possible>\n',
-'  <grading_type>points</grading_type>\n',
-'  <submission_types>', d$submission_types, '</submission_types>\n',
-'  <position>', asg_pos[[k]], '</position>\n',
-'  <turnitin_enabled>false</turnitin_enabled>\n',
-'  <peer_reviews>false</peer_reviews>\n',
-'  <automatic_peer_reviews>false</automatic_peer_reviews>\n',
-'  <grade_group_students_individually>false</grade_group_students_individually>\n',
-'  <omit_from_final_grade>false</omit_from_final_grade>\n',
-'  <only_visible_to_overrides>false</only_visible_to_overrides>\n',
-'  <post_to_sis>false</post_to_sis>\n',
-'  <moderated_grading>false</moderated_grading>\n',
-'  <anonymous_grading>false</anonymous_grading>\n',
-'  <post_policy>\n    <post_manually>false</post_manually>\n  </post_policy>\n',
-'</assignment>'))
+  # The four values a definition may own. Absent, they are the course's
+  # defaults and the file is written exactly as it was before these keys
+  # existed. See R/generate-assignment.R.
+  writef(file.path(stage, rid, "assignment_settings.xml"),
+         assignment_settings_xml(
+           rid, a$title, due_xml, ag_id, state,
+           allowed_extensions = csv_value(a$allowed_extensions %||% d$allowed_extensions),
+           points = pts,
+           grading_type = grading_type_for(a, k),
+           submission_types = csv_value(a$submission_types %||% d$submission_types),
+           position = asg_pos[[k]]))
 }
 
 }
 
 write_manifest <- function(stage, course, modmeta, items, ids, tile, ann_ids, m,
-                           carried = no_carry()) {
+                           carried = no_carry(), generated = list()) {
 pages <- m$pages
 asg <- m$assignments
 quiz <- m$quizzes
@@ -563,6 +550,15 @@ for (k in names(asg)) {
 for (k in names(quiz)) {
   if (!is.null(quiz[[k]]$source_ref)) {                # carried, verbatim, here
     man <- c(man, carried_blocks(quiz[[k]]$source_ref)); next
+  }
+  # A generated quiz hands back its own blocks: the two every quiz has, in the
+  # same order as below, and one webcontent resource per figure. They are
+  # written in that order and in this slot, so a rebuild of an export of this
+  # cartridge, where the quiz has become a carried one, lists the same
+  # resources in the same places.
+  if (k %in% names(generated)) {
+    man <- c(man, paste0("    ", vapply(generated[[k]]$resources, `[[`, "", "raw")))
+    next
   }
   man <- c(man,
     paste0('    <resource identifier="', quiz_res[[k]],

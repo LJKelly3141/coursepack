@@ -9,7 +9,20 @@ copy_course <- function(name = "minimal-course", to = withr::local_tempdir(.loca
   # reference.yml names one and three of its definitions carry out of it. No
   # zip binary means no archive, and every test that needs one skips on zip.
   if (nzchar(Sys.which("zip"))) zip_fixture_source(p)
+  copy_fixture_bank(p)
   p
+}
+
+# fixtures/bank/ is the synthetic question bank the fixture's `q-bank` quiz
+# draws from. It lands under <course>/questions because that is the directory
+# the quiz's bank: block names, and tools/baseline.R copies it the same way, so
+# a baseline build and a test build draw from the same questions.
+copy_fixture_bank <- function(course_dir) {
+  dest <- file.path(course_dir, "questions")
+  dir.create(dest, recursive = TRUE, showWarnings = FALSE)
+  ok <- file.copy(list.files(fixture_path("bank"), full.names = TRUE), dest, recursive = TRUE)
+  stopifnot(all(ok))
+  dest
 }
 
 # fixtures/src/ is an unzipped synthetic Canvas export. Zip it at

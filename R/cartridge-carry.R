@@ -28,26 +28,17 @@
 #      safe_stage_path() below; this is the review-19 finding and the reason
 #      the walk is completed before the first byte is staged.
 
-# The keys a definition uses to generate a body of its own. A carried
-# definition brings its body out of the source cartridge, so it declares none
-# of them: a definition holding both says two different things about where its
-# content comes from, and whichever one the builder happened to prefer would be
-# invisible in the output.
-BODY_KEYS <- c("iframe", "body", "homework", "quiz_file", "todo",
-               "qti", "bank", "description")
-
+# A carried definition brings its body out of the source cartridge, so it
+# declares no body key of its own; that rule is check_definition_shape() in
+# R/config.R, which reads `source_ref:` as one body form among the others. What
+# is left here is the rule that belongs to carrying alone: the title.
+#
 # Checked in read_manifest(), so check_manifests() sees a malformed definition
 # at check time rather than at build time.
 check_carried_shape <- function(defs, what) {
   for (k in names(defs)) {
     d <- defs[[k]]
     if (is.null(d$source_ref)) next
-    clash <- intersect(BODY_KEYS, names(d))
-    if (length(clash))
-      stop(what, " '", k, "' declares source_ref and ", clash[[1]],
-           ". A carried definition brings its bytes out of the source ",
-           "cartridge unchanged and generates no body of its own.",
-           call. = FALSE)
     if (is.null(d$title) || !nzchar(trimws(as.character(d$title))))
       stop(what, " '", k, "' carries source_ref ", d$source_ref,
            " but declares no title:. The module item is named from the ",
