@@ -1,5 +1,6 @@
 # coursepack 0.1.0
 
+* `textbook_docs: none` is threaded through the builder and the preview; local previews serve the course's own `docs/` as `/site`.
 * The homework intro and submission note come from `course.yml`; no course prose remains in package code.
 * Schema: `published:` on items, `item_id:`, `module_id:`, `resource_id:` overrides, `height_measured:`, `source:` in `reference.yml`.
 * Iframe pages use one titled template with a fallback link, a video allow-list, and a required height.

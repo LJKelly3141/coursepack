@@ -300,6 +300,14 @@ assignment_body <- function(a, course, tb_docs) {
       'title="Link" href="', xesc(href), '" target="_blank">the case study</a>.</p>'))
   }
 
+  # A course that declares `textbook_docs: none` has no rendered textbook to copy
+  # from. Without this the failure lands inside homework_section_html() as a
+  # zero-length path, which reads like a bug in the extractor rather than a
+  # manifest that asks for directions the course does not have.
+  if (is.null(tb_docs))
+    stop("assignment '", a$id, "' inlines directions from the textbook but ",
+         "textbook_docs is none", call. = FALSE)
+
   # The directions are COPIED here rather than linked to, so a student never has
   # to leave Canvas to find out what the assignment is. The textbook chapter is
   # unchanged and remains the source of record; the link below is kept so the

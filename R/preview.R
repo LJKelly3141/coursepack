@@ -14,8 +14,16 @@
 #' directory from the course root with `python3 -m http.server` so browser
 #' iframe origin rules permit the local textbook symlink.
 #'
+#' In `local` mode a rendered `docs/` under `proj` is served as `/site` and the
+#' `{site}` token resolves to it, so an unpushed page previews beside the rest of
+#' the course. Without `docs/`, `{site}` keeps the published URL.
+#'
+#' `textbook_docs: none` in `course.yml` previews with no textbook symlink and
+#' every chapter target reported unchecked.
+#'
 #' @param proj Course project root.
-#' @param base Whether textbook links use the local same-origin textbook or the live URL.
+#' @param base Whether textbook and site links use the local same-origin copies
+#'   or the live URLs.
 #' @param textbook_docs Optional path to rendered textbook documents. When `NULL`,
 #'   read `textbook_docs` from `course.yml`.
 #' @return The preview model, invisibly.
@@ -42,8 +50,32 @@ dir.create(out, recursive = TRUE, showWarnings = FALSE)
 # Chrome blocks file:// iframes from a file:// page, so this is served over HTTP
 # and the symlink keeps it same-origin. See the decision record.
 tb_base <- if (mode == "local") "/textbook" else course$urls$textbook
+
+# `textbook_docs: none` says the course has no rendered textbook on this
+# machine. Nothing can be resolved against it and nothing can be linked into the
+# served directory, so this is carried as its own state rather than as a path
+# that happens not to exist.
+tb_present <- !is.null(tb_docs) && dir.exists(tb_docs)
+
+# {site} follows the same rule as {textbook}. A course that renders its own
+# public site into docs/ can serve that copy beside the mockup, so an unpushed
+# page previews next to the rest of the course. Without it {site} keeps pointing
+# at the published site and a local preview quietly shows the pushed copy while
+# claiming to show this working tree.
+site_docs  <- file.path(proj, "docs")
+site_local <- mode == "local" && dir.exists(site_docs)
+site_base  <- if (site_local) "/site" else course$urls$site
+
 urls    <- course$urls
 urls$textbook <- tb_base
+urls$site     <- site_base
+
+# The same resolution the checker uses, plus the one case it cannot express: with
+# no textbook at all there is nothing to resolve against, and the detail says
+# which of the two reasons a target went unchecked.
+target_for <- function(chapter, anchor)
+  if (is.null(tb_docs)) list(state = "unchecked", detail = "textbook_docs: none")
+  else resolve_target(chapter, anchor, tb_docs)
 
 
 TYPE <- c(header = "ContextModuleSubHeader", page = "WikiPage",
@@ -101,7 +133,7 @@ build_item <- function(it, pos, mod_published) {
     title <- it$link
     if (!is.null(it$chapter)) {
       url    <- chapter_url(it$chapter, it$anchor, tb_base)
-      target <- resolve_target(it$chapter, it$anchor, tb_docs)
+      target <- target_for(it$chapter, it$anchor)
     } else {
       url    <- interp_urls(it$url, urls)
       target <- list(state = "external", detail = "off-textbook URL, not checked")
@@ -117,7 +149,7 @@ build_item <- function(it, pos, mod_published) {
     if (!is.null(a$homework$chapter)) {
       # Still resolve the textbook target, because that check is what catches a
       # renamed heading before it becomes a broken assignment.
-      target <- resolve_target(a$homework$chapter, a$homework$anchor, tb_docs)
+      target <- target_for(a$homework$chapter, a$homework$anchor)
 
       # Since 2026-09-01 the directions are COPIED into the Canvas assignment
       # rather than linked to, so previewing the chapter would no longer show
@@ -204,7 +236,7 @@ model <- list(
                 title = course$title, institution = course$institution,
                 term = as.character(nn(course$term, "")),
                 base_mode = mode, textbook_base = tb_base,
-                textbook_present = dir.exists(tb_docs),
+                textbook_present = tb_present, site_base = site_base,
                 generated = format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
   stats = list(
     modules            = length(modules),
@@ -261,12 +293,20 @@ if (dir.exists(canvas_dir)) {
 # symlink inside the served directory. The path is computed once, here, so the
 # Makefile does not need a second copy of it.
 if (mode == "local") {
-  if (dir.exists(tb_docs)) {
+  if (is.null(tb_docs)) {
+    cat("NOTE: textbook_docs: none, so no textbook is linked.\n")
+    cat("      chapter links point at ", tb_base, ", which nothing serves.\n", sep = "")
+  } else if (dir.exists(tb_docs)) {
     file.symlink(normalizePath(tb_docs), file.path(out, "textbook"))
     cat("linked textbook: ", normalizePath(tb_docs), "\n", sep = "")
   } else {
     cat("NOTE: no textbook build at ", tb_docs, "\n", sep = "")
     cat("      previews will be empty. Render it, or use base = \"live\".\n")
+  }
+  # The course's own rendered site, on the same origin, for the same reason.
+  if (site_local) {
+    file.symlink(normalizePath(site_docs), file.path(out, "site"))
+    cat("linked site: ", normalizePath(site_docs), "\n", sep = "")
   }
 }
 
@@ -278,8 +318,12 @@ cat(sprintf("  unpublished items %d | todo %d | broken targets %d | unchecked %d
 # Warn off the directory check, NOT off the unchecked count. `unchecked` also
 # counts items with no chapter to check (the deliberate chapter: "" root link),
 # so it is never zero and warning off it would cry wolf on every healthy build.
-if (!dir.exists(tb_docs))
+if (is.null(tb_docs))
+  cat("  NOTE: textbook_docs: none; no chapter target was checked.\n")
+else if (!dir.exists(tb_docs))
   cat("  NOTE: textbook not found at ", tb_docs, "; targets unverified.\n", sep = "")
+if (site_local)
+  cat("  NOTE: {site} resolves to /site, this course's own docs/, not the published site.\n")
 cat("wrote ", file.path(out, "course.json"), "\n", sep = "")
   version_line("build_preview")
   invisible(model)

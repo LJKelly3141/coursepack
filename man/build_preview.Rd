@@ -9,7 +9,8 @@ build_preview(proj = ".", base = c("local", "live"), textbook_docs = NULL)
 \arguments{
 \item{proj}{Course project root.}
 
-\item{base}{Whether textbook links use the local same-origin textbook or the live URL.}
+\item{base}{Whether textbook and site links use the local same-origin copies
+or the live URLs.}
 
 \item{textbook_docs}{Optional path to rendered textbook documents. When \code{NULL},
 read \code{textbook_docs} from \code{course.yml}.}
@@ -21,4 +22,12 @@ The preview model, invisibly.
 Writes the preview model and static assets under \verb{build/mockup/}. Serve that
 directory from the course root with \verb{python3 -m http.server} so browser
 iframe origin rules permit the local textbook symlink.
+}
+\details{
+In \code{local} mode a rendered \verb{docs/} under \code{proj} is served as \verb{/site} and the
+\code{{site}} token resolves to it, so an unpushed page previews beside the rest of
+the course. Without \verb{docs/}, \code{{site}} keeps the published URL.
+
+\code{textbook_docs: none} in \code{course.yml} previews with no textbook symlink and
+every chapter target reported unchecked.
 }

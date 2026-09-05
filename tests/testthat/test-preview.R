@@ -54,6 +54,31 @@ test_that("live mode points links at the published textbook and creates no symli
   expect_false(file.exists(file.path(m$p, "build", "mockup", "textbook")))
 })
 
+test_that("textbook_docs: none previews with every chapter target unchecked and no symlink", {
+  skip_if_no("pandoc")
+  p <- copy_course()
+  edit_yaml(p, "course.yml", "textbook_docs: ../fake-textbook/docs", "textbook_docs: none")
+  build_preview(p)
+  j <- jsonlite::fromJSON(file.path(p, "build", "mockup", "course.json"), simplifyVector = FALSE)
+  expect_false(isTRUE(j$course$textbook_present))
+  expect_false(file.exists(file.path(p, "build", "mockup", "textbook")))
+  it <- unlist(lapply(j$modules, function(m) m$items), recursive = FALSE)
+  ch <- Filter(function(i) identical(i$form, "link"), it)
+  expect_true(all(vapply(ch, function(i) identical(i$target$state, "unchecked") ||
+                                         identical(i$target$state, "external"), TRUE)))
+  expect_true(any(vapply(ch, function(i) identical(i$target$detail, "textbook_docs: none"), TRUE)))
+})
+
+test_that("in local mode a rendered docs/ is served as /site and {site} points at it", {
+  skip_if_no("pandoc")
+  p <- copy_course(); dir.create(file.path(p, "docs")); writeLines("<p>w</p>", file.path(p, "docs", "welcome.html"))
+  build_preview(p)
+  j <- jsonlite::fromJSON(file.path(p, "build", "mockup", "course.json"), simplifyVector = FALSE)
+  welcome <- Filter(function(i) identical(i$title, "Welcome"), unlist(lapply(j$modules, function(m) m$items), recursive = FALSE))[[1]]
+  expect_equal(welcome$url, "/site/welcome.html")
+  expect_true(nzchar(Sys.readlink(file.path(p, "build", "mockup", "site"))))
+})
+
 test_that("an absent textbook_docs key is an error, not a sibling-layout guess", {
   p <- copy_course()
   y <- readLines(file.path(p, "course.yml")); writeLines(y[!grepl("^textbook_docs:", y)], file.path(p, "course.yml"))

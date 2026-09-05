@@ -185,3 +185,10 @@ test_that("without grading_standard: and late_policy: the two files are neither 
   cs <- paste(readLines(file.path(res$stage, "course_settings", "course_settings.xml")), collapse = "\n")
   expect_no_match(cs, "grading_standard_identifier_ref")
 })
+
+test_that("textbook_docs: none refuses a homework assignment that inlines directions", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "course.yml", "textbook_docs: ../fake-textbook/docs", "textbook_docs: none")
+  expect_error(build_cartridge(p), "textbook_docs is none")
+})
