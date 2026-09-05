@@ -332,29 +332,12 @@ for (k in names(asg)) {
 '<title>Assignment: ', xesc(a$title), '</title>\n</head>\n<body>\n',
 assignment_body(body_def, course, tb_docs), '\n</body>\n</html>'))
 
-  # DUE DATES. modules.yml carries a plain local date per assignment, meaning
-  # 11:59 PM Central on that day. Canvas stores due_at in UTC, so the emitted
-  # value is the NEXT day at 04:59:00Z.
-  #
-  # That offset is not a guess. The reference export writes
-  # <due_at>2025-09-09T04:59:00</due_at> alongside
-  # <time_zone_edited>Central Time (US &amp; Canada)</time_zone_edited>, which
-  # is 11:59 PM Central on 8 September. Emitting the local time here would move
-  # every deadline a day later and look completely plausible in the XML.
-  #
-  # Central is UTC-5 while daylight time is in force. US DST ends 1 November
-  # 2026 and the last due date is 30 October, so every date in this course is
-  # CDT and the offset is constant. A course running past that boundary needs
-  # real timezone handling rather than this arithmetic, so it stops instead.
+  # DUE DATES. The seconds now match what Canvas writes for an end-of-day
+  # deadline (T04:59:59, verified against the 2026-09-02 round trip). The clock
+  # time is the course's due_time.
   due_xml <- "  <due_at/>\n"
-  if (!is.null(a$due)) {
-    # NOT named `d`: that is course$assignment_defaults in this scope, and
-    # shadowing it breaks allowed_extensions further down with an error that
-    # names neither this line nor due dates.
-    due_d <- as.Date(a$due)
-    if (is.na(due_d)) stop("assignment '", a$id, "' has an unparseable due date: ", a$due)
-    due_xml <- paste0("  <due_at>", local_to_utc(due_d, "23:59:00", tz), "</due_at>\n")
-  }
+  if (!is.null(a$due))
+    due_xml <- paste0("  <due_at>", due_stamp(a$due, course$due_time, tz), "</due_at>\n")
 
   writef(file.path(stage, rid, "assignment_settings.xml"), paste0(
 '<?xml version="1.0" encoding="UTF-8"?>\n',

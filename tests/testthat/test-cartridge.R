@@ -55,13 +55,19 @@ test_that("the quiz assignment body carries the questions and not the key; the h
   expect_match(hw, "Instructions"); expect_no_match(hw, "Step 1")
 })
 
-test_that("due dates route through the timezone helper", {
+test_that("a bare due: takes due_time; a clock time is used as given; no due_time is a stop", {
   b <- built()
-  s <- paste(readLines(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE)[1]), collapse = "")
-  expect_match(paste(list.files(b$stage, recursive = TRUE), collapse = " "), "assignment_settings")
   all_due <- unlist(lapply(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE),
                            function(f) regmatches(x <- paste(readLines(f), collapse = ""), gregexpr("(?<=<due_at>)[^<]+", x, perl = TRUE))[[1]]))
-  expect_setequal(all_due, c("2026-09-16T04:59:00", "2026-09-21T04:59:00"))
+  expect_setequal(all_due, c("2026-09-16T04:59:59", "2026-09-21T04:59:59"))
+  p <- b$p
+  edit_yaml(p, "modules.yml", "due: 2026-09-15", 'due: "2026-09-15 09:45"')
+  build_cartridge(p)
+  s <- paste(unlist(lapply(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE), readLines)), collapse = "")
+  expect_match(s, "2026-09-15T14:45:00")
+  edit_yaml(p, "course.yml", 'due_time: "23:59:59"', "")
+  edit_yaml(p, "modules.yml", 'due: "2026-09-15 09:45"', "due: 2026-09-15")
+  expect_error(build_cartridge(p), "needs due_time")
 })
 
 test_that("the R/exams quiz embeds with the prefix rewritten and two distinct idents", {

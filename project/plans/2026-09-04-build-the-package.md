@@ -2185,7 +2185,7 @@ test_that("a bare due: takes due_time; a clock time is used as given; no due_tim
   p <- b$p
   edit_yaml(p, "modules.yml", "due: 2026-09-15", 'due: "2026-09-15 09:45"')
   build_cartridge(p)
-  s <- paste(readLines(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE)), collapse = "")
+  s <- paste(unlist(lapply(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE), readLines)), collapse = "")
   expect_match(s, "2026-09-15T14:45:00")
   edit_yaml(p, "course.yml", 'due_time: "23:59:59"', "")
   edit_yaml(p, "modules.yml", 'due: "2026-09-15 09:45"', "due: 2026-09-15")

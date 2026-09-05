@@ -10,6 +10,7 @@ term:
   last_day: 2026-12-15
   timezone: America/Chicago
   breaks: []
+due_time: "23:59:59"
 urls:
   textbook: https://example.invalid/book
   site: https://example.invalid/course

@@ -8,11 +8,12 @@
 # directory, copies project/econ730-toolchain/scripts/{build_cartridge.R,lib/}
 # beside it (the frozen script sources lib/ via PROJ), zips the sample QTI,
 # and runs the script with PROJ set. That is the last legitimate use of PROJ.
-# `package` builds with the installed package, for deliberate regenerations.
+# `package` builds with the working package, for deliberate regenerations.
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 3L) stop("usage: baseline.R script|package <fixture-course> <out-file>")
 mode <- args[1]; fixture <- normalizePath(args[2]); out <- args[3]
-source("R/utils.R"); source("R/gate.R")
+# script mode needs only the gate helpers; package mode loads the whole working tree below
+if (mode == "script") { source("R/utils.R"); source("R/gate.R") }
 
 scratch <- tempfile("baseline-"); dir.create(scratch)
 file.copy(fixture, scratch, recursive = TRUE)
@@ -38,7 +39,8 @@ if (mode == "script") {
                     env = paste0("PROJ=", proj))
   if (status != 0) stop("the frozen builder failed; fix the fixture, not the builder")
 } else if (mode == "package") {
-  coursepack::build_cartridge(proj)
+  pkgload::load_all(".", quiet = TRUE)
+  build_cartridge(proj)
 } else stop("mode must be script or package")
 
 stage <- file.path(proj, "build", "coursepack", "staging")
