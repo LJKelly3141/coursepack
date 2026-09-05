@@ -1,5 +1,6 @@
 # coursepack 0.1.0
 
+* The pre-zip scan guards the Canvas marker file and the manifest header tokens; `announcements.yml` may omit `term:` and read the zone and window from `course.yml`.
 * `textbook_docs: none` is threaded through the builder and the preview; local previews serve the course's own `docs/` as `/site`.
 * The homework intro and submission note come from `course.yml`; no course prose remains in package code.
 * Schema: `published:` on items, `item_id:`, `module_id:`, `resource_id:` overrides, `height_measured:`, `source:` in `reference.yml`.

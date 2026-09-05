@@ -38,3 +38,13 @@ test_that("an unknown post: form stops, and a body whose h2 disagrees with the t
   writeLines(c("<h2>Different</h2>", "<p>x</p>"), file.path(p, "content", "announcements", "week-2.html"))
   expect_error(build_cartridge(p), "the body's <h2> reads")
 })
+
+test_that("announcements.yml without term: reads the zone and window from course.yml", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  y <- readLines(file.path(p, "announcements.yml")); y <- y[!grepl("^term:|^  (timezone|first_day|last_day):", y)]
+  writeLines(y, file.path(p, "announcements.yml"))
+  res <- build_cartridge(p)
+  allx <- vapply(list.files(res$stage, pattern = "\\.xml$", full.names = TRUE), function(f) paste(readLines(f), collapse = ""), "")
+  expect_true(any(grepl("<delayed_post_at>2026-09-08T05:00:00</delayed_post_at>", allx, fixed = TRUE)))
+})

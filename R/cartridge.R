@@ -73,7 +73,7 @@ build_cartridge <- function(proj = ".") {
   # Without the purge a removed item could also ship inside the zip unnoticed.
   unlink(stage, recursive = TRUE)
   m <- read_manifest(proj); course <- m$course; mods <- m$mods
-  ann <- read_announcements(proj)
+  ann <- read_announcements(proj, course)
   # The zone is read only when something needs it: a due: on any definition,
   # or announcements. An extracted course (Phase 4) has neither and must build
   # without a term: block.

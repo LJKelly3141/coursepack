@@ -80,10 +80,17 @@ read_reference <- function(proj) {
 #' Optional as a file, binding once present. Every message below is the one
 #' the original course builder printed; the checks moved here so a defective file
 #' stops the build before anything is staged.
+#'
+#' `term:` in `announcements.yml` is optional. Absent, the zone and the window
+#' come from `course$term`, which is where every other dated thing in the course
+#' reads them, so the two files cannot drift apart. Present, it wins, because a
+#' course that deliberately posts on a different calendar has to be able to say so.
 #' @param proj Course project root.
+#' @param course A parsed `course.yml`, or `NULL`. Supplies `term:` when
+#'   `announcements.yml` omits it.
 #' @return `NULL` when the file is absent, else `list(body_dir, tz, first_day, last_day, announcements)`.
 #' @export
-read_announcements <- function(proj) {
+read_announcements <- function(proj, course = NULL) {
   ann_file <- file.path(proj, "announcements.yml")
   if (!file.exists(ann_file)) return(NULL)
   ay <- yaml::yaml.load_file(ann_file)
@@ -91,6 +98,12 @@ read_announcements <- function(proj) {
     stop("announcements.yml has no body_dir:", call. = FALSE)
   body_dir <- proj_path(proj, ay$body_dir)
   tm <- ay$term
+  if (is.null(tm)) {
+    tm <- if (is.list(course$term)) course$term else NULL
+    if (is.null(tm$timezone) || is.null(tm$first_day) || is.null(tm$last_day))
+      stop("announcements.yml has no term: and course.yml term: lacks timezone, ",
+           "first_day or last_day", call. = FALSE)
+  }
   if (is.null(tm$timezone) || is.null(tm$first_day) || is.null(tm$last_day))
     stop("announcements.yml needs term: timezone, first_day and last_day. ",
          "Every post time is read in that zone and must fall inside that window.", call. = FALSE)

@@ -1,6 +1,40 @@
 # ---- self-checks before zipping -----------------------------------------
+
+# The text of one <resource> block, found by its identifier, or "" when the
+# manifest holds no such resource. Located with fixed matching so an identifier
+# is never read as a pattern.
+resource_block <- function(mh, rid) {
+  at <- regexpr(paste0('<resource identifier="', rid, '"'), mh, fixed = TRUE)
+  if (at < 0) return("")
+  blk <- substring(mh, at)
+  end <- regexpr("</resource>", blk, fixed = TRUE)
+  if (end < 0) blk else substr(blk, 1, end - 1)
+}
+
+# Text of a staged file, or "" when it is not there. A check that reads a file
+# the tree is missing must record the miss and carry on; stopping here would
+# hide every problem after it.
+staged_text <- function(stage, rel) {
+  f <- file.path(stage, rel)
+  if (!file.exists(f)) return("")
+  paste(readLines(f, warn = FALSE), collapse = "\n")
+}
+
 prezip_checks <- function(stage, settings_res, ann_res, p_fail) {
 mh <- paste(readLines(file.path(stage, "imsmanifest.xml"), warn = FALSE), collapse = "\n")
+
+# The manifest header, everything ahead of <organizations>, carries the four
+# tokens Canvas uses to recognise the package as Common Cartridge 1.1.0 with
+# LOM metadata. Drop any of them in a future edit and the import does not
+# report an error; it reads the cartridge as something else, or not at all.
+# Checked against the header text rather than the whole file so a token that
+# only appears further down cannot stand in for a missing one.
+hdr_cut <- regexpr("<organizations", mh, fixed = TRUE)
+hdr <- if (hdr_cut > 0) substr(mh, 1, hdr_cut - 1) else mh
+for (tok in c("xmlns:lomimscc", "xsi:schemaLocation", "<lomimscc:lom>",
+              "<schemaversion>1.1.0</schemaversion>"))
+  if (!grepl(tok, hdr, fixed = TRUE)) p_fail("manifest header is missing ", tok)
+
 declared <- unique(regmatches(mh, gregexpr('(?<=<file href=")[^"]+', mh, perl = TRUE))[[1]])
 for (f in declared)
   if (!file.exists(file.path(stage, f))) p_fail("manifest declares a missing file: ", f)
@@ -11,6 +45,16 @@ on_disk <- setdiff(list.files(stage, recursive = TRUE), c(declared, "imsmanifest
 for (f in on_disk) p_fail("file on disk not declared in manifest: ", f)
 cat(sprintf("  files declared=%d  on disk=%d  undeclared=%d\n",
             length(declared), length(list.files(stage, recursive = TRUE)), length(on_disk)))
+
+# course_settings/canvas_export.txt is the marker that tells Canvas this package
+# came out of Canvas and that the course_settings files are worth reading. It is
+# the settings resource's own href, so both halves are checked: the file on disk
+# and the declaration inside that resource. Either half alone imports quietly and
+# leaves the course settings behind.
+marker <- "course_settings/canvas_export.txt"
+if (!file.exists(file.path(stage, marker))) p_fail("the staged tree is missing ", marker)
+if (!grepl(paste0('href="', marker, '"'), resource_block(mh, settings_res), fixed = TRUE))
+  p_fail("the settings resource does not declare ", marker)
 
 if (grepl("IMS-CC-FILEBASE", mh, fixed = TRUE)) p_fail("manifest contains $IMS-CC-FILEBASE$")
 # .xml as well as .html since 2026-09-02: announcement bodies travel inside a
@@ -55,8 +99,7 @@ irefs <- unique(regmatches(mh, gregexpr('(?<=identifierref=")[^"]+', mh, perl = 
 # settings file ever stops naming it, the orphan check should fire, which an
 # exemption would suppress. Same reason the manifest checks are written as two
 # directions rather than one.
-csh <- paste(readLines(file.path(stage, "course_settings/course_settings.xml"),
-                       warn = FALSE), collapse = "\n")
+csh <- staged_text(stage, "course_settings/course_settings.xml")
 irefs <- unique(c(irefs, regmatches(csh,
   gregexpr('(?<=<image_identifier_ref>)[^<]+', csh, perl = TRUE))[[1]]))
 

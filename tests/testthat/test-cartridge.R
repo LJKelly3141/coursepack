@@ -192,3 +192,12 @@ test_that("textbook_docs: none refuses a homework assignment that inlines direct
   edit_yaml(p, "course.yml", "textbook_docs: ../fake-textbook/docs", "textbook_docs: none")
   expect_error(build_cartridge(p), "textbook_docs is none")
 })
+
+test_that("the pre-zip scan refuses a manifest whose header lost its load-bearing tokens", {
+  p_fail_msgs <- character(); p_fail <- function(...) p_fail_msgs <<- c(p_fail_msgs, paste0(...))
+  d <- withr::local_tempdir(); dir.create(file.path(d, "course_settings"))
+  writeLines("<?xml version=\"1.0\"?><manifest><organizations/><resources/></manifest>", file.path(d, "imsmanifest.xml"))
+  prezip_checks(d, settings_res = "gx", ann_res = character(), p_fail = p_fail)
+  expect_true(any(grepl("manifest header is missing xmlns:lomimscc", p_fail_msgs)))
+  expect_true(any(grepl("canvas_export.txt", p_fail_msgs)))
+})

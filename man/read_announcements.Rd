@@ -4,10 +4,13 @@
 \alias{read_announcements}
 \title{Read and validate announcements.yml}
 \usage{
-read_announcements(proj)
+read_announcements(proj, course = NULL)
 }
 \arguments{
 \item{proj}{Course project root.}
+
+\item{course}{A parsed \code{course.yml}, or \code{NULL}. Supplies \verb{term:} when
+\code{announcements.yml} omits it.}
 }
 \value{
 \code{NULL} when the file is absent, else \code{list(body_dir, tz, first_day, last_day, announcements)}.
@@ -16,4 +19,10 @@ read_announcements(proj)
 Optional as a file, binding once present. Every message below is the one
 the original course builder printed; the checks moved here so a defective file
 stops the build before anything is staged.
+}
+\details{
+\verb{term:} in \code{announcements.yml} is optional. Absent, the zone and the window
+come from \code{course$term}, which is where every other dated thing in the course
+reads them, so the two files cannot drift apart. Present, it wins, because a
+course that deliberately posts on a different calendar has to be able to say so.
 }
