@@ -2293,7 +2293,7 @@ Emit every assignment group and route each item by name; the cartridge was suppo
 **Interfaces:**
 - Produces: `CANVAS_SETTINGS_KEYS`, a character vector in the ECON 730 export's element order: `course_code`, `is_public`, `indexed`, `default_view`, `license`, `grading_standard_enabled`, `group_weighting_scheme`, `restrict_enrollments_to_course_dates`, `allow_student_wiki_edits`, `restrict_student_future_view`, `restrict_student_past_view`. `course_settings_xml(course, tile, has_grading_standard)`: emits `<title>`, then every key of `course$canvas` that is in the list, in list order, lowercasing logicals; `image_identifier_ref` after `course_code` when the tile exists; `grading_standard_identifier_ref` after `grading_standard_enabled` only when `course$grading_standard` exists; an unknown key under `canvas:` stops naming it; a missing `course_code` stops.
 - Behaviour: `grading_standards.xml` and `late_policy.xml` are written and declared only when their blocks exist.
-- Output changes: none for the fixture (it declares every key and both blocks). The gate must stay green without regeneration; that is this task's proof.
+- Output changes: none for the fixture (it declares both blocks; of the eleven known keys it declares eight, and the three it omits were never emitted). The gate must stay green without regeneration; that is this task's proof.
 
 - [ ] **Step 1: Write the failing tests**
 

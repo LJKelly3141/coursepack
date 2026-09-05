@@ -26,27 +26,8 @@ list(has_tile = has_tile, tile_href = tile_href, tile_res = tile_res)
 
 # ---- course_settings/ ----------------------------------------------------
 write_course_settings <- function(stage, course, tile) {
-cs <- course$canvas
-writef(file.path(stage, "course_settings/course_settings.xml"), paste0(
-'<?xml version="1.0" encoding="UTF-8"?>\n',
-'<course identifier="', gid("course", course$code), '" ', CCV, '>\n',
-'  <title>', xesc(course$title), '</title>\n',
-'  <course_code>', xesc(cs$course_code), '</course_code>\n',
-if (tile$has_tile) paste0('  <image_identifier_ref>', tile$tile_res,
-                     '</image_identifier_ref>\n') else '',
-'  <is_public>', tolower(as.character(cs$is_public)), '</is_public>\n',
-'  <indexed>', tolower(as.character(cs$indexed)), '</indexed>\n',
-'  <default_view>', cs$default_view, '</default_view>\n',
-'  <license>', cs$license, '</license>\n',
-'  <grading_standard_enabled>', tolower(as.character(cs$grading_standard_enabled)),
-    '</grading_standard_enabled>\n',
-'  <grading_standard_identifier_ref>', gid("gradingstandard", course$grading_standard$title),
-    '</grading_standard_identifier_ref>\n',
-'  <group_weighting_scheme>', cs$group_weighting_scheme, '</group_weighting_scheme>\n',
-'  <restrict_enrollments_to_course_dates>',
-    tolower(as.character(cs$restrict_enrollments_to_course_dates)),
-    '</restrict_enrollments_to_course_dates>\n',
-'</course>'))
+writef(file.path(stage, "course_settings/course_settings.xml"),
+       course_settings_xml(course, tile, !is.null(course$grading_standard)))
 }
 
 write_assignment_groups <- function(stage, course, groups) {
@@ -69,6 +50,7 @@ invisible(NULL)
 
 write_course_settings_files <- function(stage, course) {
 gs <- course$grading_standard
+if (!is.null(gs)) {
 writef(file.path(stage, "course_settings/grading_standards.xml"), paste0(
 '<?xml version="1.0" encoding="UTF-8"?>\n',
 '<gradingStandards ', CCV, '>\n',
@@ -79,8 +61,10 @@ writef(file.path(stage, "course_settings/grading_standards.xml"), paste0(
 '    <scaling_factor>1.0</scaling_factor>\n',
 '  </gradingStandard>\n',
 '</gradingStandards>'))
+}
 
 lp <- course$late_policy
+if (!is.null(lp)) {
 writef(file.path(stage, "course_settings/late_policy.xml"), paste0(
 '<?xml version="1.0" encoding="UTF-8"?>\n',
 '<late_policy identifier="', gid("latepolicy", course$code), '" ', CCV, '>\n',
@@ -98,6 +82,7 @@ writef(file.path(stage, "course_settings/late_policy.xml"), paste0(
    '</late_submission_minimum_percent_enabled>\n',
 '  <late_submission_minimum_percent>0.0</late_submission_minimum_percent>\n',
 '</late_policy>'))
+}
 
 writef(file.path(stage, "course_settings/files_meta.xml"), paste0(
 '<?xml version="1.0" encoding="UTF-8"?>\n<fileMeta ', CCV, '>\n</fileMeta>'))
@@ -446,18 +431,21 @@ for (m in modmeta) {
 man <- c(man, '      </item>', '    </organization>', '  </organizations>', '  <resources>')
 
 settings_res <- gid("resource", "course_settings")
+settings_files <- c(
+  "course_settings.xml",
+  "module_meta.xml",
+  "assignment_groups.xml",
+  if (!is.null(course$grading_standard)) "grading_standards.xml",
+  "files_meta.xml",
+  if (!is.null(course$late_policy)) "late_policy.xml",
+  "media_tracks.xml",
+  "canvas_export.txt"
+)
 man <- c(man,
 paste0('    <resource identifier="', settings_res,
        '" type="associatedcontent/imscc_xmlv1p1/learning-application-resource" ',
        'href="course_settings/canvas_export.txt">'),
-'      <file href="course_settings/course_settings.xml"/>',
-'      <file href="course_settings/module_meta.xml"/>',
-'      <file href="course_settings/assignment_groups.xml"/>',
-'      <file href="course_settings/grading_standards.xml"/>',
-'      <file href="course_settings/files_meta.xml"/>',
-'      <file href="course_settings/late_policy.xml"/>',
-'      <file href="course_settings/media_tracks.xml"/>',
-'      <file href="course_settings/canvas_export.txt"/>',
+paste0('      <file href="course_settings/', settings_files, '"/>'),
 '    </resource>')
 
 if (has_tile) man <- c(man,

@@ -1,5 +1,6 @@
 # coursepack 0.1.0
 
+* Grading standard and late policy are optional; `canvas:` keys come from one known-key list and an unknown key stops the build.
 * Emit every declared assignment group and route assignments and quizzes by group name.
 * Due dates: `due_time:` in `course.yml`; `due:` accepts a clock time; seconds now match Canvas (`:59`).
 * `build_preview()`; mockup templates ship in `inst/templates/mockup/`; the sibling-layout textbook fallback is gone.

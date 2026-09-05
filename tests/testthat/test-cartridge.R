@@ -107,3 +107,20 @@ test_that("an undeclared group on an assignment stops the build", {
   edit_yaml(p, "modules.yml", "    quiz_file: assessments/quizzes/quiz01.md\n    group: Quizzes", "    quiz_file: assessments/quizzes/quiz01.md\n    group: Nowhere")
   expect_error(build_cartridge(p), "names assignment group 'Nowhere'")
 })
+
+test_that("without grading_standard: and late_policy: the two files are neither written nor declared", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  y <- readLines(file.path(p, "course.yml"))
+  cut <- function(y, start) { i <- grep(start, y); j <- i; while (j < length(y) && grepl("^  ", y[j + 1])) j <- j + 1; y[-(i:j)] }
+  y <- cut(y, "^grading_standard:"); y <- cut(y, "^late_policy:")
+  y <- sub("grading_standard_enabled: true", "grading_standard_enabled: false", y)
+  writeLines(y, file.path(p, "course.yml"))
+  res <- build_cartridge(p)
+  expect_false(file.exists(file.path(res$stage, "course_settings", "grading_standards.xml")))
+  expect_false(file.exists(file.path(res$stage, "course_settings", "late_policy.xml")))
+  man <- paste(readLines(file.path(res$stage, "imsmanifest.xml")), collapse = "\n")
+  expect_length(gregexpr('<file href="course_settings/', man)[[1]], 6L)
+  cs <- paste(readLines(file.path(res$stage, "course_settings", "course_settings.xml")), collapse = "\n")
+  expect_no_match(cs, "grading_standard_identifier_ref")
+})
