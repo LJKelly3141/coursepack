@@ -1,0 +1,17 @@
+---
+title: "Leak canary"
+---
+
+This file exists to be found. It carries a string that appears nowhere else in
+the repository, and it sits in the one directory the render allowlist must never
+sweep in.
+
+If this page ever renders into `docs/`, the allowlist has been broken and every
+answer key beside it is one push away from being public. `make leakcheck` reads
+every byte under `docs/` looking for the string below and refuses on a hit.
+
+Do not delete this file, do not render it, and do not copy the string anywhere
+else. A second copy makes the check fire on something harmless, and a check
+people learn to ignore is worse than no check.
+
+{{canary}}

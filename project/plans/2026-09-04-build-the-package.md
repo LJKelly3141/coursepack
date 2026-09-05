@@ -3998,7 +3998,7 @@ test_that("every template renders with example values and the YAML ones parse", 
                timezone = "America/Chicago", canary = LEAK_CANARY, version = coursepack_version())
   for (f in list.files(tpl, recursive = TRUE, all.files = TRUE, full.names = TRUE)) {
     out <- render_template(paste(readLines(f, warn = FALSE), collapse = "\n"), vals)
-    if (grepl("\\.ya?ml$", f)) expect_no_error(yaml::yaml.load(out), info = f)
+    if (grepl("\\.ya?ml$", f)) expect_error(yaml::yaml.load(out), NA, info = f)
   }
 })
 

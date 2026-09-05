@@ -1,0 +1,8 @@
+---
+title: "Syllabus"
+---
+
+This page is a stub. Replace it with the syllabus, and add a page entry for it
+in `modules.yml` when it is ready to be framed in Canvas. Nothing renders a page
+into the course tree on its own: a file here becomes a Canvas item only when a
+module item points at it.

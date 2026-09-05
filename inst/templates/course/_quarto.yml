@@ -1,0 +1,34 @@
+# Pages are framed inside Canvas, so this is deliberately NOT a website project.
+# type: default produces standalone pages with no navbar, no search and no
+# sitemap, because Canvas supplies the navigation and site chrome inside a frame
+# is duplicated furniture.
+project:
+  type: default
+  output-dir: docs
+
+  # An explicit allowlist. Anything not named here is never rendered, so it
+  # never reaches docs/ and never becomes public. assessments/ and questions/
+  # are absent by design, and a directory added to this repository tomorrow is
+  # excluded until somebody names it.
+  #
+  # Do not rewrite this as a blocklist. A "*.qmd" glob with exclusions after it
+  # fails open, and the whole containment design rests on this list failing
+  # closed.
+  render:
+    - "index.qmd"
+    - "content/**/*.qmd"
+
+  # Copied into docs/ verbatim. This one IS fail-open: name a directory and
+  # everything under it ships, now and later. See assets/README.md.
+  resources:
+    - "assets/**"
+
+format:
+  html:
+    theme: cosmo
+    css: style.css
+    toc: false
+    # One self-contained file per page, with no external asset requests to fail
+    # inside the Canvas frame. Pages get large; that is the price of the frame
+    # loading reliably.
+    embed-resources: true

@@ -1,0 +1,7 @@
+# docs/ is deliberately NOT here. It is the published site, it is committed, and
+# the host serves it from the branch.
+build/
+.quarto/
+*_files/
+.Rproj.user/
+.DS_Store

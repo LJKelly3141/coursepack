@@ -1,0 +1,13 @@
+---
+title: "{{title}}"
+---
+
+{{code}}
+
+{{institution}}
+
+This site holds the course's readings, pages and downloadable material. The
+course itself is in Canvas, and Canvas points here.
+
+- [Welcome](content/pages/welcome.html)
+- [Syllabus](content/pages/syllabus.html)

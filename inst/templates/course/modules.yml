@@ -1,0 +1,45 @@
+# The module tree Canvas imports, and the definitions its items point at.
+#
+# Item forms, one key per item, and exactly one:
+#   header:     a text divider inside a module
+#   page:       a slug defined under pages:
+#   link:       a title, plus chapter: (a textbook file) or url: (anything else)
+#   assignment: an id defined under assignments:
+#   quiz:       an id defined under quizzes:
+# Any item also takes indent: and published:; a link takes new_tab:.
+#
+# Definition forms, and again exactly one per definition:
+#   page:       iframe: (a URL framed inside Canvas), body: (HTML under
+#               content/canvas/), or source_ref: (bytes carried from an export)
+#   assignment: homework:, quiz_file:, todo:, description:, or source_ref:
+#   quiz:       qti: (a built R/exams zip), bank: (drawn from questions/), or
+#               source_ref:
+#
+# {site} and {textbook} in a URL are replaced with the urls: block in
+# course.yml, so no site address is written twice.
+
+modules:
+  - title: "Start here"
+    published: true
+    items:
+      - header: "Before anything else"
+      - page: welcome
+        indent: 1
+      - assignment: first-assignment
+        indent: 1
+
+pages:
+  - slug: welcome
+    title: Welcome
+    iframe: "{site}/content/pages/welcome.html"
+    width: "100%"
+    height: "800"
+
+assignments:
+  # todo: and published: true together stop the build. That is the point of the
+  # pair: a placeholder cannot reach students by being forgotten. Replace the
+  # todo: with a real body form, then publish it.
+  - id: first-assignment
+    title: First Assignment
+    published: false
+    todo: "replace me"

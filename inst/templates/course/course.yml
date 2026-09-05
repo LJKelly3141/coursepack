@@ -1,0 +1,72 @@
+# This course's own facts. Nothing in the toolchain defaults any of them: a
+# value that is not written here is one the build refuses to guess.
+
+code: "{{code}}"
+title: "{{title}}"
+institution: "{{institution}}"
+
+# The cartridge filename and the base every derived Canvas identifier is built
+# from. Change it and the next import creates a second copy of the course
+# beside the first instead of updating it.
+slug: "{{slug}}"
+
+# Dates come from the registrar's calendar, never from counting. first_day and
+# last_day stay null until someone reads them off that calendar; breaks: holds
+# the days the course does not meet, as YYYY-MM-DD strings. Every deadline and
+# every announcement is read in timezone:, so a wrong zone moves the whole term
+# by hours and looks perfectly correct in the generated XML.
+#
+# Fill first_day and last_day in before the first cartridge build. A course with
+# an announcements.yml refuses to build without them, because a post time with
+# no term is a time nobody can check.
+term:
+  name: TBD
+  first_day: null
+  last_day: null
+  timezone: "{{timezone}}"
+  breaks: []
+
+# The clock a bare "due: YYYY-MM-DD" means, read in term: timezone:.
+due_time: "23:59:59"
+
+urls:
+  # Where the rendered site is published. Every asset the cartridge points at is
+  # an absolute URL under this one, so the site has to answer before a cartridge
+  # built from it is imported: a 404 is invisible inside Canvas.
+  site: "{{site_url}}"
+  # A course whose reading lives in a second repository puts that site's base
+  # URL here, and a {textbook} token in modules.yml resolves against it. Delete
+  # this line if there is no separate textbook.
+  textbook: "{{textbook_url}}"
+
+# A checkout of the rendered textbook, so chapter files and anchors are checked
+# before a build rather than after an import. The literal value none means there
+# is no separate textbook, and every textbook check then skips and says so.
+textbook_docs: "{{textbook_docs}}"
+
+# Written into course_settings.xml as they stand. A key that is not a Canvas
+# setting stops the build rather than being quietly dropped.
+canvas:
+  course_code: "{{code}}"
+  default_view: modules
+  is_public: false
+  group_weighting_scheme: percent
+  grading_standard_enabled: false
+
+# One group carrying the whole grade. Add more and the weights still have to
+# total 100.
+assignment_groups:
+  - name: Assignments
+    position: 1
+    weight: 100.0
+
+# What an assignment gets when it declares nothing of its own.
+assignment_defaults:
+  points: 100
+  submission_types: online_upload
+  group: Assignments
+
+# There is deliberately no grading_standard: and no late_policy: here. Absent,
+# neither file is written into the cartridge, and the Canvas shell keeps
+# whatever it already has. Declare either one only when this course means to
+# overwrite the shell's.

@@ -1,0 +1,32 @@
+/* Minimal. These pages are framed inside Canvas, so anything decorative here
+   competes with the frame around it. Keep the measure readable and let the
+   theme do the rest. */
+
+body {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  line-height: 1.55;
+}
+
+h1, h2, h3 {
+  line-height: 1.25;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+table th,
+table td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid #d5d5d5;
+  text-align: left;
+}
+
+/* Wide tables scroll inside themselves rather than widening the page, which
+   inside a Canvas frame is what produces a horizontal scrollbar on the whole
+   course. */
+.table-responsive {
+  overflow-x: auto;
+}

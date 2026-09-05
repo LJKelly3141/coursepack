@@ -1,0 +1,27 @@
+# Announcements the cartridge carries. Optional as a file: delete it and none
+# are built. Present, it is binding, and a declaration whose body file is
+# missing stops the build rather than shipping one announcement short.
+#
+# body_dir: is where the bodies live. Each body opens with its own <h2>, which
+# has to match the title: declared here; the builder checks the two against each
+# other and then drops the heading, so Canvas does not render the title twice.
+#
+# post: takes three forms and nothing else:
+#   immediately        posts when the cartridge is imported
+#   YYYY-MM-DD         midnight at the start of that day, in the course zone
+#   YYYY-MM-DD HH:MM   that local time, in the course zone
+#
+# Post times are read in the course zone and dated ones are checked against the
+# term window, so this file needs a term to read them against. It takes that
+# from course.yml, which means a cartridge does not build until term: timezone:,
+# first_day: and last_day: are all filled in from the registrar's calendar. That
+# is deliberate: a course with announcements and no term has a post time nobody
+# can check. Delete this file to build without announcements in the meantime.
+
+body_dir: content/announcements
+
+announcements:
+  - id: welcome
+    title: Welcome
+    body: welcome.html
+    post: immediately

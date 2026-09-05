@@ -1,0 +1,8 @@
+---
+title: "Welcome"
+---
+
+This page is a stub. Replace it with what a student should read before anything
+else: what the course is about, how a week runs, and where to find the work.
+It renders to `docs/content/pages/welcome.html`, which the Canvas page named
+`welcome` in `modules.yml` frames.
