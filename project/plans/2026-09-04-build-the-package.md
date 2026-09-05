@@ -3800,7 +3800,7 @@ Canonical skills live in `inst/skills/<name>/SKILL.md` and install with the pack
 | Entry point | Role |
 |---|---|
 | `coursepack::check_manifests(".")` | validates `course.yml` and `modules.yml` |
-| `coursepack::build_cartridge(".")` | emits the `.imscc`; `modules = c("Module 5", ...)` (the argument added in Task 37) stages a partial build |
+| `coursepack::build_cartridge(".")` | emits the `.imscc`; `modules = c("Module 5", ...)` stages a partial build |
 | `coursepack::diff_against_reference(".")` | fails on any divergence not declared in `reference.yml` |
 | `make coursepack` | chains all three |
 
@@ -3845,7 +3845,7 @@ test_that("every shipped skill has frontmatter and no course residue", {
     txt <- paste(readLines(list.files(d, recursive = TRUE, full.names = TRUE), warn = FALSE), collapse = "\n")
     expect_no_match(txt, "(?i)econ ?730|econ ?202|managerial|macro_principles|ljkelly3141|uwrf|river falls|real-world-statistics|kellyecon|My_Books|Teaching/|/Users/", perl = TRUE, info = d)
     expect_no_match(txt, "scripts/(build_|check_|diff_|audit_)", info = d)
-    expect_false(grepl("—", txt), info = d)
+    expect_false(grepl(intToUtf8(8212L), txt, fixed = TRUE), info = d)
   }
 })
 
