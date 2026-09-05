@@ -4148,6 +4148,8 @@ secrets=$(git log -p --all | grep -cE '[0-9]{4,5}~[A-Za-z0-9]{40,}|Bearer |CANVA
 exit $status
 ```
 
+As landed, the script differs from the block above in three ways, each forced: the residue grep excludes the two test files that define the residue regex (`--exclude=test-fixtures.R --exclude=test-skills-content.R`); the repository-address and residue exceptions also allow the `Authors@R` person line of `DESCRIPTION` and the `\email{}` line roxygen copies into `man/coursepack-package.Rd` (decision D8); and the secrets grep excludes `project/plans` and `.superpowers` from the history diff and writes its own literals as `Bea[r]er ` and `CANVAS_API[_]TOKEN`, because the only two matches in the whole history were this grep quoted in two plan files.
+
 - [ ] **Step 1: Test** `tests/testthat/test-scrub.R`: skips unless the script exists relative to the package root (`test_path("..", "..", "tools", "scrub.sh")`, absent in the tarball); runs it with `system2()` and expects exit status 0.
 - [ ] **Step 2: Run it; fix every hit in the file that owns it.** `Version: 0.5.0.9001`.
 - [ ] **Step 3: Propose the commit and stop**

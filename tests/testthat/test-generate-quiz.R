@@ -13,6 +13,20 @@ with_bank <- function() {
   p <- copy_course(to = to); file.copy(fixture_path("bank"), p, recursive = TRUE); p
 }
 
+# The Python generator's scripts directory, when the checkout holds the snapshot.
+# Found by what a directory CONTAINS rather than by its name: the name carries a
+# course number, and no course number belongs in a test file. generate_resources.py
+# is the Python generator and marks the one directory the oracle can run against.
+python_scripts <- function() {
+  root <- testthat::test_path("..", "..", "project")
+  if (!dir.exists(root)) return(NULL)
+  for (d in list.dirs(root, recursive = FALSE)) {
+    s <- file.path(d, "scripts")
+    if (file.exists(file.path(s, "generate_resources.py"))) return(s)
+  }
+  NULL
+}
+
 test_that("bank_groups orders chapter then section and enforces every refusal", {
   p <- with_bank()
   g <- bank_groups(spec(), p, "T")
@@ -63,8 +77,8 @@ test_that("window_utc converts a course-zone stamp and refuses a bad format", {
 
 test_that("the generated files match the Python generator after id normalisation", {
   skip_if_no("python3")
-  snap <- testthat::test_path("..", "..", "project", "econ202-toolchain", "scripts")
-  skip_if(!file.exists(file.path(snap, "generate_resources.py")), "the Python snapshot is not present (R CMD check tarball)")
+  snap <- python_scripts()
+  skip_if(is.null(snap), "the Python snapshot is not present (R CMD check tarball)")
   p <- with_bank(); stage_r <- withr::local_tempdir(); stage_py <- withr::local_tempdir()
   q <- list(id = "q-bank", title = "Module 1 Bank Quiz", group = "Quizzes", published = TRUE, bank = spec())
   ids <- list(quiz_res = c(`q-bank` = "g00000000000000000000000000000d01"), quiz_meta = c(`q-bank` = "g00000000000000000000000000000d02"),

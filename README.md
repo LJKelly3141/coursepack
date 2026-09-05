@@ -14,15 +14,10 @@ imported into Canvas from this package yet.
 
 ## What it is for
 
-Two courses at UW-River Falls are authored as plain text and delivered through
-Canvas, which has no API available to them, so every build ends in a manual
-import. Each course had grown its own copy of the same build scripts. This
-package is the one copy.
-
-| Course | Repository |
-|---|---|
-| ECON 730, Managerial Statistics | `Teaching/managerial_statistics` |
-| ECON 202, Macroeconomic Principles | `Teaching/macro_principles` |
+Some courses are authored as plain text and delivered through Canvas, which has
+no API available to them, so every build ends in a manual import. The two course
+toolchains this package descends from had each grown their own copy of the same
+build scripts. This package is the one copy.
 
 ## What moves in here, and what never does
 
@@ -88,7 +83,8 @@ course repositories and is not covered here.
 
 ## The migration
 
-Specified in `project/`. The plan it grew out of lives in the ECON 730 repo at
+Specified in `project/`. The plan it grew out of lives in one of the two course
+toolchains this package descends from, at
 `project/plans/2026-08-15-coursepack-extraction.md` and
 `project/coursepack-extraction-design.md`, which remain the record of why the
 design is shaped the way it is.

@@ -413,7 +413,7 @@ cartridge_surface_name <- function(repo) paste0(repo_surface_base(repo), "-cartr
 # fixed here and one recorded rather than fixed:
 #
 # 1. COLLISION (fixed here, loudly). Two repos whose paths end in the same
-#    directory name (~/courses/abcd101/book and ~/archive/abcd101/book, or a
+#    directory name (courses/abcd101/book and archive/abcd101/book, or a
 #    repo and its own git worktree checked out under the same leaf name)
 #    resolve to ONE surface. The driver keys targets[[surface]] by that name,
 #    intended_surfaces() writes out[surface] by that name, and the second repo
