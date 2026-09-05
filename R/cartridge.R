@@ -73,6 +73,10 @@ build_cartridge <- function(proj = ".") {
   # Without the purge a removed item could also ship inside the zip unnoticed.
   unlink(stage, recursive = TRUE)
   m <- read_manifest(proj); course <- m$course; mods <- m$mods
+  # Warning-level, and printed on every build: a hand-measured iframe height is
+  # an observation with an expiry date, and one that has expired shows students
+  # a scrollbar or dead space. The build proceeds; see R/stale.R.
+  check_stale_heights(proj, course, m$pages)
   ann <- read_announcements(proj, course)
   # The zone is read only when something needs it: a due: on any definition,
   # or announcements. An extracted course (Phase 4) has neither and must build
