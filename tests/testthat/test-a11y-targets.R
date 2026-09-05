@@ -9,9 +9,9 @@
 #    with a `_quarto.yml` written into a copy of it. The replacement is
 #    recorded in NEWS.
 # 2. The declared-surfaces negative control drives `intended_surfaces()`,
-#    which reaches into the cartridge library. That library has not moved into
-#    the package yet, so the half that needs it is marked HAND-OFF where it
-#    would go and the half that does not is asserted here.
+#    which reaches into the cartridge library. Its three cartridge-bearing
+#    fixtures live in test-a11y-cartridge.R, beside that library; the
+#    page-surface half is asserted here.
 
 test_that("discover_target, synthetic", {
   # output-dir is "build", not "docs". "docs" is also the first name
@@ -301,16 +301,13 @@ test_that("negative control: the driver's declared surfaces, against hand-author
   # cannot fail under any real regression. Every expectation below is instead
   # a literal, hand-typed value chosen when the fixture was built.
   #
-  # HAND-OFF to test-a11y-cartridge.R. The full section drives
-  # intended_surfaces(), which calls cartridges_in() and
-  # cartridge_wiki_page_count() from the cartridge library. That library has
-  # not moved into the package yet, so the three cartridge-bearing fixtures
-  # (3 pages plus a 2-wiki-page cartridge; 2 pages and no cartridge directory
-  # at all, which must not produce a phantom cartridge surface; 1 page and two
-  # real cartridges whose wiki pages must be summed rather than overwritten)
-  # cannot run here. They belong with the task that moves that library. What
-  # does not need it is asserted below: the page-surface half of the
-  # declaration, and the cartridge naming formula in isolation.
+  # The page-surface half of the declaration, and the cartridge naming formula
+  # in isolation, are asserted here. The three cartridge-bearing fixtures of
+  # this section (3 pages plus a 2-wiki-page cartridge; 2 pages and no
+  # cartridge directory at all, which must not produce a phantom cartridge
+  # surface; 1 page and two real cartridges whose wiki pages must be summed
+  # rather than overwritten) live in test-a11y-cartridge.R, with the library
+  # whose functions intended_surfaces() reaches for them.
   nc_decl1 <- file.path(tempdir(), "nc-decl-full"); unlink(nc_decl1, recursive = TRUE)
   dir.create(file.path(nc_decl1, "docs"), recursive = TRUE)
   writeLines("project:\n  type: default\n", file.path(nc_decl1, "_quarto.yml"))

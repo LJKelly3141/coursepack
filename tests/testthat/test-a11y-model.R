@@ -4,12 +4,12 @@
 # chapter file names from the course the snapshot audited are replaced with
 # neutral ones; nothing else about the assertions changed.
 #
-# Two sections of the map could not be ported here, because the libraries
-# they drive have not moved into the package yet. Both are named where they
-# would have gone, so the task that moves those libraries can pick them up:
-# the fixture-driven "distinct ids in one file" section (it calls the custom
-# checks) and the M11 "no WCAG criterion says so" section (it renders a
-# report).
+# One section of the map could not be ported here, because the library it
+# drives has not moved into the package yet. It is named where it would have
+# gone, so the task that moves that library can pick it up: the fixture-driven
+# "distinct ids in one file" section, which calls the custom checks. The M11
+# "no WCAG criterion says so" section renders a report and now lives in
+# test-a11y-report.R, with the renderer.
 
 test_that("finding_id", {
   a <- finding_id("textbook", "chapter-03.qmd", "1.1.1", "#fig-1 > img")

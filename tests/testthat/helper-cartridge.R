@@ -1,3 +1,37 @@
+# A cartridge shaped for the accessibility audit rather than for the builder.
+# It stands in for the real Canvas export the snapshot's own section audited,
+# which is one course's content and does not ship here. Two wiki pages, so
+# `wiki_pages_read` has a number that is not 1 and not the file count; one
+# untitled iframe and one titled one, so the iframe check has to read the
+# attribute rather than count tags; one weblink whose text says nothing out of
+# context; and one embedded video, in a TITLED frame, so the video checks have
+# something to resolve without adding a second untitled-iframe finding.
+write_a11y_cartridge <- function(zip_path) {
+  d <- withr::local_tempdir(.local_envir = parent.frame())
+  dir.create(file.path(d, "wiki_content"))
+  writeLines(paste0(
+    "<html><body>",
+    "<iframe src=\"x\"></iframe>",
+    "</body></html>"),
+    file.path(d, "wiki_content", "welcome.html"))
+  writeLines(paste0(
+    "<html><body>",
+    "<iframe title=\"Syllabus\" src=\"y\"></iframe>",
+    "<iframe title=\"Orientation\" ",
+    "src=\"https://www.youtube-nocookie.com/embed/DEADEMBED01\"></iframe>",
+    "</body></html>"),
+    file.path(d, "wiki_content", "syllabus.html"))
+  writeLines(c(
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<webLink xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imswl_v1p1">',
+    '  <title>click here</title>',
+    '  <url href="https://example.invalid/reading"/>',
+    '</webLink>'), file.path(d, "weblink.xml"))
+  old <- setwd(d); on.exit(setwd(old), add = TRUE)
+  utils::zip(zip_path, list.files(".", recursive = TRUE), flags = "-q -X")
+  zip_path
+}
+
 write_mini_cartridge <- function(zip_path, modules, due = "") {
   d <- withr::local_tempdir(.local_envir = parent.frame())
   dir.create(file.path(d, "course_settings")); dir.create(file.path(d, "a1"))

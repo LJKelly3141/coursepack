@@ -1,3 +1,11 @@
+# coursepack 0.2.0.9003
+
+* The accessibility audit's cartridge checks and its report renderer moved into the package: `audit_cartridge()`, `cartridges_in()`, `check_untitled_iframes()`, `check_weak_link_text()`, `video_caption_state()`, `inventory_media()`, `classify_fixes()`, `render_report()`, `render_plan()`, and `level_for()`. `cartridges_in()` gained a `dirs` argument, defaulting to the conventional pair, so a differently shaped repository does not have to move its files.
+* The finding text every cartridge check sets as its fix target now reads `modules.yml or the coursepack cartridge builder`. A finding's id does not hash `fix_target`, so no id changed.
+* Their tests are ported from the snapshot's audit test script, with two replacements. The section that audited a real Canvas export runs against a synthetic cartridge, `write_a11y_cartridge()` in the test helpers: two wiki pages, one untitled iframe beside a titled one, one weblink whose text says nothing out of context, and one embedded video resolved through an injected fetcher. The section that inventoried a real textbook repository runs against the `pair/alpha` fixture with one image, one PDF, and one PDF under `bibtex/` written into a copy of it.
+* Two sections reach YouTube over the network and skip unless `COURSEPACK_NETWORK_TESTS` is set.
+* Three hand-offs land: the cartridge-bearing fixtures of the declared-surfaces negative control, which drive `intended_surfaces()` through `cartridges_in()` and `cartridge_wiki_page_count()`, and the M11 no-criterion section, which renders a report. Two markers remain for the task that moves the driver.
+
 # coursepack 0.2.0.9002
 
 * The accessibility audit's target discovery and source checks moved into the package: `discover_target()`, `intended_surfaces()`, `check_filename_alt()`, `check_missing_fig_alt()`, `check_colour_only()`, `contrast_ratio()`, and `suggest_passing_colour()`. `exclude` stays a required argument on both source checks, and `assessments` stays on the source exclusion list as a containment rule.
