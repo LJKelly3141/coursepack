@@ -1,6 +1,6 @@
 Package: coursepack
 Title: Build Canvas Course Packages from Plain-Text Course Sources
-Version: 0.0.0.9001
+Version: 0.0.0.9002
 Authors@R:
     person("Logan", "Kelly", email = "logan.kelly@uwrf.edu",
            role = c("aut", "cre"))
@@ -30,7 +30,8 @@ Imports:
     yaml
 Suggests:
     exams,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 Config/testthat/edition: 3
 SystemRequirements: Node.js with npx, for the accessibility audit only. pa11y
     9.1.1 is fetched at run time by npx and is not vendored. pa11y needs a
