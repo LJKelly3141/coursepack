@@ -1,0 +1,72 @@
+{
+  "chapter": 2,
+  "title": "Sample Chapter Two",
+  "source": "Sample Text, first edition",
+  "sections": [
+    {
+      "section": "2.1 Later Ideas",
+      "questions": [
+        {
+          "id": 1,
+          "type": "multiple_choice",
+          "difficulty": "recall",
+          "objective": "Name the parts of a pair.",
+          "question": "How many parts does a pair hold?",
+          "options": {
+            "A": "One",
+            "B": "Two",
+            "C": "Three",
+            "D": "Four"
+          },
+          "answer": "B",
+          "explanation": "A pair holds two parts by definition. See section 2.1"
+        },
+        {
+          "id": 2,
+          "type": "multiple_choice",
+          "difficulty": "recall",
+          "objective": "State what an empty list holds.",
+          "question": "What does an empty list hold?",
+          "options": {
+            "A": "Nothing at all",
+            "B": "One blank entry",
+            "C": "Its own label",
+            "D": "A single zero"
+          },
+          "answer": "A",
+          "explanation": "An empty list holds nothing at all. See section 2.1"
+        },
+        {
+          "id": 3,
+          "type": "multiple_choice",
+          "difficulty": "application",
+          "objective": "Apply a stated rule to a short case.",
+          "question": "A step doubles whatever it is handed. It is handed a 3. What comes back?",
+          "options": {
+            "A": "3",
+            "B": "5",
+            "C": "6",
+            "D": "9"
+          },
+          "answer": "C",
+          "explanation": "Doubling a 3 gives a 6. See section 2.1"
+        },
+        {
+          "id": 4,
+          "type": "multiple_choice",
+          "difficulty": "analysis",
+          "objective": "Judge what a repeated step leaves behind.",
+          "question": "A step that leaves its input alone is run twice in a row. What is the result?",
+          "options": {
+            "A": "The input, unchanged",
+            "B": "The input, doubled",
+            "C": "Nothing",
+            "D": "An error"
+          },
+          "answer": "A",
+          "explanation": "A step that changes nothing changes nothing however often it is run. See section 2.1"
+        }
+      ]
+    }
+  ]
+}

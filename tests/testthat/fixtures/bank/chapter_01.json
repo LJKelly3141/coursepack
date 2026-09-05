@@ -1,0 +1,117 @@
+{
+  "chapter": 1,
+  "title": "Sample Chapter One",
+  "source": "Sample Text, first edition",
+  "sections": [
+    {
+      "section": "1.1 First Ideas",
+      "questions": [
+        {
+          "id": 1,
+          "type": "multiple_choice",
+          "difficulty": "recall",
+          "objective": "Name the parts of a labelled pattern.",
+          "question": "Which term names the opening part of a labelled pattern?",
+          "options": {
+            "A": "The head",
+            "B": "The tail",
+            "C": "The middle",
+            "D": "The spare"
+          },
+          "answer": "A",
+          "explanation": "The head is the opening part of a labelled pattern by definition. See section 1.1",
+          "image": null,
+          "figure": null
+        },
+        {
+          "id": 2,
+          "type": "multiple_choice",
+          "difficulty": "application",
+          "objective": "Read a plotted trend from a figure.",
+          "question": "The figure plots one series against its index. In which direction does the series move as the index grows?",
+          "options": {
+            "A": "It falls",
+            "B": "It rises",
+            "C": "It stays flat",
+            "D": "It cannot be told from the figure"
+          },
+          "answer": "B",
+          "explanation": "The plotted line runs from lower left to upper right, so the series rises. See section 1.1",
+          "image": "CH01_Q002.png",
+          "figure": {
+            "file": "CH01_Q002.png",
+            "script": "CH01_Q002.py",
+            "alt": "A rising line from left to right."
+          }
+        },
+        {
+          "id": 3,
+          "type": "multiple_choice",
+          "difficulty": "analysis",
+          "objective": "Choose the rule that fits a stated case.",
+          "question": "A rule applies only when both of its conditions hold. One condition holds and the other does not. What follows?",
+          "options": {
+            "A": "The rule applies",
+            "B": "The rule does not apply",
+            "C": "The rule applies by half",
+            "D": "The rule is undefined"
+          },
+          "answer": "B",
+          "explanation": "Both conditions are required, so one alone leaves the rule idle. See section 1.1"
+        }
+      ]
+    },
+    {
+      "section": "1.2 Second Ideas",
+      "questions": [
+        {
+          "id": 4,
+          "type": "multiple_choice",
+          "difficulty": "application",
+          "objective": "Read a value out of a small table.",
+          "question": "Use the table.<br><table><tr><th>x</th><th>y</th></tr><tr><td>1</td><td>2</td></tr></table>",
+          "options": {
+            "A": "1",
+            "B": "2",
+            "C": "3",
+            "D": "4"
+          },
+          "answer": "B",
+          "explanation": "The single row pairs an x of 1 with a y of 2. See section 1.2",
+          "image": null,
+          "figure": null
+        },
+        {
+          "id": 5,
+          "type": "multiple_choice",
+          "difficulty": "recall",
+          "objective": "State what a labelled step does.",
+          "question": "What does a labelled step do to the value it is handed?",
+          "options": {
+            "A": "It leaves the value alone",
+            "B": "It replaces the value with its label",
+            "C": "It records the value under its label",
+            "D": "It discards the value"
+          },
+          "answer": "C",
+          "explanation": "A labelled step records what it is handed under its own label. See section 1.2"
+        },
+        {
+          "id": 6,
+          "type": "multiple_choice",
+          "difficulty": "analysis",
+          "objective": "Order two steps whose results differ.",
+          "question": "Two steps are run in turn, and swapping their order changes the result. What can be said of the pair?",
+          "options": {
+            "A": "The order does not matter",
+            "B": "The order matters",
+            "C": "Neither step has any effect",
+            "D": "Both steps have the same effect"
+          },
+          "answer": "B",
+          "explanation": "A result that changes with the order is what it means for the order to matter. See section 1.2"
+        }
+      ]
+    }
+  ]
+}
