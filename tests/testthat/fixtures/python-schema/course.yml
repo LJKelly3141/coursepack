@@ -1,0 +1,46 @@
+# A synthetic course written in the Python manifest schema, the one
+# convert_python_manifests() reads. Every value is invented.
+#
+# The keys the package schema has no place for are here on purpose: a
+# title-keyed due_dates map, an empty exam_pools, and a canvas: course_image.
+
+title: "Example Course"
+course_code: "ABCD 101"
+
+urls:
+  site: "https://example.invalid/course"
+
+term:
+  name: "Example Term"
+  first_day: 2026-09-01
+  last_day: 2026-12-15
+  timezone: "America/Chicago"
+  breaks: []
+
+exam_pools: {}
+
+canvas:
+  course_image: images/card.png
+  default_view: "modules"
+  is_public: "false"
+  group_weighting_scheme: "percent"
+
+assignment_groups:
+  - name: "Module Quizzes"
+    id: "g00000000000000000000000000000e01"
+    position: 1
+    weight: 60.0
+  - name: "Written Work"
+    id: "g00000000000000000000000000000e02"
+    position: 2
+    weight: 40.0
+
+due_time: "23:59:59"
+
+# Keyed by the item's exact title, which is the handle the Python schema has.
+# The converter dissolves these into due: on each definition. This block is
+# last in the file because a test appends an unmatched key to the end of it.
+due_dates:
+  "Module 1 Quiz": 2026-09-13
+  "Module 2 Quiz": 2026-09-20
+  "Module 2 Memo": 2026-09-27

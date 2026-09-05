@@ -3669,7 +3669,7 @@ test_that("the converter writes the R schema with pinned ids, dissolved due date
   convert_python_manifests(fixture_path("python-schema", "course.yml"), fixture_path("python-schema", "modules.yml"), out)
   m <- read_manifest(out)
   expect_equal(m$course$textbook_docs, "none"); expect_equal(m$course$due_time, "23:59:59")
-  q <- m$quizzes[[1]]; expect_equal(q$bank$chapters, list(1L, 2L)); expect_equal(q$due, "2026-09-13")
+  q <- m$quizzes[[1]]; expect_equal(q$bank$chapters, c(1L, 2L)); expect_equal(q$due, "2026-09-13")
   expect_equal(q$resource_id, gid_py("res", m$mods$modules[[1]]$title, q$title))
   expect_true(any(vapply(m$pages, function(p) !is.null(p$source_ref), TRUE)))
   expect_true(any(vapply(m$pages, function(p) !is.null(p$height_measured), TRUE)))

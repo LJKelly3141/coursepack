@@ -1,0 +1,89 @@
+# Module structure and item ordering, in the Python manifest schema.
+# Every content item is a Canvas wiki page holding an iframe, except the ones
+# that carry through and the ones a generate: block builds.
+
+modules:
+  - title: "Module 1: Start Here"
+    module_id: "g00000000000000000000000000000b01"
+    position: 1
+    published: true
+    require_sequential_progress: true
+    items:
+      - title: "Welcome"
+        type: WikiPage
+        position: 1
+        indent: 0
+        published: true
+        item_id: "g00000000000000000000000000000f01"
+        resource_id: "g00000000000000000000000000000d01"
+        page: "welcome"
+        url: "https://example.invalid/course/welcome.html"
+        height: "1862px"
+        height_measured: "2026-09-03T08:04:08"
+      - title: "End of Module 1"
+        type: WikiPage
+        position: 2
+        indent: 1
+        published: true
+        item_id: "g00000000000000000000000000000f02"
+        resource_id: "g00000000000000000000000000000c01"
+        page: "end-of-module-1"
+        carry_through: true
+      - title: "Module 1 Quiz"
+        type: Quizzes::Quiz
+        position: 3
+        indent: 0
+        published: true
+        item_id: "g00000000000000000000000000000f03"
+        generate:
+          kind: quiz
+          chapters: [1, 2]
+          draws: [3, 2]
+          points: 5
+  - title: "Module 2: Next Steps"
+    module_id: "g00000000000000000000000000000b02"
+    position: 3
+    published: true
+    require_sequential_progress: false
+    items:
+      - title: "Module 2 Quiz"
+        type: Quizzes::Quiz
+        position: 1
+        indent: 0
+        published: true
+        item_id: "g00000000000000000000000000000f04"
+        resource_id: "g00000000000000000000000000000d02"
+        generate:
+          kind: quiz
+          chapters: [3]
+          draws: [4]
+          points: 4
+          group: "Written Work"
+          group_by: section
+          allowed_attempts: 1
+          shuffle_answers: false
+          quiz_type: assignment
+          unlock_at: "2026-09-18 08:00:00"
+          lock_at: "2026-09-20 23:59:59"
+          description: "<p>A short quiz on chapter 3.</p>"
+      - title: "Module 2 Memo"
+        type: Assignment
+        position: 2
+        indent: 1
+        published: true
+        item_id: "g00000000000000000000000000000f05"
+        generate:
+          kind: assignment
+          points: 20
+          grading_type: points
+          submission: online_upload
+          allowed_extensions: [pdf, docx]
+          group: "Written Work"
+          description: "<p>Write the memo and upload it.</p>"
+      - title: "Carried Reflection"
+        type: Assignment
+        position: 3
+        indent: 0
+        published: true
+        item_id: "g00000000000000000000000000000f06"
+        resource_id: "g00000000000000000000000000000a01"
