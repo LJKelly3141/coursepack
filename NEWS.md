@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9004
+
+* The byte gate: `gate_check()`, `tree_hashes()`; `tools/baseline.R`; the first expected tree from the frozen builder.
+
 # coursepack 0.0.0.9003
 
 * Synthetic fixture course, fake textbook, sample QTI, and the skip helpers.

@@ -14,6 +14,6 @@ read_announcements(proj)
 }
 \description{
 Optional as a file, binding once present. Every message below is the one
-the ECON 730 builder printed; the checks moved here so a defective file
+the original course builder printed; the checks moved here so a defective file
 stops the build before anything is staged.
 }

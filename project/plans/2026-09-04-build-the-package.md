@@ -1013,18 +1013,18 @@ test_that("tree_hashes is stable across the manifest date and sorted by path", {
 
 test_that("gate_check names missing, extra and changed files, and passes on identity", {
   d <- withr::local_tempdir(); writeLines("x", file.path(d, "x.txt"))
-  exp <- file.path(d, "expected.txt"); write_expected_tree(d, exp)
-  # the expected file itself is now in the tree; exclude it by writing it elsewhere
-  exp2 <- tempfile(); write_expected_tree(d, exp2)
-  expect_error(gate_check(d, exp2), "extra: expected.txt")
-  unlink(exp)
-  expect_no_error(gate_check(d, exp2))
+  # The expected tree is written OUTSIDE the tree it describes, as the real
+  # one is (tests/testthat/fixtures/, not the staging directory).
+  exp <- tempfile(fileext = ".txt"); write_expected_tree(d, exp)
+  expect_no_error(gate_check(d, exp))
+  writeLines("stray", file.path(d, "extra.txt"))
+  expect_error(gate_check(d, exp), "extra: extra.txt")
+  unlink(file.path(d, "extra.txt"))
   writeLines("y", file.path(d, "x.txt"))
-  expect_error(gate_check(d, exp2), "changed: x.txt")
+  expect_error(gate_check(d, exp), "changed: x.txt")
   unlink(file.path(d, "x.txt"))
-  expect_error(gate_check(d, exp2), "missing: x.txt")
-})
-```
+  expect_error(gate_check(d, exp), "missing: x.txt")
+})```
 
 - [ ] **Step 2: Write the cartridge gate test, skipping until Task 10**
 
