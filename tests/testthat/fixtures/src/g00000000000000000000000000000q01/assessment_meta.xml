@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz identifier="g00000000000000000000000000000q01" xmlns="http://canvas.instructure.com/xsd/cccv1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://canvas.instructure.com/xsd/cccv1p0 https://canvas.instructure.com/xsd/cccv1p0.xsd">
+  <title>Old Quiz Title</title>
+  <description></description>
+  <shuffle_answers>false</shuffle_answers>
+  <scoring_policy>keep_highest</scoring_policy>
+  <hide_results></hide_results>
+  <quiz_type>assignment</quiz_type>
+  <points_possible>20.0</points_possible>
+  <due_at/>
+  <lock_at/>
+  <unlock_at/>
+  <module_locked>false</module_locked>
+  <anonymous_submissions>false</anonymous_submissions>
+  <could_be_locked>false</could_be_locked>
+  <allowed_attempts>1</allowed_attempts>
+  <one_question_at_a_time>false</one_question_at_a_time>
+  <cant_go_back>false</cant_go_back>
+  <available>true</available>
+  <one_time_results>false</one_time_results>
+  <only_visible_to_overrides>false</only_visible_to_overrides>
+  <assignment identifier="g00000000000000000000000000000s01">
+    <title>Old Quiz Title</title>
+    <due_at></due_at>
+    <all_day_date></all_day_date>
+    <lock_at/>
+    <unlock_at/>
+    <module_locked>false</module_locked>
+    <assignment_group_identifierref>g0000000000000000000000000000000b</assignment_group_identifierref>
+    <workflow_state>published</workflow_state>
+    <assignment_overrides>
+    </assignment_overrides>
+    <position>2</position>
+    <points_possible>20.0</points_possible>
+    <grading_type>points</grading_type>
+    <all_day>false</all_day>
+    <submission_types>online_quiz</submission_types>
+    <description>&lt;p&gt;&lt;strong&gt;Read this first&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;Then answer.&lt;/p&gt;</description>
+    <quiz_identifierref>g00000000000000000000000000000q01</quiz_identifierref>
+  </assignment>
+  <assignment_group_identifierref>g0000000000000000000000000000000b</assignment_group_identifierref>
+  <assignment_overrides>
+  </assignment_overrides>
+</quiz>

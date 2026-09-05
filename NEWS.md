@@ -1,3 +1,7 @@
+# coursepack 0.3.0.9001
+
+* Carry-through: `source_ref` on any definition, bytes from `reference.yml`'s `source:`.
+
 # coursepack 0.3.0
 
 The accessibility audit is in the package: its seven files moved from the course toolchain with their test script ported section by section, and `audit_course()` drives the whole run from arguments alone.

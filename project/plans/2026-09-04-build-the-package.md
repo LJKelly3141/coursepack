@@ -90,7 +90,7 @@ What each file is responsible for, so the decomposition is fixed before any task
 | `tests/testthat/fixtures/fake-textbook/docs/` | two Quarto-shaped chapter pages | Task 4 |
 | `tests/testthat/fixtures/qti-sample/` | an unzipped R/exams-shaped QTI package | Task 4 |
 | `tests/testthat/fixtures/pair/` | two course dirs sharing a basename, two that do not | Task 4 |
-| `tests/testthat/fixtures/source-cartridge/` | an unzipped synthetic Canvas export for carry and extract | Task 29 |
+| `tests/testthat/fixtures/src/` | an unzipped synthetic Canvas export for carry and extract | Task 29 |
 | `tests/testthat/fixtures/bank/` | a synthetic question bank in the JSON schema | Task 34 |
 | `tests/testthat/fixtures/minimal-course-expected-tree.txt` | the byte gate | Task 5, regenerated deliberately in Phase 2 |
 | `tools/scrub.sh` | the public-readiness greps | Task 47 |
@@ -2858,12 +2858,12 @@ Audit announcement bodies inside the cartridge
 
 The Python builder's capabilities arrive here, in R, against synthetic fixtures. Exam pools (M11) are not ported: ECON 202 retired `exam_pools` on 2026-09-04 and both exams are generated from banks, so the arithmetic has no consumer. Every review finding in builder-merge section 5 that touches ported code has a test here written to fail against the Python behaviour.
 
-Fixture changes in this phase: `copy_course()` (Task 29) also zips `fixtures/source-cartridge/` into `<course>/reference/source.imscc`, and `tools/baseline.R` does the same, so every build of the fixture has a source cartridge to carry from.
+Fixture changes in this phase: `copy_course()` (Task 29) also zips `fixtures/src/` into `<course>/reference/source.imscc`, and `tools/baseline.R` does the same, so every build of the fixture has a source cartridge to carry from.
 
 ### Task 29: The source cartridge fixture and the carry core
 
 **Files:**
-- Create: `R/cartridge-carry.R`, `tests/testthat/test-carry.R`, `tests/testthat/fixtures/source-cartridge/` (files below)
+- Create: `R/cartridge-carry.R`, `tests/testthat/test-carry.R`, `tests/testthat/fixtures/src/` (files below)
 - Modify: `R/cartridge-items.R`, `R/cartridge-xml.R` (`write_manifest()`), `R/cartridge-checks.R`, `R/cartridge.R`, `tests/testthat/helper-fixtures.R`, `tools/baseline.R`, fixture `modules.yml`, fixture `reference.yml` (new)
 - Regenerate the expected tree.
 
@@ -2877,7 +2877,7 @@ Fixture changes in this phase: `copy_course()` (Task 29) also zips `fixtures/sou
 
 - [ ] **Step 1: Write the fixture cartridge tree**
 
-`tests/testthat/fixtures/source-cartridge/` holds an unzipped synthetic Canvas export. Identifiers (all `g` plus 32 hex):
+`tests/testthat/fixtures/src/` holds an unzipped synthetic Canvas export. Identifiers (all `g` plus 32 hex):
 
 | Id | What |
 |---|---|
@@ -2895,7 +2895,7 @@ Helper additions in `helper-fixtures.R`:
 
 ```r
 zip_fixture_source <- function(course_dir) {
-  src <- fixture_path("source-cartridge")
+  src <- fixture_path("src")
   dir.create(file.path(course_dir, "reference"), showWarnings = FALSE)
   zipf <- normalizePath(file.path(course_dir, "reference", "source.imscc"), mustWork = FALSE)
   old <- setwd(src); on.exit(setwd(old), add = TRUE)
@@ -2937,7 +2937,7 @@ test_that("read_source_cartridge parses every resource, including a self-closing
 
 test_that("carried files are byte-identical to the source, the objectbank is dropped, module items point at the carried ids", {
   b <- built()
-  src <- fixture_path("source-cartridge")
+  src <- fixture_path("src")
   for (f in c("g00000000000000000000000000000q01/assessment_meta.xml",
               "non_cc_assessments/g00000000000000000000000000000q01.xml.qti",
               "g00000000000000000000000000000q01/assessment_qti.xml",
@@ -2983,14 +2983,14 @@ test_that("a source cartridge that declares an unsafe path is refused before any
   # staged the page and the assignment before reaching it; whole-walk
   # validation stages nothing. The test tells the two apart.
   p <- copy_course(); zip_fixture_qti(p)
-  src <- fixture_path("source-cartridge"); d <- withr::local_tempdir(); file.copy(src, d, recursive = TRUE)
-  man <- file.path(d, "source-cartridge", "imsmanifest.xml")
+  src <- fixture_path("src"); d <- withr::local_tempdir(); file.copy(src, d, recursive = TRUE)
+  man <- file.path(d, "src", "imsmanifest.xml")
   m <- readLines(man)
   bad <- sub('<file href="non_cc_assessments/g00000000000000000000000000000q01.xml.qti"/>',
              '<file href="../g00000000000000000000000000000q01.xml.qti"/>', m, fixed = TRUE)
   expect_false(identical(bad, m))
   writeLines(bad, man)
-  old <- setwd(file.path(d, "source-cartridge")); utils::zip(file.path(p, "reference", "source.imscc"), list.files(".", recursive = TRUE), flags = "-q -X"); setwd(old)
+  old <- setwd(file.path(d, "src")); utils::zip(file.path(p, "reference", "source.imscc"), list.files(".", recursive = TRUE), flags = "-q -X"); setwd(old)
   expect_error(build_cartridge(p), "unsafe path: ../g00000000000000000000000000000q01.xml.qti")
   expect_false(file.exists(file.path(p, "build", "coursepack", "g00000000000000000000000000000q01.xml.qti")))
   st <- file.path(p, "build", "coursepack", "staging")
@@ -3005,7 +3005,7 @@ test_that("a source cartridge that declares an unsafe path is refused before any
 
 - [ ] **Step 3: Implement.** `R/cartridge-carry.R` as specified. In `resolve_items()`, a carried definition's resource id is `check_gid(def$resource_id) %||% def$source_ref`. In `build_cartridge()`, after the generated writers: `if (any_source_ref(m)) { src <- read_source_cartridge(source_path(ref, proj)); carried <- carry_resources(carried_defs(m), src, stage) }`. `write_manifest()` takes `carried$raw`. `write_wiki_pages()`, `write_assignments()`, `embed_quiz()` skip carried definitions. The definition-shape check (`source_ref` plus a body key) lives in `read_manifest()` so the checker sees it too.
 
-- [ ] **Step 4: Regeneration procedure.** Expected: `extra:` the seven carried files and `changed:` `imsmanifest.xml`, `course_settings/module_meta.xml`. `Version: 0.3.0.9001`; NEWS: "Carry-through: `source_ref` on any definition, bytes from `reference.yml`'s `source:`."
+- [ ] **Step 4: Regeneration procedure.** Expected: `extra:` the six carried files the walk reaches (c01, a01's two, q01's one, m01's two; c02, e01, b01 and w01 are in the fixture on purpose and nothing carries them) and `changed:` `imsmanifest.xml`, `course_settings/module_meta.xml`. The fixture directory is `fixtures/src/` (a three-letter name: its Canvas-shaped paths, a 33-character identifier under `non_cc_assessments/`, reach 99 bytes in the tarball against the 100-byte limit R CMD check enforces). `Version: 0.3.0.9001`; NEWS: "Carry-through: `source_ref` on any definition, bytes from `reference.yml`'s `source:`."
 
 - [ ] **Step 5: Propose the commit and stop**
 

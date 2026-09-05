@@ -103,21 +103,39 @@ build_cartridge <- function(proj = ".") {
   write_assignments(stage, m$assignments, r$ids, course, tb_docs, groups, proj, tz)
   for (k in names(m$quizzes)) {
     q <- m$quizzes[[k]]
+    if (!is.null(q$source_ref)) next                   # carried, not generated
     ag_id <- group_id_for(q$group %||% course$assignment_defaults$group,
                           groups, paste0("quiz '", k, "'"))
     embed_quiz(k, q, r$ids, ag_id, stage, proj)
   }
+  # Carrying runs after every generated writer and before the manifest, which
+  # needs the carried <resource> blocks. It writes nothing at all unless every
+  # path the source declares is safe; see R/cartridge-carry.R.
+  carried <- no_carry()
+  if (any_source_ref(m)) {
+    cdefs <- carried_defs(m)
+    src <- read_source_cartridge(source_path(ref, proj, cdefs[[1]]$name))
+    carried <- carry_resources(cdefs, src, stage)
+    cat(sprintf("  carried %d resources, %d files out of %s\n",
+                length(carried$carried), length(carried$files), basename(src$zip)))
+  }
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)
-  settings_res <- write_manifest(stage, course, r$modmeta, r$items, r$ids, tile, ann_ids, m)
+  settings_res <- write_manifest(stage, course, r$modmeta, r$items, r$ids, tile,
+                                 ann_ids, m, carried$raw)
 
   cat("=== pre-zip validation ===\n")
   problems <- character(); p_fail <- function(...) problems <<- c(problems, paste0(...))
-  prezip_checks(stage, settings_res, ann_ids$ann_res, p_fail)
+  prezip_checks(stage, settings_res, ann_ids$ann_res, p_fail, carried$carried)
   check_announcements(stage, ann, ann_ids$ann_res, p_fail)
+  check_carried(stage, carried, groups, p_fail)
   if (length(problems)) {
     cat("\nBUILD FAILED:\n"); for (p in problems) cat("  ! ", p, "\n", sep = "")
-    stop("BUILD FAILED: ", length(problems), " problem(s); see above", call. = FALSE)
+    # The problems are repeated in the condition message, not only on the
+    # console: a caller that catches the error, a test included, otherwise sees
+    # a count and has to go looking for the output that says what broke.
+    stop("BUILD FAILED: ", length(problems), " problem(s):\n  ",
+         paste(problems, collapse = "\n  "), call. = FALSE)
   }
   outfile <- file.path(out_root, sprintf("%s-%s.imscc", course_slug(course), format(Sys.Date())))
   zip_cartridge(stage, outfile)                          # mtime pin, zip -q -X
@@ -131,8 +149,7 @@ build_cartridge <- function(proj = ".") {
 }
 
 # Does any page, assignment or quiz definition ask for something out of the
-# source cartridge? False for every course today; the key is read here so the
-# reporting line above is written once and stays correct when carrying lands.
+# source cartridge?
 any_source_ref <- function(m) {
   defs <- c(m$pages, m$assignments, m$quizzes)
   any(vapply(defs, function(d) !is.null(d$source_ref), TRUE))

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modules xmlns="http://canvas.instructure.com/xsd/cccv1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://canvas.instructure.com/xsd/cccv1p0 https://canvas.instructure.com/xsd/cccv1p0.xsd">
+
+  <module identifier="g00000000000000000000000000000d01">
+    <title>Source Module</title>
+    <workflow_state>active</workflow_state>
+    <position>1</position>
+    <require_sequential_progress>false</require_sequential_progress>
+    <locked>false</locked>
+    <items>
+      <item identifier="g00000000000000000000000000000a11">
+        <content_type>WikiPage</content_type>
+        <workflow_state>active</workflow_state>
+        <title>Carried Page</title>
+        <identifierref>g00000000000000000000000000000c01</identifierref>
+        <position>1</position>
+        <new_tab>false</new_tab>
+        <indent>0</indent>
+        <link_settings_json>null</link_settings_json>
+      </item>
+      <item identifier="g00000000000000000000000000000a12">
+        <content_type>WikiPage</content_type>
+        <workflow_state>active</workflow_state>
+        <title>Wrapped</title>
+        <identifierref>g00000000000000000000000000000c02</identifierref>
+        <position>2</position>
+        <new_tab>false</new_tab>
+        <indent>0</indent>
+        <link_settings_json>null</link_settings_json>
+      </item>
+      <item identifier="g00000000000000000000000000000a13">
+        <content_type>Assignment</content_type>
+        <workflow_state>active</workflow_state>
+        <title>Old Assignment Title</title>
+        <identifierref>g00000000000000000000000000000a01</identifierref>
+        <position>3</position>
+        <new_tab>false</new_tab>
+        <indent>0</indent>
+        <link_settings_json>null</link_settings_json>
+      </item>
+      <item identifier="g00000000000000000000000000000a14">
+        <content_type>Quizzes::Quiz</content_type>
+        <workflow_state>active</workflow_state>
+        <title>Old Quiz Title</title>
+        <identifierref>g00000000000000000000000000000q01</identifierref>
+        <position>4</position>
+        <new_tab></new_tab>
+        <indent>0</indent>
+        <link_settings_json>null</link_settings_json>
+      </item>
+      <item identifier="g00000000000000000000000000000a15">
+        <content_type>ContextModuleSubHeader</content_type>
+        <workflow_state>active</workflow_state>
+        <title>A header</title>
+        <position>5</position>
+        <new_tab>false</new_tab>
+        <indent>0</indent>
+        <link_settings_json>null</link_settings_json>
+      </item>
+      <item identifier="g00000000000000000000000000000a16">
+        <content_type>ExternalUrl</content_type>
+        <workflow_state>active</workflow_state>
+        <title>Outside</title>
+        <identifierref>g00000000000000000000000000000w01</identifierref>
+        <url>https://example.invalid/out</url>
+        <position>6</position>
+        <new_tab>false</new_tab>
+        <indent>0</indent>
+        <link_settings_json>null</link_settings_json>
+      </item>
+    </items>
+  </module>
+</modules>

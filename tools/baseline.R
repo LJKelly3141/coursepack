@@ -27,6 +27,17 @@ utils::zip(file.path(proj, "build", "qti", "quiz-sample.zip"),
            list.files(basename(qti_src), recursive = TRUE, full.names = TRUE), flags = "-q -X")
 setwd(old)
 
+# The source cartridge, zipped exactly the way copy_course() zips it: at the
+# archive root, so the entry names are the hrefs its manifest declares. The
+# fixture course carries three definitions out of this file, so a baseline
+# built without it is a baseline of a different course.
+src_cc <- file.path(dirname(fixture), "src")
+dir.create(file.path(proj, "reference"), recursive = TRUE, showWarnings = FALSE)
+old <- setwd(src_cc)
+utils::zip(file.path(proj, "reference", "source.imscc"),
+           list.files(".", recursive = TRUE), flags = "-q -X")
+setwd(old)
+
 if (mode == "script") {
   snap <- "project/econ730-toolchain/scripts"
   dir.create(file.path(proj, "scripts", "lib"), recursive = TRUE)

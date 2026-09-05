@@ -20,7 +20,7 @@ staged_text <- function(stage, rel) {
   paste(readLines(f, warn = FALSE), collapse = "\n")
 }
 
-prezip_checks <- function(stage, settings_res, ann_res, p_fail) {
+prezip_checks <- function(stage, settings_res, ann_res, p_fail, carried_ids = character()) {
 mh <- paste(readLines(file.path(stage, "imsmanifest.xml"), warn = FALSE), collapse = "\n")
 
 # The manifest header, everything ahead of <organizations>, carries the four
@@ -90,8 +90,17 @@ for (f in list.files(stage, recursive = TRUE, full.names = TRUE)) {
 cat(sprintf("  answer-key containment: %d source files, %d canary hits\n",
             length(srcs), canary_hits))
 
+# A carried resource id that the generator also minted would be declared twice.
+# Canvas keeps one of the two and drops the other's files without saying which,
+# so the cartridge imports looking complete and is not. Read from the manifest
+# rather than from the carry's own bookkeeping, because the collision is
+# between what the two writers put on the page.
+all_rids <- regmatches(mh, gregexpr('(?<=<resource identifier=")[^"]+', mh, perl = TRUE))[[1]]
+for (id in intersect(carried_ids, unique(all_rids[duplicated(all_rids)])))
+  p_fail("carried resource ", id, " declared twice")
+
 # every idref in the manifest resolves to a declared resource
-rids <- unique(regmatches(mh, gregexpr('(?<=<resource identifier=")[^"]+', mh, perl = TRUE))[[1]])
+rids <- unique(all_rids)
 irefs <- unique(regmatches(mh, gregexpr('(?<=identifierref=")[^"]+', mh, perl = TRUE))[[1]])
 
 # course_settings.xml can also point at a resource, and does for the course card
@@ -122,4 +131,33 @@ for (f in xmls) if (inherits(try(xml2::read_xml(f), silent = TRUE), "try-error")
 }
 cat(sprintf("  xml files=%d  malformed=%d\n", length(xmls), badxml))
 
+}
+
+# ---- checks that only apply to carried bytes ------------------------------
+
+# A carried settings file names its assignment group by the id the SOURCE
+# course minted. This course declares its own groups, and a carried file
+# pointing at a group this manifest does not declare imports into Canvas's
+# default group without reporting anything: the assignment appears, the weight
+# is wrong, and the only symptom is a grade book that does not add up.
+#
+# Read from the STAGED file, not from the source archive, because what ships is
+# what matters and the two could differ if anything ever rewrites them.
+check_carried <- function(stage, carried, groups, p_fail) {
+  if (!length(carried$files)) return(invisible(NULL))
+  settings <- carried$files[basename(carried$files) %in%
+                            c("assignment_settings.xml", "assessment_meta.xml")]
+  n <- 0L
+  for (f in settings) {
+    txt <- staged_text(stage, f)
+    ids <- unique(regmatches(txt, gregexpr(
+      "(?<=<assignment_group_identifierref>)[^<]+", txt, perl = TRUE))[[1]])
+    n <- n + length(ids)
+    for (id in ids) if (!id %in% groups)
+      p_fail("carried ", f, " references assignment group ", id,
+             ", which course.yml does not declare")
+  }
+  cat(sprintf("  carried: %d resources, %d files, %d group references\n",
+              length(carried$carried), length(carried$files), n))
+  invisible(NULL)
 }

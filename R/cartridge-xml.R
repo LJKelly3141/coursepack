@@ -169,6 +169,9 @@ write_wiki_pages <- function(stage, proj, pages, page_res, urls) {
 canvas_dir <- file.path(proj, "content", "canvas")
 for (k in names(pages)) {
   p <- pages[[k]]
+  # A carried page's HTML is staged out of the source cartridge byte for byte.
+  # Generating one here would overwrite it with something that only resembles it.
+  if (!is.null(p$source_ref)) next
 
   if (isTRUE(p$body)) {
     f <- file.path(canvas_dir, paste0(k, ".html"))
@@ -331,6 +334,7 @@ asg_pos <- ids$asg_pos
 d <- course$assignment_defaults
 for (k in names(asg)) {
   a <- asg[[k]]
+  if (!is.null(a$source_ref)) next                     # carried, not generated
   if (!is.null(a$todo) && isTRUE(a$published))
     stop("REFUSING TO BUILD: ", k, " carries a todo: but is published: true. ",
          "A placeholder must never go live.")
@@ -388,7 +392,8 @@ due_xml, '  <lock_at/>\n  <unlock_at/>\n',
 
 }
 
-write_manifest <- function(stage, course, modmeta, items, ids, tile, ann_ids, m) {
+write_manifest <- function(stage, course, modmeta, items, ids, tile, ann_ids, m,
+                           carried_raw = character()) {
 pages <- m$pages
 asg <- m$assignments
 quiz <- m$quizzes
@@ -488,6 +493,7 @@ for (r in weblinks) man <- c(man,
   '    </resource>')
 
 for (k in names(pages)) {
+  if (!is.null(pages[[k]]$source_ref)) next            # its block is carried below
   h <- paste0("wiki_content/", k, ".html")
   man <- c(man,
     paste0('    <resource identifier="', page_res[[k]], '" type="webcontent" href="', h, '">'),
@@ -495,6 +501,7 @@ for (k in names(pages)) {
 }
 
 for (k in names(asg)) {
+  if (!is.null(asg[[k]]$source_ref)) next              # its block is carried below
   rid <- asg_res[[k]]; h <- paste0(rid, "/", slugify(asg[[k]]$title), ".html")
   man <- c(man,
     paste0('    <resource identifier="', rid,
@@ -504,6 +511,7 @@ for (k in names(asg)) {
 }
 
 for (k in names(quiz)) {
+  if (!is.null(quiz[[k]]$source_ref)) next             # its block is carried below
   man <- c(man,
     paste0('    <resource identifier="', quiz_res[[k]],
            '" type="imsqti_xmlv1p2/imscc_xmlv1p1/assessment">'),
@@ -530,6 +538,11 @@ for (k in names(anns)) man <- c(man,
          ann_meta[[k]], '.xml">'),
   paste0('      <file href="', ann_meta[[k]], '.xml"/>'),
   '    </resource>')
+
+# Carried <resource> blocks, verbatim, after everything this file generated.
+# The span starts at the "<resource" itself, so the four spaces that put it at
+# the same depth as the generated blocks are added back here.
+if (length(carried_raw)) man <- c(man, paste0("    ", carried_raw))
 
 man <- c(man, '  </resources>', '</manifest>')
 writef(file.path(stage, "imsmanifest.xml"), paste(man, collapse = "\n"))

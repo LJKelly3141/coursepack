@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assignment identifier="g00000000000000000000000000000a01" xmlns="http://canvas.instructure.com/xsd/cccv1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://canvas.instructure.com/xsd/cccv1p0 https://canvas.instructure.com/xsd/cccv1p0.xsd">
+  <title>Old Assignment Title</title>
+  <due_at>2025-02-01T05:59:59</due_at>
+  <all_day_date>2025-01-31</all_day_date>
+  <lock_at/>
+  <unlock_at/>
+  <module_locked>false</module_locked>
+  <assignment_group_identifierref>g0000000000000000000000000000000b</assignment_group_identifierref>
+  <workflow_state>published</workflow_state>
+  <assignment_overrides>
+  </assignment_overrides>
+  <allowed_extensions>doc,docx</allowed_extensions>
+  <has_group_category>false</has_group_category>
+  <points_possible>10.0</points_possible>
+  <grading_type>points</grading_type>
+  <submission_types>online_upload</submission_types>
+  <position>1</position>
+  <turnitin_enabled>false</turnitin_enabled>
+  <peer_reviews>false</peer_reviews>
+  <automatic_peer_reviews>false</automatic_peer_reviews>
+  <grade_group_students_individually>false</grade_group_students_individually>
+  <omit_from_final_grade>false</omit_from_final_grade>
+  <only_visible_to_overrides>false</only_visible_to_overrides>
+  <post_to_sis>false</post_to_sis>
+  <moderated_grading>false</moderated_grading>
+  <anonymous_grading>false</anonymous_grading>
+  <post_policy>
+    <post_manually>false</post_manually>
+  </post_policy>
+</assignment>

@@ -30,22 +30,27 @@ quiz  <- if (is.null(mods$quizzes)) list() else
 # would silently ignore the override, so nothing below calls gid() for a
 # resource again.
 
+# A CARRIED definition's resource id is the id it carries. The resource block
+# and the files come out of the source cartridge under that id, so deriving a
+# fresh one would leave the module item pointing at a resource nothing wrote.
+# An explicit resource_id: still wins, which is how a course renames a carried
+# resource on the way through.
+res_id <- function(def, kind, k)
+  check_gid(def$resource_id) %||% def$source_ref %||% gid(kind, k)
+
 # Quizzes need three ids each: the assessment resource (which the module item
 # points at), the meta resource, and the inner assignment. Only the assessment
 # resource is overridable: it is the one Canvas exposes as the quiz.
-quiz_res  <- vapply(names(quiz), function(k)
-                    check_gid(quiz[[k]]$resource_id) %||% gid("quiz", k),  "")
+quiz_res  <- vapply(names(quiz), function(k) res_id(quiz[[k]], "quiz", k), "")
 quiz_meta <- vapply(names(quiz), function(k) gid("quizmeta", k),       "")
 quiz_aid  <- vapply(names(quiz), function(k) gid("quizassignment", k), "")
 
 # Assignment resource ids and directory names, needed before the item walk.
-asg_res <- vapply(names(asg), function(k)
-                  check_gid(asg[[k]]$resource_id) %||% gid("assignment", k), "")
+asg_res <- vapply(names(asg), function(k) res_id(asg[[k]], "assignment", k), "")
 asg_dir <- asg_res
 asg_pos <- stats::setNames(seq_along(names(asg)), names(asg))
 
-page_res <- vapply(names(pages), function(k)
-                   check_gid(pages[[k]]$resource_id) %||% gid("page", k), "")
+page_res <- vapply(names(pages), function(k) res_id(pages[[k]], "page", k), "")
 
 items <- list(); modmeta <- list()
 for (mi in seq_along(mods$modules)) {

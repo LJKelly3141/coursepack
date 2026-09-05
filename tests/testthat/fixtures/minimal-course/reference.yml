@@ -1,0 +1,4 @@
+# The cartridge this course carries resources out of. copy_course() and
+# tools/baseline.R zip fixtures/src/ (the synthetic source cartridge; the three-letter
+# name keeps its Canvas-shaped paths under the 100-byte tarball limit) to this path.
+source: reference/source.imscc

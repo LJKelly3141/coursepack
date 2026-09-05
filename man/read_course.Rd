@@ -51,8 +51,8 @@ defaults to one neutral sentence; \verb{submission_note:} defaults to empty,
 and an empty note appends nothing.
 
 \verb{source:} in \code{reference.yml} names a cartridge whose resources a course
-can carry forward, and \verb{source_ref:} on a definition names one of them.
-Nothing carries a resource yet; a declared source with nothing carried is
-reported by \code{build_cartridge()}.
+can carry forward, and \verb{source_ref:} on a definition names one of them. A
+carried definition needs a \verb{title:} and declares no body key of its own;
+a declared source with nothing carried is reported by \code{build_cartridge()}.
 }
 

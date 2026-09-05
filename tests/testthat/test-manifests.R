@@ -20,11 +20,11 @@ test_that("the fixture course passes, reporting the textbook skip when docs are 
 
 test_that("counts in reference.yml are fatal when they disagree", {
   p <- ready()
-  writeLines(c("counts:", "  modules: 2", "  items: 13", "  header: 2", "  page: 3", "  link: 4",
-               "  assignment: 3", "  quiz: 1"), file.path(p, "reference.yml"))
+  writeLines(c("counts:", "  modules: 3", "  items: 16", "  header: 2", "  page: 4", "  link: 4",
+               "  assignment: 4", "  quiz: 2"), file.path(p, "reference.yml"))
   expect_no_error(check_manifests(p))
   writeLines(c("counts:", "  modules: 9"), file.path(p, "reference.yml"))
-  expect_error(check_manifests(p), "modules: 2 vs 9")
+  expect_error(check_manifests(p), "modules: 3 vs 9")
 })
 
 test_that("referential integrity: undefined and orphan definitions fail", {

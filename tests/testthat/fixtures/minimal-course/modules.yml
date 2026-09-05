@@ -30,6 +30,12 @@ modules:
       - header: "Coming later"
       - link: "Chapter Two"
         chapter: ch02
+  - title: "Module 3: Carried"
+    published: true
+    items:
+      - page: carried-page
+      - assignment: carried-asg
+      - quiz: carried-quiz
 pages:
   - slug: welcome
     title: Welcome
@@ -45,6 +51,9 @@ pages:
     width: "560"
     height: "315"
     video: true
+  - slug: carried-page
+    title: Carried Page
+    source_ref: g00000000000000000000000000000c01
 assignments:
   - id: hw-1
     title: Homework 1
@@ -68,9 +77,17 @@ assignments:
     todo: "write this once the chapter exists"
     homework:
       chapter: ch02
+  - id: carried-asg
+    title: Carried Assignment
+    published: true
+    source_ref: g00000000000000000000000000000a01
 quizzes:
   - id: q-sample
     title: Sample R/exams Quiz
     qti: build/qti/quiz-sample.zip
     published: true
     group: Quizzes
+  - id: carried-quiz
+    title: Carried Quiz
+    published: true
+    source_ref: g00000000000000000000000000000q01

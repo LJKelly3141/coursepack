@@ -1,0 +1,2 @@
+Q: Where did this cartridge come from?
+A: A Canvas export, which is why the course_settings files are worth reading.

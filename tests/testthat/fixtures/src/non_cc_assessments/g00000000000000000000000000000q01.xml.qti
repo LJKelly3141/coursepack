@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<questestinterop xmlns="http://www.imsglobal.org/xsd/ims_qtiasiv1p2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/ims_qtiasiv1p2 http://www.imsglobal.org/profile/cc/ccv1p1/ccv1p1_qtiasiv1p2p1_v1p0.xsd">
+  <assessment ident="g00000000000000000000000000000q01" title="Old Quiz Title">
+    <qtimetadata>
+      <qtimetadatafield>
+        <fieldlabel>cc_maxattempts</fieldlabel>
+        <fieldentry>1</fieldentry>
+      </qtimetadatafield>
+    </qtimetadata>
+    <section ident="root_section">
+      <section ident="g00000000000000000000000000000g01" title="Group One">
+        <selection_ordering>
+          <selection>
+            <selection_number>1</selection_number>
+            <selection_extension>
+              <points_per_item>10.0</points_per_item>
+            </selection_extension>
+          </selection>
+        </selection_ordering>
+        <item ident="g0000000000000000000000000000ga01" title="Group One Question 1">
+          <presentation>
+            <material>
+              <mattext texttype="text/html">&lt;p&gt;Pick the first answer.&lt;/p&gt;</mattext>
+            </material>
+            <response_lid ident="response1" rcardinality="Single">
+              <render_choice>
+                <response_label ident="1001">
+                  <material>
+                    <mattext texttype="text/plain">Yes</mattext>
+                  </material>
+                </response_label>
+                <response_label ident="1002">
+                  <material>
+                    <mattext texttype="text/plain">No</mattext>
+                  </material>
+                </response_label>
+              </render_choice>
+            </response_lid>
+          </presentation>
+        </item>
+        <item ident="g0000000000000000000000000000ga02" title="Group One Question 2">
+          <presentation>
+            <material>
+              <mattext texttype="text/html">&lt;p&gt;Pick another answer.&lt;/p&gt;</mattext>
+            </material>
+            <response_lid ident="response1" rcardinality="Single">
+              <render_choice>
+                <response_label ident="2001">
+                  <material>
+                    <mattext texttype="text/plain">Yes</mattext>
+                  </material>
+                </response_label>
+                <response_label ident="2002">
+                  <material>
+                    <mattext texttype="text/plain">No</mattext>
+                  </material>
+                </response_label>
+              </render_choice>
+            </response_lid>
+          </presentation>
+        </item>
+      </section>
+      <section ident="g00000000000000000000000000000g02" title="Group Two">
+        <selection_ordering>
+          <selection>
+            <selection_number>1</selection_number>
+            <selection_extension>
+              <points_per_item>10.0</points_per_item>
+            </selection_extension>
+          </selection>
+        </selection_ordering>
+        <item ident="g0000000000000000000000000000gb01" title="Group Two Question 1">
+          <presentation>
+            <material>
+              <mattext texttype="text/html">&lt;p&gt;Pick the third answer.&lt;/p&gt;</mattext>
+            </material>
+            <response_lid ident="response1" rcardinality="Single">
+              <render_choice>
+                <response_label ident="3001">
+                  <material>
+                    <mattext texttype="text/plain">Yes</mattext>
+                  </material>
+                </response_label>
+                <response_label ident="3002">
+                  <material>
+                    <mattext texttype="text/plain">No</mattext>
+                  </material>
+                </response_label>
+              </render_choice>
+            </response_lid>
+          </presentation>
+        </item>
+        <item ident="g0000000000000000000000000000gb02" title="Group Two Question 2">
+          <presentation>
+            <material>
+              <mattext texttype="text/html">&lt;p&gt;Pick the fourth answer.&lt;/p&gt;</mattext>
+            </material>
+            <response_lid ident="response1" rcardinality="Single">
+              <render_choice>
+                <response_label ident="4001">
+                  <material>
+                    <mattext texttype="text/plain">Yes</mattext>
+                  </material>
+                </response_label>
+                <response_label ident="4002">
+                  <material>
+                    <mattext texttype="text/plain">No</mattext>
+                  </material>
+                </response_label>
+              </render_choice>
+            </response_lid>
+          </presentation>
+        </item>
+      </section>
+    </section>
+  </assessment>
+</questestinterop>

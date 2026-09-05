@@ -36,9 +36,9 @@ read_yaml_under <- function(proj, name) {
 #'   and an empty note appends nothing.
 #'
 #'   `source:` in `reference.yml` names a cartridge whose resources a course
-#'   can carry forward, and `source_ref:` on a definition names one of them.
-#'   Nothing carries a resource yet; a declared source with nothing carried is
-#'   reported by `build_cartridge()`.
+#'   can carry forward, and `source_ref:` on a definition names one of them. A
+#'   carried definition needs a `title:` and declares no body key of its own;
+#'   a declared source with nothing carried is reported by `build_cartridge()`.
 #' @param proj Course project root.
 #' @return `read_manifest()` returns `list(course, mods, pages, assignments, quizzes)`.
 #' @export
@@ -61,10 +61,17 @@ named_by <- function(x, key, what) {
 #' @export
 read_manifest <- function(proj) {
   course <- read_course(proj); mods <- read_modules(proj)
-  list(course = course, mods = mods,
-       pages = named_by(mods$pages, "slug", "page"),
-       assignments = named_by(mods$assignments, "id", "assignment"),
-       quizzes = named_by(mods$quizzes, "id", "quiz"))
+  m <- list(course = course, mods = mods,
+            pages = named_by(mods$pages, "slug", "page"),
+            assignments = named_by(mods$assignments, "id", "assignment"),
+            quizzes = named_by(mods$quizzes, "id", "quiz"))
+  # The carried-definition shape is checked HERE rather than in the builder, so
+  # check_manifests() rejects a definition that says both "carry these bytes"
+  # and "generate a body" before anything has been built.
+  check_carried_shape(m$pages, "page")
+  check_carried_shape(m$assignments, "assignment")
+  check_carried_shape(m$quizzes, "quiz")
+  m
 }
 
 #' @rdname read_course

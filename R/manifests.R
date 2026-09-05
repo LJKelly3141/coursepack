@@ -72,6 +72,14 @@ check_manifests <- function(proj = ".", textbook_docs = NULL) {
   # A quiz whose QTI zip is missing produces a cartridge with a quiz item pointing
   # at nothing. Fail here rather than at build time.
   for (k in names(quiz)) {
+    # A carried quiz has no QTI zip to build: its three files come out of the
+    # source cartridge. Reported rather than passed over, so a quiz that lost
+    # its qti: key does not read as a carried one.
+    if (!is.null(quiz[[k]]$source_ref)) {
+      cat(sprintf("  quiz %-10s carried from the source cartridge: %s\n",
+                  k, quiz[[k]]$source_ref))
+      next
+    }
     z <- quiz[[k]]$qti
     if (is.null(z)) { fail("quiz '", k, "' has no qti: path"); next }
     zp <- if (startsWith(z, "/")) z else file.path(proj, z)

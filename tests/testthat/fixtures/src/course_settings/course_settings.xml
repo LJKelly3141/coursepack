@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<course identifier="g00000000000000000000000000000f03" xmlns="http://canvas.instructure.com/xsd/cccv1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://canvas.instructure.com/xsd/cccv1p0 https://canvas.instructure.com/xsd/cccv1p0.xsd">
+  <title>Source Course</title>
+  <course_code>SRC 100</course_code>
+  <is_public>false</is_public>
+  <default_view>modules</default_view>
+  <grading_standard_enabled>false</grading_standard_enabled>
+  <group_weighting_scheme>percent</group_weighting_scheme>
+  <allow_student_wiki_edits>false</allow_student_wiki_edits>
+</course>

@@ -9,7 +9,7 @@ test_that("no reference.yml means a loud skip and an empty result", {
 
 test_that("an identical cartridge reports no divergence", {
   skip_if_no("zip")
-  p <- copy_course(); dir.create(file.path(p, "reference"))
+  p <- copy_course(); dir.create(file.path(p, "reference"), showWarnings = FALSE)
   ref <- write_mini_cartridge(file.path(p, "reference", "ref.imscc"), one_module())
   gen <- write_mini_cartridge(file.path(p, "gen.imscc"), one_module())
   writeLines("export: reference/ref.imscc", file.path(p, "reference.yml"))
@@ -19,7 +19,7 @@ test_that("an identical cartridge reports no divergence", {
 
 test_that("an undeclared divergence stops; a declared one is accounted for by substring", {
   skip_if_no("zip")
-  p <- copy_course(); dir.create(file.path(p, "reference"))
+  p <- copy_course(); dir.create(file.path(p, "reference"), showWarnings = FALSE)
   write_mini_cartridge(file.path(p, "reference", "ref.imscc"), one_module())
   gen <- write_mini_cartridge(file.path(p, "gen.imscc"), one_module(list(list(title = "C", ctype = "WikiPage"))))
   writeLines("export: reference/ref.imscc", file.path(p, "reference.yml"))

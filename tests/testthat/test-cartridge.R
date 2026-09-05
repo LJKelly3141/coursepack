@@ -81,13 +81,13 @@ test_that("the homework body uses the package intro and no submission note unles
 
 test_that("a bare due: takes due_time; a clock time is used as given; no due_time is a stop", {
   b <- built()
-  all_due <- unlist(lapply(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE),
+  all_due <- unlist(lapply(generated_files(b$stage, "assignment_settings\\.xml$"),
                            function(f) regmatches(x <- paste(readLines(f), collapse = ""), gregexpr("(?<=<due_at>)[^<]+", x, perl = TRUE))[[1]]))
   expect_setequal(all_due, c("2026-09-16T04:59:59", "2026-09-21T04:59:59"))
   p <- b$p
   edit_yaml(p, "modules.yml", "due: 2026-09-15", 'due: "2026-09-15 09:45"')
   build_cartridge(p)
-  s <- paste(unlist(lapply(list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE), readLines)), collapse = "")
+  s <- paste(unlist(lapply(generated_files(b$stage, "assignment_settings\\.xml$"), readLines)), collapse = "")
   expect_match(s, "2026-09-15T14:45:00")
   edit_yaml(p, "course.yml", 'due_time: "23:59:59"', "")
   edit_yaml(p, "modules.yml", 'due: "2026-09-15 09:45"', "due: 2026-09-15")
@@ -96,7 +96,7 @@ test_that("a bare due: takes due_time; a clock time is used as given; no due_tim
 
 test_that("the R/exams quiz embeds with the prefix rewritten and two distinct idents", {
   b <- built()
-  qti <- list.files(file.path(b$stage, "non_cc_assessments"), full.names = TRUE)
+  qti <- generated_files(file.path(b$stage, "non_cc_assessments"))
   expect_length(qti, 1L)
   x <- paste(readLines(qti), collapse = "\n")
   expect_no_match(x, "quiz-sample_[0-9]+")
@@ -117,10 +117,10 @@ test_that("both groups are emitted with their weights and each assignment and qu
   expect_match(ag, "<title>Quizzes</title>\\s*<position>2</position>\\s*<group_weight>20.0</group_weight>")
   gids <- regmatches(ag, gregexpr('(?<=identifier=")[^"]+', ag, perl = TRUE))[[1]]
   expect_true("g0000000000000000000000000000000b" %in% gids)
-  quiz_meta <- paste(readLines(list.files(b$stage, pattern = "assessment_meta\\.xml$", recursive = TRUE, full.names = TRUE)), collapse = "")
+  quiz_meta <- paste(readLines(generated_files(b$stage, "assessment_meta\\.xml$")), collapse = "")
   expect_match(quiz_meta, gids[2], fixed = TRUE)
   q1 <- paste(readLines(list.files(b$stage, pattern = "module-1-quiz", recursive = TRUE, full.names = TRUE, include.dirs = TRUE)[1]), collapse = "")
-  settings <- list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE)
+  settings <- generated_files(b$stage, "assignment_settings\\.xml$")
   refs <- vapply(settings, function(f) sub(".*<assignment_group_identifierref>([^<]+).*", "\\1", paste(readLines(f), collapse = "")), "")
   expect_setequal(unique(unname(refs)), gids)
 })
@@ -165,6 +165,7 @@ test_that("height_measured is accepted, and a declared source with nothing carri
   skip_if_no("zip"); skip_if_no("pandoc")
   p <- copy_course(); zip_fixture_qti(p)
   edit_yaml(p, "modules.yml", '    height: "800"', '    height: "800"\n    height_measured: "2026-09-01T10:00:00"')
+  drop_carried(p)                       # the reported case is a source nothing uses
   writeLines("source: reference/none.imscc", file.path(p, "reference.yml"))
   expect_output(build_cartridge(p), "source declared, 0 resources carried")
 })
