@@ -1234,7 +1234,8 @@ test_that("collect_refs includes chapter items and homework chapters, excludes t
       list(chapter = "010_intro-R", anchor = NULL, link = "Reading: Chapter 1"),
       list(chapter = "", anchor = NULL, link = "Textbook root")))),
     assignments = list(list(id = "homework-1",
-      homework = list(chapter = "015_case-first_look", anchor = "homework-assignment"))))
+      homework = list(chapter = "015_case-first_look", anchor = "homework-assignment")))
+  )
   refs <- collect_refs(mods_t)
   expect_length(refs, 2L)
   expect_length(Filter(function(r) identical(r$ch, "010_intro-R"), refs), 1L)

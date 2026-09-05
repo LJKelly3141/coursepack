@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9005
+
+* `interp_urls()`, `chapter_url()`, `resolve_target()`, `collect_refs()` moved from `scripts/lib/resolve.R`.
+
 # coursepack 0.0.0.9004
 
 * The byte gate: `gate_check()`, `tree_hashes()`; `tools/baseline.R`; the first expected tree from the frozen builder.
