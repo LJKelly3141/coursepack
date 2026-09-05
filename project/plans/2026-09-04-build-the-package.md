@@ -2802,9 +2802,9 @@ test_that("a real pa11y run against the fixture finds the planted defects with b
   skip_if_no("npx"); skip_if_no("python3")
   skip_if(!nzchar(Sys.getenv("COURSEPACK_PA11Y_TESTS")), "set COURSEPACK_PA11Y_TESTS=1 to run pa11y (downloads Chromium on first use)")
   out <- withr::local_tempdir()
-  res <- audit_course(fixture_path("pair", "alpha"), proj = out, out_dir = out, port = 8793L)
+  res <- audit_course(fixture_path("pair", "alpha"), proj = out, out_dir = out, port = 8794L)
   df <- res$findings
-  expect_setequal(unique(df$source[df$source %in% c("htmlcs", "axe")]), c("htmlcs", "axe"))
+  expect_setequal(unique(df$source), c("pa11y", "custom"))
   expect_true(any(df$criterion == "1.1.1" & grepl("filename", df$issue, ignore.case = TRUE)))
   expect_true(any(df$criterion == "3.1.1"))
   expect_length(list.files(out, pattern = "-findings\\.json$"), 1L)

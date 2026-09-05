@@ -1,3 +1,9 @@
+# coursepack 0.2.0.9005
+
+* A real pa11y run is now exercised end to end in `test-a11y-integration.R`, against a fixture page carrying three planted defects: no `lang` on `<html>`, an alt attribute that is really a filename, and link text that says nothing out of context. It asserts that the custom filename-as-alt check fired where axe cannot see a defect at all, that the missing language criterion came back, that the audit wrote its findings JSON, and that both runners actually reported. The runner claim is checked against pa11y's own issue list, because a finding's `source` records the producer rather than the runner and nothing downstream of `from_pa11y()` can tell htmlcs and axe apart.
+* The section is opt-in: it skips unless `COURSEPACK_PA11Y_TESTS` is set, because npx fetches pa11y at run time and the first run downloads a Chromium build.
+* The `pair/alpha` fixture gained a `_quarto.yml` and a second page, so discovery places its output directory from config rather than failing to place it at all.
+
 # coursepack 0.2.0.9004
 
 * The accessibility audit's driver moved into the package as `audit_course()`, the last of the audit's seven files. The repositories to audit, the project root, the output directory, the server port, the cartridge search directories and the video fetcher are all arguments; nothing is read from the environment and no repository is assumed. An empty `repos` stops with the usage text. The return value is `invisible(list(findings, meta, files))`, and the closing console block prints the version line last.
