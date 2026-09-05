@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9008
+
+* `diff_against_reference()`; the reference export and the declared divergences move to `reference.yml`.
+
 # coursepack 0.0.0.9007
 
 * `check_manifests()`; counts come from `reference.yml` and are fatal when declared; new assignment-group check.

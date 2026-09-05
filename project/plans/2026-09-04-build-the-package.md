@@ -1626,10 +1626,11 @@ test_that("an undeclared divergence stops; a declared one is accounted for by su
   expect_error(diff_against_reference(p, gen), "UNEXPECTED divergences")
   writeLines(c("export: reference/ref.imscc", "divergences:",
                "  - match: 'items: 2 -> 3'", "    why: one page added on purpose",
+               "  - match: 'WikiPage: 1 -> 2'", "    why: same page",
                "  - match: 'webcontent: 1 -> 2'", "    why: same page",
                "  - match: 'item added: WikiPage|C'", "    why: same page"), file.path(p, "reference.yml"))
   res <- diff_against_reference(p, gen)
-  expect_length(res$unexpected, 0); expect_length(res$accounted, 3)
+  expect_length(res$unexpected, 0); expect_length(res$accounted, 4)
 })
 
 test_that("divergence_declared matches on substring, first hit wins", {
