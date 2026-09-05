@@ -118,6 +118,14 @@ build_cartridge <- function(proj = ".") {
     carried <- carry_resources(cdefs, src, stage)
     cat(sprintf("  carried %d resources, %d files out of %s\n",
                 length(carried$carried), length(carried$files), basename(src$zip)))
+    # Two fields inside the carried bytes belong to THIS course rather than to
+    # the one they came out of. Titles first, then dates, so a definition whose
+    # due: has nothing to write stops before any date is computed and the
+    # titles it did sync are visible in the tree that gets inspected.
+    n_titles <- sync_carried_titles(carried, cdefs, stage)
+    dates <- apply_carried_dates(carried, cdefs, stage, course, tz)
+    cat(sprintf("  carried titles synced=%d  dates written=%d  blanked=%d\n",
+                n_titles, dates$dated, dates$blanked))
   }
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)

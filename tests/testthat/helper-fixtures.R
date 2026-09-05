@@ -33,10 +33,10 @@ drop_carried <- function(p) {
     "  - slug: carried-page\n    title: Carried Page\n    source_ref: g00000000000000000000000000000c01\n", "")
   edit_yaml(p, "modules.yml", paste0(
     "  - id: carried-asg\n    title: Carried Assignment\n    published: true\n",
-    "    source_ref: g00000000000000000000000000000a01\n"), "")
+    "    due: 2026-10-01\n    source_ref: g00000000000000000000000000000a01\n"), "")
   edit_yaml(p, "modules.yml", paste0(
     "\n  - id: carried-quiz\n    title: Carried Quiz\n    published: true\n",
-    "    source_ref: g00000000000000000000000000000q01"), "")
+    "    due: 2026-10-02\n    source_ref: g00000000000000000000000000000q01"), "")
   invisible(p)
 }
 

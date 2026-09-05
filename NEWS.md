@@ -1,3 +1,7 @@
+# coursepack 0.3.0.9002
+
+* A carried assignment or quiz takes its title from the definition's `title:` and its due date from its `due:`, in every slot the carried bytes hold one: both `<title>` elements of a quiz's `assessment_meta.xml`, the carried assignment's settings file and its HTML. A definition with no `due:` has the carried `<due_at>` and `<all_day_date>` blanked rather than inheriting the source course's date, and a `due:` whose carried file holds no `<due_at>` stops the build. The cartridge was supposed to change: `g...a01/assignment_settings.xml`, `g...a01/carried-assignment.html` and `g...q01/assessment_meta.xml` are regenerated in the fixture's expected tree.
+
 # coursepack 0.3.0.9001
 
 * Carry-through: `source_ref` on any definition, bytes from `reference.yml`'s `source:`.

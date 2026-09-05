@@ -80,6 +80,7 @@ assignments:
   - id: carried-asg
     title: Carried Assignment
     published: true
+    due: 2026-10-01
     source_ref: g00000000000000000000000000000a01
 quizzes:
   - id: q-sample
@@ -90,4 +91,5 @@ quizzes:
   - id: carried-quiz
     title: Carried Quiz
     published: true
+    due: 2026-10-02
     source_ref: g00000000000000000000000000000q01

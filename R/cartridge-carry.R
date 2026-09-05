@@ -14,6 +14,10 @@
 #      written back as raw bytes, never parsed and re-serialised, so a carried
 #      file's md5 matches the source's. A round trip through an XML writer
 #      would reformat attributes and entities and silently change what ships.
+#      Two fields are then pushed back in from the course's own YAML, the title
+#      and the due date, because those describe this offering rather than the
+#      one the bytes came out of; that rewrite is textual and touches nothing
+#      else. See "the two facts this course owns" at the foot of this file.
 #   2. Only what is reachable travels. The walk starts at each `source_ref:`
 #      and follows <dependency> edges. A question bank nothing points at stays
 #      behind rather than riding along as dead weight Canvas will not read.
@@ -60,7 +64,8 @@ carried_defs <- function(m) {
     defs <- switch(kind, page = m$pages, assignment = m$assignments, quiz = m$quizzes)
     for (k in names(defs)) if (!is.null(defs[[k]]$source_ref))
       out[[length(out) + 1L]] <- list(name = k, kind = kind,
-                                      ref = as.character(defs[[k]]$source_ref))
+                                      ref = as.character(defs[[k]]$source_ref),
+                                      def = defs[[k]])
   }
   stats::setNames(out, vapply(out, `[[`, "", "name"))
 }
@@ -231,3 +236,165 @@ carry_resources <- function(defs, src, stage) {
 # What build_cartridge() holds when nothing is carried, so every consumer reads
 # the same shape whether or not a source cartridge is in play.
 no_carry <- function() list(raw = character(), carried = character(), files = character())
+
+# ---- the two facts this course owns inside carried bytes ------------------
+#
+# Property 1 above says bytes in equal bytes out, and it holds for the body of
+# every carried resource. Two fields are the exception, and both are exceptions
+# on purpose: the TITLE a student reads in the module list and the DUE DATE.
+# Those are facts about THIS offering, not about the course the bytes came out
+# of. A carried definition already has to declare a title: (check_carried_shape),
+# and the generated manifest and module_meta name the item from it; leaving the
+# carried file saying something else means Canvas shows one name in the module
+# list and another on the page. A stale due date is worse: last term's date
+# imports silently and every student sees an assignment that closed months ago.
+#
+# So exactly two things are rewritten, in exactly the files that hold them, and
+# the rewrite is textual for the same reason the copy is: a round trip through
+# an XML writer would reformat every other line of the file.
+
+# The staged files a carried definition owns. Canvas names an assignment's
+# directory and a quiz's meta directory for the resource id, so the carried
+# files whose dirname is the definition's source_ref are its own. A carried
+# page's file sits under wiki_content/ and is never matched, which is what
+# keeps page titles out of this: a page's <title> IS what Canvas shows, and a
+# carried page has no separate YAML title to push into it.
+carried_own_files <- function(carried, ref) {
+  carried$files[dirname(carried$files) == ref]
+}
+
+# The files that carry a due date. Nothing else is dated, and naming them here
+# rather than testing extensions keeps a future carried file from being dated
+# by accident.
+DATED_FILES <- c("assignment_settings.xml", "assessment_meta.xml")
+
+# Read and write a staged file as raw bytes. readLines()/writeLines() would
+# normalise a missing final newline and any CRLF, which is a byte change nobody
+# asked for in a file whose whole contract is that it travels unchanged.
+carried_text <- function(path) {
+  txt <- rawToChar(readBin(path, "raw", n = file.info(path)$size))
+  Encoding(txt) <- "UTF-8"
+  txt
+}
+
+write_carried_text <- function(path, txt) {
+  writeBin(charToRaw(enc2utf8(txt)), path)
+  invisible(path)
+}
+
+# The inverse of xesc(). Used only to COMPARE a carried title against the
+# course's own: a source that wrote "R &amp; Stats" and a title: of "R & Stats"
+# say the same thing, and rewriting one into the other would change bytes to no
+# effect (review 4). &amp; is undone last, so an escaped entity such as
+# &amp;lt; survives as the text &lt; rather than collapsing to <.
+xunesc <- function(x) {
+  x <- gsub("&lt;",   "<",  x, fixed = TRUE)
+  x <- gsub("&gt;",   ">",  x, fixed = TRUE)
+  x <- gsub("&quot;", '"',  x, fixed = TRUE)
+  x <- gsub("&apos;", "'",  x, fixed = TRUE)
+  gsub("&amp;", "&", x, fixed = TRUE)
+}
+
+# Rewrite the text of the first <title> element, or of every one when `all` is
+# TRUE, to `title`. A slot that already says the same thing once unescaped is
+# left exactly as the source wrote it. Matches run back to front so an earlier
+# match's offset is still valid after a later one has been replaced.
+retitle <- function(txt, title, all = FALSE) {
+  m <- gregexpr("<title>[^<]*</title>", txt)[[1]]
+  if (m[[1]] < 0L) return(txt)
+  which_slots <- if (all) seq_along(m) else 1L
+  for (i in rev(which_slots)) {
+    at <- m[[i]]; len <- attr(m, "match.length")[[i]]
+    inner <- substr(txt, at + 7L, at + len - 9L)      # inside <title> ... </title>
+    if (identical(xunesc(inner), title)) next
+    txt <- paste0(substr(txt, 1L, at - 1L),
+                  "<title>", xesc(title), "</title>",
+                  substring(txt, at + len))
+  }
+  txt
+}
+
+# Push each carried assignment's and quiz's title: into the carried bytes. The
+# quiz meta holds TWO of them, the outer <quiz> and the nested <assignment>
+# Canvas generates beside it, and Canvas reads the nested one for the grade
+# book (review 18); rewriting only the first leaves the two disagreeing.
+# Returns the number of files whose bytes changed.
+sync_carried_titles <- function(carried, defs, stage) {
+  changed <- 0L
+  for (d in defs) {
+    if (!d$kind %in% c("assignment", "quiz")) next
+    title <- as.character(d$def$title)
+    for (f in carried_own_files(carried, d$ref)) {
+      b <- basename(f)
+      every <- identical(b, "assessment_meta.xml")
+      titled <- every || identical(b, "assignment_settings.xml") ||
+        grepl("\\.html?$", b, ignore.case = TRUE)
+      if (!titled) next
+      p <- file.path(stage, f)
+      old <- carried_text(p)
+      new <- retitle(old, title, all = every)
+      if (!identical(new, old)) { write_carried_text(p, new); changed <- changed + 1L }
+    }
+  }
+  changed
+}
+
+# Replace every <tag>...</tag> AND every self-closing <tag/> with
+# <tag>value</tag>. Canvas exports both forms for an unset date, and a reader
+# that handled only the paired form left a carried <due_at/> holding no date
+# while reporting that the date had been written (review 5).
+set_element <- function(txt, tag, value) {
+  pat <- paste0("<", tag, "(/>|>[^<]*</", tag, ">)")
+  m <- gregexpr(pat, txt)[[1]]
+  n <- if (m[[1]] < 0L) 0L else length(m)
+  if (n) txt <- gsub(pat, paste0("<", tag, ">", value, "</", tag, ">"), txt)
+  list(txt = txt, n = n)
+}
+
+count_element <- function(txt, tag) {
+  m <- gregexpr(paste0("<", tag, "(/>|>[^<]*</", tag, ">)"), txt)[[1]]
+  if (m[[1]] < 0L) 0L else length(m)
+}
+
+# Write each carried definition's due: into its carried bytes, as the UTC stamp
+# Canvas stores plus the local all-day date it displays.
+#
+# A definition with no due: gets both fields BLANKED rather than left alone. The
+# alternative is inheriting whatever the source course's date was, which is a
+# date from a term that has ended: it imports without complaint, and the only
+# symptom is students seeing work that closed before the term began.
+#
+# A due: on a definition whose carried file has no due_at at all stops. That is
+# a course asking for something the bytes cannot express, most often a due: on a
+# carried page, and silently doing nothing would leave the YAML claiming a date
+# the cartridge does not carry (review 13). The stop is raised BEFORE the stamp
+# is computed, so the message names the real problem rather than the timezone.
+#
+# Returns list(dated, blanked): the counts of files written each way.
+apply_carried_dates <- function(carried, defs, stage, course, tz) {
+  dated <- 0L; blanked <- 0L
+  for (d in defs) {
+    files <- carried_own_files(carried, d$ref)
+    files <- files[basename(files) %in% DATED_FILES]
+    paths <- file.path(stage, files)
+    txts <- lapply(paths, carried_text)
+    due <- d$def$due
+    if (is.null(due)) {
+      for (i in seq_along(paths)) {
+        new <- set_element(set_element(txts[[i]], "due_at", "")$txt, "all_day_date", "")$txt
+        if (!identical(new, txts[[i]])) { write_carried_text(paths[[i]], new); blanked <- blanked + 1L }
+      }
+      next
+    }
+    if (!sum(vapply(txts, count_element, integer(1), tag = "due_at")))
+      stop("definition '", d$name, "' has due: but its carried file has no ",
+           "due_at to rewrite", call. = FALSE)
+    stamp <- due_stamp(due, course$due_time, tz)
+    local <- substr(trimws(as.character(due)), 1L, 10L)
+    for (i in seq_along(paths)) {
+      new <- set_element(set_element(txts[[i]], "due_at", stamp)$txt, "all_day_date", local)$txt
+      if (!identical(new, txts[[i]])) { write_carried_text(paths[[i]], new); dated <- dated + 1L }
+    }
+  }
+  list(dated = dated, blanked = blanked)
+}

@@ -13,11 +13,13 @@ test_that("read_source_cartridge parses every resource, including a self-closing
 test_that("carried files are byte-identical to the source, the objectbank is dropped, module items point at the carried ids", {
   b <- built()
   src <- fixture_path("src")
-  for (f in c("g00000000000000000000000000000q01/assessment_meta.xml",
-              "non_cc_assessments/g00000000000000000000000000000q01.xml.qti",
+  # The three files the course's own title: and due: are pushed into are not on
+  # this list, and cannot be: assignment_settings.xml, assessment_meta.xml and
+  # the carried assignment's HTML are rewritten on purpose. The next section
+  # asserts what they say. Everything else still travels byte for byte.
+  for (f in c("non_cc_assessments/g00000000000000000000000000000q01.xml.qti",
               "g00000000000000000000000000000q01/assessment_qti.xml",
-              "wiki_content/carried-page.html",
-              "g00000000000000000000000000000a01/assignment_settings.xml"))
+              "wiki_content/carried-page.html"))
     expect_identical(unname(tools::md5sum(file.path(b$stage, f))), unname(tools::md5sum(file.path(src, f))), info = f)
   expect_false(file.exists(file.path(b$stage, "non_cc_assessments", "g00000000000000000000000000000b01.xml.qti")))
   expect_match(b$mm, "<identifierref>g00000000000000000000000000000c01</identifierref>", fixed = TRUE)
@@ -42,6 +44,29 @@ test_that("a definition with source_ref and a body key is refused", {
   p <- copy_course(); zip_fixture_qti(p)
   edit_yaml(p, "modules.yml", "    source_ref: g00000000000000000000000000000c01", "    source_ref: g00000000000000000000000000000c01\n    body: true")
   expect_error(build_cartridge(p), "carried-page.*source_ref and body")
+})
+
+test_that("carried titles follow the definition in every title slot, and dates come from due: or are blanked", {
+  b <- built()
+  meta <- paste(readLines(file.path(b$stage, "g00000000000000000000000000000q01", "assessment_meta.xml")), collapse = "\n")
+  expect_length(gregexpr("<title>Carried Quiz</title>", meta, fixed = TRUE)[[1]], 2L)
+  expect_no_match(meta, "Old Quiz Title")
+  expect_length(gregexpr("<due_at>2026-10-03T04:59:59</due_at>", meta, fixed = TRUE)[[1]], 2L)
+  expect_match(meta, "<all_day_date>2026-10-02</all_day_date>", fixed = TRUE)
+  st <- paste(readLines(file.path(b$stage, "g00000000000000000000000000000a01", "assignment_settings.xml")), collapse = "\n")
+  expect_match(st, "<title>Carried Assignment</title>", fixed = TRUE)
+  expect_match(st, "<due_at>2026-10-02T04:59:59</due_at>", fixed = TRUE)
+})
+
+test_that("a carried date is blanked when the definition has no due:, and a due: with nothing to rewrite stops", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "modules.yml", "    due: 2026-10-01\n    source_ref: g00000000000000000000000000000a01", "    source_ref: g00000000000000000000000000000a01")
+  res <- build_cartridge(p)
+  st <- paste(readLines(file.path(res$stage, "g00000000000000000000000000000a01", "assignment_settings.xml")), collapse = "\n")
+  expect_match(st, "<due_at></due_at>", fixed = TRUE); expect_no_match(st, "2025-02-01")
+  edit_yaml(p, "modules.yml", "    source_ref: g00000000000000000000000000000c01", "    due: 2026-10-05\n    source_ref: g00000000000000000000000000000c01")
+  expect_error(build_cartridge(p), "has due: but its carried file has no due_at")
 })
 
 test_that("a source cartridge that declares an unsafe path is refused before anything is written", {
