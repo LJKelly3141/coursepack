@@ -1,3 +1,7 @@
+# coursepack 0.5.0.9003
+
+* CI: `.github/workflows/check.yml` runs `R CMD check` on every push and pull request with warnings treated as errors, and a second job, marked `continue-on-error` (decision D12), runs the opt-in pa11y integration test with Node and Chrome. `.github` is in `.Rbuildignore`, so the workflow never enters the tarball. Neither job has run yet: the workflow cannot be verified green until the repository is pushed, which is the maintainer's step.
+
 # coursepack 0.5.0.9002
 
 * `README.md` is rewritten for a reader who has never seen the courses this package was extracted from: what it is, how a course is built, what has to be installed to build a cartridge and what more is needed to preview or audit one, the quick start from install to a Canvas import and back out again, the two ways a course starts (the scaffold, or an export of a course already in Canvas), and a table of what has actually been verified by a real import, which is still nothing built from this package. The rows that name where the toolchain came from say so without naming a course. The separation rule and the licence section are unchanged.
