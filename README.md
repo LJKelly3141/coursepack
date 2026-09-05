@@ -3,15 +3,14 @@
 Build tools for plain-text course authoring. One installed copy serves any
 number of courses.
 
-**Status: carry, extract, generate and print are in the package (0.4.0).**
-`check_manifests()`, `build_cartridge()`, `diff_against_reference()`, `build_qti()`,
-`build_preview()`, `course_tile()`, `audit_course()`, and now `extract_manifest()`,
-`convert_python_manifests()`, `announcements_from_schedule()`, and `print_assessment()`
-are in the package. The builder carries resources out of a source cartridge by
-`source_ref`, generates quizzes from JSON question banks at byte parity with the
-generator it replaces, builds `description:` assignments, and stages a build by module
-title. Build, extract, build reproduces the staging tree on the synthetic course. Nothing
-has been imported into Canvas from this package yet.
+**Status: skills and the scaffold are in the package (0.5.0).** Every entry point the
+two course toolchains had is here: `check_manifests()`, `build_cartridge()`,
+`diff_against_reference()`, `build_qti()`, `build_preview()`, `course_tile()`,
+`audit_course()`, `extract_manifest()`, `convert_python_manifests()`,
+`announcements_from_schedule()`, `print_assessment()`, and now `init_course()` and
+`install_skills()`. Eight skills ship under `inst/skills/` and install into a course by
+copy. A fresh scaffold checks, builds, and contains its assessments. Nothing has been
+imported into Canvas from this package yet.
 
 ## What it is for
 
