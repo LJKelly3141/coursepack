@@ -465,3 +465,7 @@ and fix for anything that broke.
 - `reference.yml` `export:`, the known-good target
 - the package `NEWS.md`, for what changed at which version
 - the course's own decision record, if it keeps one
+
+This skill reaches a course through `coursepack::install_skills(".")`, or
+`make skills` in the scaffold, which copies the shipped skills into
+`.claude/skills/` and stamps the package version at the bottom of each one.

@@ -22,6 +22,10 @@ python3 .claude/skills/strip-ai-characters/scan_characters.py PATH ...   # narro
 python3 .claude/skills/strip-ai-characters/scan_characters.py --skip bak # skip a directory
 ```
 
+Those paths are where the skill lands in a course: `coursepack::install_skills(".")`,
+or `make skills` in the scaffold, copies the shipped skills into `.claude/skills/`
+and stamps the package version at the bottom of each `SKILL.md`.
+
 With no path named it scans the current directory. **Dry run by default.** It
 prints what it would change and changes nothing. `--write` applies the safe tier
 only. It never commits.
