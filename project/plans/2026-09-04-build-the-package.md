@@ -3230,7 +3230,7 @@ Prove extract and build are inverses on the synthetic course
 
 - [ ] **Step 1: Write the fixture banks and the test**
 
-`chapter_01.json`: chapter 1, title "Sample Chapter One", two sections ("1.1 First Ideas", "1.2 Second Ideas"), three questions each with ids 1 to 6, one (`id 2`) carrying `"image": "CH01_Q002.png", "figure": {"file": "CH01_Q002.png", "script": "CH01_Q002.py", "alt": "A rising line from left to right."}`, one (`id 4`) whose `question` is `"Use the table.<br><table><tr><th>x</th><th>y</th></tr><tr><td>1</td><td>2</td></tr></table>"`, explanations ending with the section number. `chapter_02.json`: chapter 2, one section with four questions ids 1 to 4. The PNG: `Rscript -e 'png("tests/testthat/fixtures/bank/images/CH01_Q002.png", 8, 8); par(mar=c(0,0,0,0)); plot.new(); dev.off()'`.
+`chapter_01.json`: chapter 1, title "Sample Chapter One", two sections ("1.1 First Ideas", "1.2 Second Ideas"), three questions each with ids 1 to 6, one (`id 2`) carrying `"image": "CH01_Q002.png", "figure": {"file": "CH01_Q002.png", "script": "CH01_Q002.py", "alt": "A rising line from left to right."}`, one (`id 4`) whose `question` is `"Use the table.<br><table><tr><th>x</th><th>y</th></tr><tr><td>1</td><td>2</td></tr></table>"`, explanations ending with the section number. `chapter_02.json`: chapter 2, title "Sample Chapter Two", one section named "Sample Chapter Two" (Task 35's ordering test expects the chapter's own name) with four questions ids 1 to 4. The PNG: `Rscript -e 'png("tests/testthat/fixtures/bank/images/CH01_Q002.png", 8, 8); par(mar=c(0,0,0,0)); plot.new(); dev.off()'`.
 
 ```r
 # tests/testthat/test-bank.R
@@ -3331,8 +3331,16 @@ print(json.dumps([r[0] for r in res]))
 
 ```r
 # tests/testthat/test-generate-quiz.R
-spec <- function(...) modifyList(list(dir = "bank", chapters = list(1L, 2L), draws = list(2L, 1L, 2L), points = 5,
-                                      group_by = "section", allowed_attempts = -1L), list(...))
+# A list-valued override REPLACES the default outright. modifyList() merges one
+# list into the other, so spec(draws = list(2L, 1L)) would come back as the
+# three-entry default and every refusal below would go untested.
+spec <- function(...) {
+  base <- list(dir = "bank", chapters = list(1L, 2L), draws = list(2L, 1L, 2L), points = 5,
+               group_by = "section", allowed_attempts = -1L)
+  over <- list(...)
+  for (n in names(over)) base[n] <- list(over[[n]])
+  base
+}
 with_bank <- function() {
   to <- withr::local_tempdir(.local_envir = parent.frame())
   p <- copy_course(to = to); file.copy(fixture_path("bank"), p, recursive = TRUE); p
