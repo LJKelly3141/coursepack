@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9007
+
+* `check_manifests()`; counts come from `reference.yml` and are fatal when declared; new assignment-group check.
+
 # coursepack 0.0.0.9006
 
 * Body helpers moved; `LEAK_CANARY` and `ANSWER_KEY_HEADING_RE` are package constants and not yet configurable.

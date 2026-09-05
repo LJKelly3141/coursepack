@@ -1383,7 +1383,13 @@ Move the homework and quiz body helpers, with their three guards
 # tests/testthat/test-manifests.R
 # Every test that expects a pass needs the sample QTI zip in place, because the
 # checker fails on a missing zip before anything else is judged.
-ready <- function() { skip_if_no("zip"); p <- copy_course(); zip_fixture_qti(p); p }
+ready <- function() {
+  skip_if_no("zip")
+  to <- withr::local_tempdir(.local_envir = parent.frame())   # bind the tempdir to the TEST, not to this helper
+  p <- copy_course(to = to)
+  zip_fixture_qti(p)
+  p
+}
 
 test_that("the fixture course passes, reporting the textbook skip when docs are absent", {
   p <- ready()
@@ -1711,7 +1717,8 @@ Two helpers go into `tests/testthat/helper-fixtures.R`, because later phases' te
 # append to tests/testthat/helper-fixtures.R
 built <- function() {
   skip_if_no("zip"); skip_if_no("pandoc")
-  p <- copy_course(); zip_fixture_qti(p)
+  to <- withr::local_tempdir(.local_envir = parent.frame())   # bind the tempdir to the TEST, not to this helper
+  p <- copy_course(to = to); zip_fixture_qti(p)
   res <- build_cartridge(p)
   list(p = p, stage = res$stage, imscc = res$imscc,
        man = paste(readLines(file.path(res$stage, "imsmanifest.xml")), collapse = "\n"),
@@ -2021,7 +2028,8 @@ Move the QTI builder; output lands under proj
 # tests/testthat/test-preview.R
 model <- function(base = "local") {
   skip_if_no("pandoc")
-  p <- copy_course()
+  to <- withr::local_tempdir(.local_envir = parent.frame())
+  p <- copy_course(to = to)
   j <- build_preview(p, base = base)
   list(p = p, j = jsonlite::fromJSON(file.path(p, "build", "mockup", "course.json"), simplifyVector = FALSE),
        items = unlist(lapply(j$modules, function(m) m$items), recursive = FALSE))
@@ -3113,7 +3121,8 @@ Repair carried HTML on the way into the cartridge, scoped and switchable
 # tests/testthat/test-extract.R
 extracted <- function() {
   skip_if_no("zip")
-  p <- copy_course(); out <- withr::local_tempdir(.local_envir = parent.frame())
+  to <- withr::local_tempdir(.local_envir = parent.frame())
+  p <- copy_course(to = to); out <- withr::local_tempdir(.local_envir = parent.frame())
   extract_manifest(file.path(p, "reference", "source.imscc"), out)
   out
 }
@@ -3321,7 +3330,10 @@ print(json.dumps([r[0] for r in res]))
 # tests/testthat/test-generate-quiz.R
 spec <- function(...) modifyList(list(dir = "bank", chapters = list(1L, 2L), draws = list(2L, 1L, 2L), points = 5,
                                       group_by = "section", allowed_attempts = -1L), list(...))
-with_bank <- function() { p <- copy_course(); file.copy(fixture_path("bank"), p, recursive = TRUE); p }
+with_bank <- function() {
+  to <- withr::local_tempdir(.local_envir = parent.frame())
+  p <- copy_course(to = to); file.copy(fixture_path("bank"), p, recursive = TRUE); p
+}
 
 test_that("bank_groups orders chapter then section and enforces every refusal", {
   p <- with_bank()
