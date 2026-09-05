@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9006
+
+* Body helpers moved; `LEAK_CANARY` and `ANSWER_KEY_HEADING_RE` are package constants and not yet configurable.
+
 # coursepack 0.0.0.9005
 
 * `interp_urls()`, `chapter_url()`, `resolve_target()`, `collect_refs()` moved from `scripts/lib/resolve.R`.
