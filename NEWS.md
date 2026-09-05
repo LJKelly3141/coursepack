@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9010
+
+* `build_qti()`; output goes under `proj`.
+
 # coursepack 0.0.0.9009
 
 * `build_cartridge()` moved, split across seven files along the script's own banners; due dates route through `local_to_utc()`; the filename is `<slug>-<date>.imscc`.
