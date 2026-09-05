@@ -3597,7 +3597,7 @@ weeks:
       class: "Third chapter."
 ```
 
-The fixture's due dates by then: `hw-1` Tuesday 2026-09-15, `quiz-1` Sunday 2026-09-20, `memo-1` Thursday 2026-09-17 09:30, `q-bank` Friday 2026-09-25, and the carried definitions on 2026-10-01 and 2026-10-02 (outside these weeks). Friday to Sunday dues land in the Sunday list, so week 2 lists the bank quiz and week 3 has nothing.
+The fixture's due dates by then: `hw-1` Tuesday 2026-09-15, `quiz-1` Sunday 2026-09-20, `memo-1` Thursday 2026-09-17 09:30, `q-bank` Friday 2026-09-25, and the carried definitions on 2026-10-01 (that week's Thursday) and 2026-10-02 (its Friday), which fall inside the third week, Monday 2026-09-28 to Sunday 2026-10-04. Friday to Sunday dues land in the Sunday list, so week 2 lists the bank quiz, and week 3 lists the carried assignment under Thursday and the carried quiz in its Sunday list. The empty-Sunday sentence is exercised by a separate one-week schedule (Monday 2026-10-05) in its own test.
 
 - [ ] **Step 2: Tests**
 
@@ -3617,7 +3617,9 @@ test_that("one announcement per week, dues placed by weekday, bodies and yml wri
   expect_match(b2, "<li><b>No class today.</b></li>")
   expect_match(b2, "<h3>Due by Sunday, September 27, 11:59 pm</h3>\\s*<ul><li>Module 1 Bank Quiz</li></ul>")
   b3 <- paste(readLines(file.path(p, "content", "announcements", "week-2026-09-28.html")), collapse = "\n")
-  expect_match(b3, "Nothing is due this Sunday.")
+  expect_match(b3, "<h3>Thursday, October 1</h3>")
+  expect_match(b3, "Due, 11:59 pm:</b> Carried Assignment")
+  expect_match(b3, "<h3>Due by Sunday, October 4, 11:59 pm</h3>\\s*<ul><li>Carried Quiz</li></ul>")
   y <- yaml::yaml.load_file(file.path(p, "announcements.yml"))
   expect_equal(y$body_dir, "content/announcements"); expect_length(y$announcements, 3L)
   expect_false(any(grepl("—", c(b1, b2, b3))))
