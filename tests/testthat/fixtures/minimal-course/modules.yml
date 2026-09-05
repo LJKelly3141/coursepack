@@ -1,0 +1,67 @@
+# Item forms: header, page (iframe and body), link (chapter and url),
+# assignment (homework, quiz_file, todo), quiz (R/exams zip).
+modules:
+  - title: "Module 1: Start Here"
+    published: true
+    sequential: true
+    items:
+      - header: "1. Read the welcome page"
+      - page: welcome
+        indent: 1
+      - page: chapter-one
+        indent: 1
+      - link: "Reading: the first chapter"
+        chapter: ch01
+        anchor: sec-intro
+        indent: 1
+      - link: "Textbook home"
+        chapter: ""
+      - link: "An outside page"
+        url: "{site}/extra.html"
+        new_tab: true
+      - assignment: hw-1
+      - assignment: quiz-1
+      - assignment: todo-1
+      - quiz: q-sample
+  - title: "Module 2: Unpublished"
+    published: false
+    items:
+      - header: "Coming later"
+      - link: "Chapter Two"
+        chapter: ch02
+pages:
+  - slug: welcome
+    title: Welcome
+    iframe: "{site}/welcome.html"
+    width: "100%"
+    height: "800"
+  - slug: chapter-one
+    title: Chapter One
+    body: true
+assignments:
+  - id: hw-1
+    title: Homework 1
+    points: 50
+    due: 2026-09-15
+    published: true
+    homework:
+      chapter: ch01
+      anchor: homework-assignment
+      title: Chapter One Homework
+  - id: quiz-1
+    title: Module 1 Quiz
+    points: 20
+    due: 2026-09-20
+    published: true
+    quiz_file: assessments/quizzes/quiz01.md
+  - id: todo-1
+    title: Placeholder Assignment
+    published: false
+    todo: "write this once the chapter exists"
+    homework:
+      chapter: ch02
+quizzes:
+  - id: q-sample
+    title: Sample R/exams Quiz
+    qti: build/qti/quiz-sample.zip
+    published: true

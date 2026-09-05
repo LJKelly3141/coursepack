@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz identifier="quiz-sample_987654321">
+  <title>quiz-sample</title>
+  <available>false</available>
+  <assignment identifier="AID_quiz-sample_987654321">
+    <title>quiz-sample</title>
+    <assignment_group_identifierref>GID_quiz-sample_987654321</assignment_group_identifierref>
+  </assignment>
+</quiz>

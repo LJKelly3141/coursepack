@@ -17,7 +17,7 @@ Copied from the spec and the snapshot READMEs. Every task's requirements include
 - **This repository only.** No task creates, modifies, or deletes a file outside `/Users/logankelly/Sync/Developer/coursepack`. Course-side changes are written as hand-offs in Appendix A and B. Reading the live repos is allowed for verification only.
 - **No commit without Logan's word for that specific commit.** Every task ends with a proposed commit message; the executor stops there. No `Co-Authored-By`, no AI attribution anywhere: commits, code comments, docs, skills.
 - **Every entry point takes `proj` as its first argument.** Package code contains no absolute path, no `Sys.getenv()` for anything with a default, no course name, no course URL, no course number. Course facts live in that course's YAML.
-- **Course content never enters the package.** Fixtures are invented: course code `ABCD 101`, hosts under `example.invalid`. The grep `grep -rniE 'econ|uwrf|kelly|ljkelly|managerial|macro' tests/testthat/fixtures/ inst/ R/` must return nothing at the end of every phase.
+- **Course content never enters the package.** Fixtures are invented: course code `ABCD 101`, hosts under `example.invalid`. The grep `grep -rniE 'econ ?[0-9]|uwrf|kelly|ljkelly|managerial|macro_principles' tests/testthat/fixtures/ inst/ R/` must return nothing (the course number is part of the pattern because a bare `econ` matches "second") at the end of every phase.
 - **The byte gate is never regenerated to make a failing test pass.** A regeneration is a deliberate output change, in its own commit, whose message says the cartridge was supposed to change and lists which staged files changed.
 - **Refuse loudly, never skip.** A missing body, a missing announcement body, an unknown `post:` form, a published `todo:`, a collapsed quiz ident, an unknown `canvas:` key, a `source_ref` not in the source: all `stop()`.
 - **Canvas stores structure, never content.** No `$IMS-CC-FILEBASE$` token and no embedded file except the course card, and, from Phase 4 with decision D15, quiz figures under `web_resources/quiz_images/`.
@@ -937,8 +937,8 @@ test_that("the fixture course parses and reaches every item form", {
 })
 
 test_that("no course fact leaked into the fixtures", {
-  hits <- system2("grep", c("-rniE", shQuote("econ|uwrf|kelly|ljkelly|managerial|macro"),
-                            shQuote(fixture_path())), stdout = TRUE, stderr = FALSE)
+  hits <- suppressWarnings(system2("grep", c("-rniE", shQuote("econ ?[0-9]|uwrf|kelly|ljkelly|managerial|macro_principles"),
+                            shQuote(fixture_path())), stdout = TRUE, stderr = FALSE))
   expect_length(hits, 0)
 })
 

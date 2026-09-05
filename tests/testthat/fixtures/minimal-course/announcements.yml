@@ -1,0 +1,14 @@
+body_dir: content/announcements
+term:
+  timezone: America/Chicago
+  first_day: 2026-09-01
+  last_day: 2026-12-15
+announcements:
+  - id: welcome
+    title: Welcome to the course
+    body: welcome.html
+    post: immediately
+  - id: week-2
+    title: Week 2 begins
+    body: week-2.html
+    post: 2026-09-08

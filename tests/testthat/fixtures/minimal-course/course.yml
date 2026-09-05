@@ -1,0 +1,42 @@
+# A synthetic course. Every value is invented. It exercises every item form the
+# builder knows so that the byte gate reaches every code path.
+code: ABCD 101
+section: "01"
+title: Example Course
+institution: Example University
+term:
+  name: Example Term
+  first_day: 2026-09-01
+  last_day: 2026-12-15
+  timezone: America/Chicago
+  breaks: []
+urls:
+  textbook: https://example.invalid/book
+  site: https://example.invalid/course
+  media: https://example.invalid/course/media
+textbook_docs: ../fake-textbook/docs
+canvas:
+  course_code: ABCD 101-01
+  default_view: modules
+  is_public: false
+  license: private
+  indexed: false
+  grading_standard_enabled: true
+  group_weighting_scheme: percent
+  restrict_enrollments_to_course_dates: false
+assignment_groups:
+  - name: Assignments
+    position: 1
+    weight: 100.0
+grading_standard:
+  title: Example Standard
+  data: '[["A",0.9],["B",0.8],["C",0.7],["F",0.0]]'
+late_policy:
+  missing_submission_deduction_enabled: false
+  late_submission_deduction_enabled: false
+  late_submission_minimum_percent_enabled: false
+assignment_defaults:
+  points: 50
+  submission_types: online_upload
+  allowed_extensions: doc,docx
+  group: Assignments

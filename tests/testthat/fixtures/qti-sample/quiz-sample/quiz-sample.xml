@@ -1,0 +1,41 @@
+<!DOCTYPE questestinterop SYSTEM "ims_qtiasiv1p2.dtd">
+<questestinterop>
+  <assessment ident="quiz-sample_123456789" title="quiz-sample">
+    <section ident="quiz-sample_123456789_section_1">
+      <item ident="quiz-sample_123456789_section_1_item_01_num" title="Question 1">
+        <presentation>
+          <material>
+            <mattext>What is one plus one?</mattext>
+          </material>
+          <response_num ident="quiz-sample_123456789_section_1_item_01_num_RESPONSE" rcardinality="Single">
+            <render_fib fibtype="Decimal"/>
+          </response_num>
+        </presentation>
+        <resprocessing>
+          <respcondition continue="No">
+            <conditionvar>
+              <varequal respident="quiz-sample_123456789_section_1_item_01_num_RESPONSE">2</varequal>
+            </conditionvar>
+          </respcondition>
+        </resprocessing>
+      </item>
+      <item ident="quiz-sample_123456789_section_1_item_02_num" title="Question 2">
+        <presentation>
+          <material>
+            <mattext>What is two plus two?</mattext>
+          </material>
+          <response_num ident="quiz-sample_123456789_section_1_item_02_num_RESPONSE" rcardinality="Single">
+            <render_fib fibtype="Decimal"/>
+          </response_num>
+        </presentation>
+        <resprocessing>
+          <respcondition continue="No">
+            <conditionvar>
+              <varequal respident="quiz-sample_123456789_section_1_item_02_num_RESPONSE">4</varequal>
+            </conditionvar>
+          </respcondition>
+        </resprocessing>
+      </item>
+    </section>
+  </assessment>
+</questestinterop>
