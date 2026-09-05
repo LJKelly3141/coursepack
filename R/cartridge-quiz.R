@@ -94,8 +94,8 @@ quiz_aid <- ids$quiz_aid
     meta <- gsub(id, quiz_res[[k]], meta, fixed = TRUE)
   }
 
-  # Put the quiz in the same assignment group as the homework, rather than
-  # letting it fall into Canvas's default group.
+  # Put the quiz in its declared assignment group rather than letting it fall
+  # into Canvas's default group.
   meta <- gsub("<assignment_group_identifierref>[^<]*</assignment_group_identifierref>",
                paste0("<assignment_group_identifierref>", ag_id,
                       "</assignment_group_identifierref>"), meta)

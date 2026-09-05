@@ -28,7 +28,11 @@ canvas:
 assignment_groups:
   - name: Assignments
     position: 1
-    weight: 100.0
+    weight: 80.0
+  - name: Quizzes
+    position: 2
+    weight: 20.0
+    id: g0000000000000000000000000000000b
 grading_standard:
   title: Example Standard
   data: '[["A",0.9],["B",0.8],["C",0.7],["F",0.0]]'

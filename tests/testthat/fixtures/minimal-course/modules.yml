@@ -54,6 +54,7 @@ assignments:
     due: 2026-09-20
     published: true
     quiz_file: assessments/quizzes/quiz01.md
+    group: Quizzes
   - id: todo-1
     title: Placeholder Assignment
     published: false
@@ -65,3 +66,4 @@ quizzes:
     title: Sample R/exams Quiz
     qti: build/qti/quiz-sample.zip
     published: true
+    group: Quizzes

@@ -49,19 +49,22 @@ if (tile$has_tile) paste0('  <image_identifier_ref>', tile$tile_res,
 '</course>'))
 }
 
-write_assignment_groups <- function(stage, course) {
-ag <- course$assignment_groups[[1]]
-ag_id <- gid("assignmentgroup", ag$name)
+write_assignment_groups <- function(stage, course, groups) {
+assignment_groups <- vapply(seq_along(course$assignment_groups), function(i) {
+  g <- course$assignment_groups[[i]]
+  paste0(
+'  <assignmentGroup identifier="', groups[[g$name]], '">\n',
+'    <title>', xesc(g$name), '</title>\n',
+'    <position>', g$position, '</position>\n',
+'    <group_weight>', format(as.numeric(g$weight), nsmall = 1), '</group_weight>\n',
+'  </assignmentGroup>')
+}, "")
 writef(file.path(stage, "course_settings/assignment_groups.xml"), paste0(
 '<?xml version="1.0" encoding="UTF-8"?>\n',
 '<assignmentGroups ', CCV, '>\n',
-'  <assignmentGroup identifier="', ag_id, '">\n',
-'    <title>', xesc(ag$name), '</title>\n',
-'    <position>', ag$position, '</position>\n',
-'    <group_weight>', format(ag$weight, nsmall = 1), '</group_weight>\n',
-'  </assignmentGroup>\n',
+paste(assignment_groups, collapse = "\n"), '\n',
 '</assignmentGroups>'))
-ag_id
+invisible(NULL)
 }
 
 write_course_settings_files <- function(stage, course) {
@@ -308,7 +311,7 @@ assignment_body <- function(a, course, tb_docs) {
     '\n<hr>\n', HOMEWORK_SUBMISSION_NOTE)
 }
 
-write_assignments <- function(stage, asg, ids, course, tb_docs, ag_id, proj, tz) {
+write_assignments <- function(stage, asg, ids, course, tb_docs, groups, proj, tz) {
 asg_res <- ids$asg_res
 asg_pos <- ids$asg_pos
 d <- course$assignment_defaults
@@ -323,6 +326,8 @@ for (k in names(asg)) {
   # as.numeric matters: format(50L, nsmall = 1) is "50", not "50.0". Canvas
   # writes "50.0" and points_possible is a decimal field.
   pts  <- as.numeric(if (!is.null(a$points)) a$points else d$points)
+  ag_id <- group_id_for(a$group %||% d$group, groups,
+                        paste0("assignment '", k, "'"))
 
   body_def <- a
   if (!is.null(body_def$quiz_file)) body_def$quiz_file <- proj_path(proj, body_def$quiz_file)

@@ -85,3 +85,25 @@ test_that("the cartridge filename comes from the course slug", {
   b <- built()
   expect_match(basename(b$imscc), "^abcd-101-01-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.imscc$")
 })
+
+test_that("both groups are emitted with their weights and each assignment and quiz lands in its own", {
+  b <- built()
+  ag <- paste(readLines(file.path(b$stage, "course_settings", "assignment_groups.xml")), collapse = "\n")
+  expect_length(gregexpr("<assignmentGroup ", ag)[[1]], 2L)
+  expect_match(ag, "<title>Quizzes</title>\\s*<position>2</position>\\s*<group_weight>20.0</group_weight>")
+  gids <- regmatches(ag, gregexpr('(?<=identifier=")[^"]+', ag, perl = TRUE))[[1]]
+  expect_true("g0000000000000000000000000000000b" %in% gids)
+  quiz_meta <- paste(readLines(list.files(b$stage, pattern = "assessment_meta\\.xml$", recursive = TRUE, full.names = TRUE)), collapse = "")
+  expect_match(quiz_meta, gids[2], fixed = TRUE)
+  q1 <- paste(readLines(list.files(b$stage, pattern = "module-1-quiz", recursive = TRUE, full.names = TRUE, include.dirs = TRUE)[1]), collapse = "")
+  settings <- list.files(b$stage, pattern = "assignment_settings\\.xml$", recursive = TRUE, full.names = TRUE)
+  refs <- vapply(settings, function(f) sub(".*<assignment_group_identifierref>([^<]+).*", "\\1", paste(readLines(f), collapse = "")), "")
+  expect_setequal(unique(unname(refs)), gids)
+})
+
+test_that("an undeclared group on an assignment stops the build", {
+  skip_if_no("zip"); skip_if_no("pandoc")
+  p <- copy_course(); zip_fixture_qti(p)
+  edit_yaml(p, "modules.yml", "    quiz_file: assessments/quizzes/quiz01.md\n    group: Quizzes", "    quiz_file: assessments/quizzes/quiz01.md\n    group: Nowhere")
+  expect_error(build_cartridge(p), "names assignment group 'Nowhere'")
+})

@@ -83,13 +83,19 @@ build_cartridge <- function(proj = ".") {
   r <- resolve_items(m)                                  # items, modmeta, ids
   tile <- stage_course_card(proj, stage)
   write_course_settings(stage, course, tile)
-  ag_id <- write_assignment_groups(stage, course)
+  groups <- assignment_group_ids(course)
+  write_assignment_groups(stage, course, groups)
   write_course_settings_files(stage, course)
   write_module_meta(stage, r$modmeta)
   write_weblinks(stage, r$items)
   write_wiki_pages(stage, proj, m$pages, r$ids$page_res, course$urls)
-  write_assignments(stage, m$assignments, r$ids, course, tb_docs, ag_id, proj, tz)
-  for (k in names(m$quizzes)) embed_quiz(k, m$quizzes[[k]], r$ids, ag_id, stage, proj)
+  write_assignments(stage, m$assignments, r$ids, course, tb_docs, groups, proj, tz)
+  for (k in names(m$quizzes)) {
+    q <- m$quizzes[[k]]
+    ag_id <- group_id_for(q$group %||% course$assignment_defaults$group,
+                          groups, paste0("quiz '", k, "'"))
+    embed_quiz(k, q, r$ids, ag_id, stage, proj)
+  }
   ann_ids <- if (is.null(ann)) list(ann_res = character(), ann_meta = character(), ann_past = character())
              else stage_announcements(ann, stage)
   settings_res <- write_manifest(stage, course, r$modmeta, r$items, r$ids, tile, ann_ids, m)
