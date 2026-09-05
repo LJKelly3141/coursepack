@@ -1,6 +1,6 @@
 # The point of these tests is not "does it draw". It is that no fact about any
 # one course is baked into the function: two different course.yml files must
-# produce two different cards, and neither may be ECON 730's.
+# produce two different cards, and neither may be any real course's.
 
 fixture <- function(dir, ...) {
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
@@ -37,7 +37,7 @@ test_that("it defaults into the course's own assets/images, not the caller's wd"
 })
 
 test_that("two different courses produce two different cards", {
-  a <- fixture(file.path(tempdir(), "ca"), code = "ECON 202", title = "Macro Principles")
+  a <- fixture(file.path(tempdir(), "ca"), code = "WXYZ 202", title = "Second Course")
   b <- fixture(file.path(tempdir(), "cb"), code = "HIST 310", title = "Modern Europe")
   fa <- course_tile(a); fb <- course_tile(b)
   expect_false(identical(readBin(fa, "raw", file.size(fa)),

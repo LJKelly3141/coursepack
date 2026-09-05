@@ -51,7 +51,7 @@ read_reference <- function(proj) {
 #' Read and validate announcements.yml
 #'
 #' Optional as a file, binding once present. Every message below is the one
-#' the ECON 730 builder printed; the checks moved here so a defective file
+#' the original course builder printed; the checks moved here so a defective file
 #' stops the build before anything is staged.
 #' @param proj Course project root.
 #' @return `NULL` when the file is absent, else `list(body_dir, tz, first_day, last_day, announcements)`.
