@@ -1,3 +1,8 @@
+# coursepack 0.2.0.9001
+
+* The accessibility audit's serving and finding-model libraries moved into the package: `serve_dir()`, `pa11y_raw()`, `finding()`, `write_findings()`, `read_findings()`, `diff_findings()`, and the axe-core criterion tables behind them. `serve_dir()` now refuses when `python3` is absent and `pa11y_raw()` when `npx` is, instead of failing later with a tool error nobody can read.
+* Their tests are ported from the snapshot's audit test script. Three assertions wait on libraries that have not moved yet and are named in place: the fixture-driven distinct-id section (it calls the custom checks), the M11 no-criterion section (it renders a report), and the static coupling to the driver in the dedup collision negative control. The distinct-id property is asserted at the finding-model layer in the meantime, and the M12 page-count contract is asserted against `write_findings()` directly rather than through the driver's metadata builder.
+
 # coursepack 0.2.0
 
 The builder has converged: every output change since 0.1.0 was made on purpose, with the byte gate regenerated in its own commit each time.
