@@ -3141,7 +3141,7 @@ test_that("extract writes three files the package can read, and copies the expor
 
 test_that("a pure wrapper page becomes iframe:, everything else becomes source_ref:", {
   out <- extracted(); m <- read_manifest(out)
-  w <- m$pages[["wrapped"]]; expect_equal(w$iframe, "https://example.invalid/course/wrapped.html"); expect_equal(w$height, "1200px"); expect_null(w$source_ref)
+  w <- m$pages[["wrapper-page"]]; expect_equal(w$iframe, "https://example.invalid/course/wrapped.html"); expect_equal(w$height, "1200px"); expect_null(w$source_ref)
   cp <- m$pages[["carried-page"]]; expect_equal(cp$source_ref, "g00000000000000000000000000000c01"); expect_null(cp$iframe)
   expect_equal(m$assignments[["old-assignment-title"]]$source_ref, "g00000000000000000000000000000a01")
   expect_equal(m$quizzes[["old-quiz-title"]]$source_ref, "g00000000000000000000000000000q01")

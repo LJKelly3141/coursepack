@@ -15,7 +15,17 @@
 # below rather than borrowed from the builder's own xtext(), so the audit's
 # unescape is checked against an independent implementation of the escape and
 # not against the same three lines that produced it.
-write_a11y_cartridge <- function(zip_path, topics = list()) {
+#
+# `pages` turns the same cartridge into something `extract_manifest()` can read:
+# each entry, a list of slug, title and src, is written as a page carrying the
+# builder's iframe wrapper, declared in an `imsmanifest.xml` and listed as a
+# module item, beside the minimal `course_settings/` a Canvas export carries.
+# Empty by default, so every caller written before extraction gets the identical
+# cartridge it always got. The wrapper is spelled out here rather than borrowed
+# from the builder's own `iframe_wrapper()`, so the extractor's detection is
+# checked against an independent copy of the template and not against the same
+# nine lines that produced it.
+write_a11y_cartridge <- function(zip_path, topics = list(), pages = list()) {
   d <- withr::local_tempdir(.local_envir = parent.frame())
   dir.create(file.path(d, "wiki_content"))
   writeLines(paste0(
@@ -48,6 +58,62 @@ write_a11y_cartridge <- function(zip_path, topics = list()) {
       paste0('  <title>', esc(tp$title), '</title>'),
       paste0('  <text texttype="text/html">', esc(tp$html), '</text>'),
       '</topic>'), file.path(d, paste0(tp$id, ".xml")))
+  }
+  if (length(pages)) {
+    gid29 <- function(tag) paste0("g", strrep("0", 29), tag)
+    res <- character(); items <- character()
+    for (i in seq_along(pages)) {
+      p <- pages[[i]]
+      rid <- gid29(sprintf("d%02d", i)); iid <- gid29(sprintf("e%02d", i))
+      href <- paste0("wiki_content/", p$slug, ".html")
+      writeLines(c(
+        "<html>", "<head>",
+        '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
+        paste0("<title>", p$title, "</title>"),
+        paste0('<meta name="identifier" content="', rid, '"/>'),
+        '<meta name="editing_roles" content="teachers"/>',
+        '<meta name="workflow_state" content="active"/>',
+        "</head>", "<body>",
+        '<div style="width: 100%; max-width: 100%; margin: 0 auto;">',
+        paste0('  <iframe title="', p$title, '" src="', p$src, '" width="100%"',
+               ' height="1200px" style="border: 0;" loading="lazy" allowfullscreen=""></iframe>'),
+        '  <p style="margin-top: 10px; font-size: 0.9em;">',
+        paste0('    <a href="', p$src, '" target="_blank" style="color: #0066cc;">Open in new tab</a>'),
+        "  </p>", "</div>", "</body>", "</html>"), file.path(d, href))
+      res <- c(res, sprintf('<resource identifier="%s" type="webcontent" href="%s"><file href="%s"/></resource>',
+                            rid, href, href))
+      items <- c(items, sprintf(paste0('<item identifier="%s"><content_type>WikiPage</content_type>',
+                                       '<workflow_state>active</workflow_state><title>%s</title>',
+                                       '<identifierref>%s</identifierref><position>%d</position>',
+                                       '<new_tab>false</new_tab><indent>0</indent></item>'),
+                                iid, p$title, rid, i))
+    }
+    dir.create(file.path(d, "course_settings"), showWarnings = FALSE)
+    writeLines(c('<?xml version="1.0" encoding="UTF-8"?>',
+                 '<course xmlns="http://canvas.instructure.com/xsd/cccv1p0">',
+                 '  <title>Synthetic Course</title>',
+                 '  <course_code>SYN 100</course_code>',
+                 '  <is_public>false</is_public>',
+                 '  <default_view>modules</default_view>',
+                 '  <group_weighting_scheme>percent</group_weighting_scheme>',
+                 '</course>'), file.path(d, "course_settings", "course_settings.xml"))
+    writeLines(c('<?xml version="1.0" encoding="UTF-8"?>',
+                 '<assignmentGroups xmlns="http://canvas.instructure.com/xsd/cccv1p0">',
+                 paste0('  <assignmentGroup identifier="', gid29("00c"), '">'),
+                 '    <title>Assignments</title>', '    <position>1</position>',
+                 '    <group_weight>100.0</group_weight>',
+                 '  </assignmentGroup>', '</assignmentGroups>'),
+               file.path(d, "course_settings", "assignment_groups.xml"))
+    writeLines(c('<?xml version="1.0" encoding="UTF-8"?>',
+                 '<modules xmlns="http://canvas.instructure.com/xsd/cccv1p0">',
+                 paste0('<module identifier="', gid29("f01"), '"><title>Only Module</title>'),
+                 '<workflow_state>active</workflow_state><position>1</position>',
+                 '<require_sequential_progress>false</require_sequential_progress><items>',
+                 items, '</items></module>', '</modules>'),
+               file.path(d, "course_settings", "module_meta.xml"))
+    writeLines(c('<?xml version="1.0" encoding="UTF-8"?>',
+                 '<manifest xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1"><resources>',
+                 res, '</resources></manifest>'), file.path(d, "imsmanifest.xml"))
   }
   old <- setwd(d); on.exit(setwd(old), add = TRUE)
   utils::zip(zip_path, list.files(".", recursive = TRUE), flags = "-q -X")
