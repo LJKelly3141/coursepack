@@ -4317,7 +4317,8 @@ assignment_defaults:
     are satisfied with your document, compile it into an MS Word document and submit the document here.</p>
 ```
 
-2. `modules.yml`: the seven quiz assignments gain `group: Quizzes` so the second group is emitted and routed (Task 15); the eight iframe pages change shape once (Task 17).
+2. `modules.yml`: the seven quiz assignments gain `group: Quizzes` so the second group is emitted and routed (Task 15); the eight iframe pages change shape once (Task 17); each iframe page may carry `height_measured: "<ISO timestamp>"` so the build reports it as fresh or stale instead of undated (Task 22). `assignment_defaults.group` must name a declared group (A1 item 5), and every assignment or quiz without its own `group:` falls into it.
+2b. `course.yml`: every key under `canvas:` must be one of the eleven the package knows (`course_code`, `is_public`, `indexed`, `default_view`, `license`, `grading_standard_enabled`, `group_weighting_scheme`, `restrict_enrollments_to_course_dates`, `allow_student_wiki_edits`, `restrict_student_future_view`, `restrict_student_past_view`); any other key stops the build (Task 16). `grading_standard:` and `late_policy:` stay optional. `textbook_docs:` keeps its path; `none` is for a course without a textbook (Task 20).
 3. `announcements.yml`: the `term:` block may be deleted once `course.yml` carries it (Task 21). Decision D5: keep bodies under gitignored `semester/` (a clone cannot build; `semester/README.md` says so) or move them to `content/announcements/`.
 4. One import into a throwaway shell verifies all of the above together, then the live course when Logan says.
 

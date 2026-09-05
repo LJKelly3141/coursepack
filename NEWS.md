@@ -1,5 +1,8 @@
-# coursepack 0.1.0
+# coursepack 0.2.0
 
+The builder has converged: every output change since 0.1.0 was made on purpose, with the byte gate regenerated in its own commit each time.
+
+* `writef()` forces its text before opening the file, so a stop inside a body builder no longer leaves a connection open.
 * Every build reports its iframe heights as undated, stale, fresh or unmappable; an unmappable height is counted, never silently exempt.
 * The pre-zip scan guards the Canvas marker file and the manifest header tokens; `announcements.yml` may omit `term:` and read the zone and window from `course.yml`.
 * `textbook_docs: none` is threaded through the builder and the preview; local previews serve the course's own `docs/` as `/site`.
@@ -9,6 +12,9 @@
 * Grading standard and late policy are optional; `canvas:` keys come from one known-key list and an unknown key stops the build.
 * Emit every declared assignment group and route assignments and quizzes by group name.
 * Due dates: `due_time:` in `course.yml`; `due:` accepts a clock time; seconds now match Canvas (`:59`).
+
+# coursepack 0.1.0
+
 * `build_preview()`; mockup templates ship in `inst/templates/mockup/`; the sibling-layout textbook fallback is gone.
 * `build_qti()`; output goes under `proj`.
 * `build_cartridge()` moved, split across seven files along the script's own banners; due dates route through `local_to_utc()`; the filename is `<slug>-<date>.imscc`.

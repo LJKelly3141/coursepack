@@ -3,10 +3,13 @@
 Build tools for plain-text course authoring. One installed copy serves any
 number of courses.
 
-**Status: the ECON 730 chain has moved.** `check_manifests()`, `build_cartridge()`,
+**Status: the builder has converged (0.2.0).** `check_manifests()`, `build_cartridge()`,
 `diff_against_reference()`, `build_qti()`, `build_preview()`, and `course_tile()` are
-in the package and pass the byte gate against the frozen script. Nothing has been
-imported into Canvas from this package yet.
+in the package. Since the byte-identical move, every output change has been made on
+purpose and recorded in the gate: assignment groups routed by name, optional grading
+standard and late policy, one known-key list for `canvas:`, one titled iframe template,
+id overrides, course prose in `course.yml`, `textbook_docs: none`, two pre-zip guards,
+and a stale-height report. Nothing has been imported into Canvas from this package yet.
 
 ## What it is for
 

@@ -50,10 +50,14 @@ slugify <- function(x) {
 }
 
 writef <- function(path, text) {
+  # Force the text before opening the file: callers pass expressions such as
+  # assignment_body(...), and a stop() inside one used to unwind past an open
+  # connection, which R then reported as "closing unused connection" at gc.
+  text <- enc2utf8(text)
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   con <- file(path, open = "wb")            # binary: no CRLF translation, stable bytes
-  writeLines(enc2utf8(text), con, sep = "\n", useBytes = TRUE)
-  close(con)
+  on.exit(close(con), add = TRUE)
+  writeLines(text, con, sep = "\n", useBytes = TRUE)
 }
 
 XSI <- paste0('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
