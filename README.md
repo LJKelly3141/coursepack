@@ -3,9 +3,10 @@
 Build tools for plain-text course authoring. One installed copy serves any
 number of courses.
 
-**Status: skeleton. No code has been migrated yet.** This repository exists so
-the migration has a destination and so new toolchain code has a shape to be
-written in. Nothing here builds anything today.
+**Status: the ECON 730 chain has moved.** `check_manifests()`, `build_cartridge()`,
+`diff_against_reference()`, `build_qti()`, `build_preview()`, and `course_tile()` are
+in the package and pass the byte gate against the frozen script. Nothing has been
+imported into Canvas from this package yet.
 
 ## What it is for
 

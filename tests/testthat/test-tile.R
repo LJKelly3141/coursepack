@@ -57,6 +57,7 @@ test_that("the palette comes from course.yml when the course declares one", {
 test_that("a given course renders reproducibly", {
   p <- fixture(file.path(tempdir(), "cr"), code = "ABCD 101", title = "A Course")
   f1 <- course_tile(p, out = file.path(tempdir(), "r1.png"), seed = 5L)
+  Sys.sleep(1.1)  # cross a wall-clock second so a timestamp chunk would show
   f2 <- course_tile(p, out = file.path(tempdir(), "r2.png"), seed = 5L)
   expect_identical(readBin(f1, "raw", file.size(f1)),
                    readBin(f2, "raw", file.size(f2)))

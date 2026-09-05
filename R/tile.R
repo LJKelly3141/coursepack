@@ -130,7 +130,10 @@ course_tile <- function(proj,
   if (ss > 1L) {
     img <- magick::image_read(out)
     img <- magick::image_resize(img, paste0(width, "x", height, "!"), filter = "Lanczos")
-    magick::image_write(img, out, format = "png")
+    # ImageMagick stamps a tIME chunk with the write time; excluding it keeps
+    # two renders of the same course byte-identical.
+    magick::image_write(img, out, format = "png",
+                        defines = c("png:exclude-chunk" = "tIME"))
   }
 
   invisible(out)
