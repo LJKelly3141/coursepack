@@ -1,0 +1,82 @@
+url_for <- function(it, urls) {
+  if (!is.null(it$url)) return(it$url)
+  chapter_url(it$chapter, it$anchor, urls$textbook)
+}
+
+
+# ---- resolve every module item into a flat, fully-identified table --------
+resolve_items <- function(m) {
+mods <- m$mods
+urls <- m$course$urls
+pages <- stats::setNames(mods$pages,       vapply(mods$pages,       `[[`, "", "slug"))
+asg   <- stats::setNames(mods$assignments, vapply(mods$assignments, `[[`, "", "id"))
+quiz  <- if (is.null(mods$quizzes)) list() else
+         stats::setNames(mods$quizzes, vapply(mods$quizzes, `[[`, "", "id"))
+
+# Quizzes need three ids each: the assessment resource (which the module item
+# points at), the meta resource, and the inner assignment.
+quiz_res  <- vapply(names(quiz), function(k) gid("quiz", k),           "")
+quiz_meta <- vapply(names(quiz), function(k) gid("quizmeta", k),       "")
+quiz_aid  <- vapply(names(quiz), function(k) gid("quizassignment", k), "")
+
+# Assignment resource ids and directory names, needed before the item walk.
+asg_res <- vapply(names(asg), function(k) gid("assignment", k), "")
+asg_dir <- asg_res
+asg_pos <- stats::setNames(seq_along(names(asg)), names(asg))
+
+page_res <- vapply(names(pages), function(k) gid("page", k), "")
+
+items <- list(); modmeta <- list()
+for (mi in seq_along(mods$modules)) {
+  m <- mods$modules[[mi]]
+  mrow <- list(id = gid("module", m$title), title = m$title, position = mi,
+               state = if (isTRUE(m$published)) "active" else "unpublished",
+               sequential = isTRUE(m$sequential), items = list())
+  for (pi in seq_along(m$items)) {
+    it <- m$items[[pi]]
+    key <- paste(m$title, pi, sep = "#")
+    r <- list(position = pi, indent = if (is.null(it$indent)) 0L else as.integer(it$indent),
+              item_id = gid("item", key), new_tab = "false", url = NULL,
+              mm_idref = NULL, man_idref = NULL, state = "active")
+
+    if (!is.null(it$header)) {
+      r$ctype <- "ContextModuleSubHeader"; r$title <- oneline(it$header)
+
+    } else if (!is.null(it$page)) {
+      r$ctype <- "WikiPage"; r$title <- pages[[it$page]]$title
+      r$mm_idref <- r$man_idref <- page_res[[it$page]]
+
+    } else if (!is.null(it$link)) {
+      r$ctype <- "ExternalUrl"; r$title <- oneline(it$link); r$url <- url_for(it, urls)
+      if (isTRUE(it$new_tab)) r$new_tab <- "true"
+      # THE QUIRK: module_meta self-references; the manifest points at the resource.
+      r$mm_idref  <- r$item_id
+      r$man_idref <- gid("weblink", key)
+
+    } else if (!is.null(it$assignment)) {
+      a <- asg[[it$assignment]]
+      r$ctype <- "Assignment"; r$title <- a$title
+      r$mm_idref <- r$man_idref <- asg_res[[it$assignment]]
+      if (!isTRUE(a$published)) r$state <- "unpublished"
+
+    } else if (!is.null(it$quiz)) {
+      q <- quiz[[it$quiz]]
+      if (is.null(q)) stop("module item references undefined quiz: ", it$quiz)
+      r$ctype <- "Quizzes::Quiz"; r$title <- q$title
+      r$mm_idref <- r$man_idref <- quiz_res[[it$quiz]]
+      # Canvas writes <new_tab/> empty for quiz items, not "false".
+      r$new_tab <- ""
+      if (!isTRUE(q$published)) r$state <- "unpublished"
+
+    } else stop("module item has no recognized form at ", key)
+
+    mrow$items[[pi]] <- r
+    items[[length(items) + 1]] <- r
+  }
+  modmeta[[mi]] <- mrow
+}
+
+list(items = items, modmeta = modmeta,
+     ids = list(quiz_res = quiz_res, quiz_meta = quiz_meta, quiz_aid = quiz_aid,
+                asg_res = asg_res, asg_pos = asg_pos, page_res = page_res))
+}

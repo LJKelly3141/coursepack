@@ -1742,7 +1742,7 @@ test_that("an ExternalUrl carries two distinct ids: module_meta self-references,
   item_ids <- regmatches(b$mm, gregexpr('(?<=<item identifier=")[^"]+', b$mm, perl = TRUE))[[1]]
   mm_refs  <- regmatches(b$mm, gregexpr('(?<=<identifierref>)[^<]+', b$mm, perl = TRUE))[[1]]
   self <- intersect(item_ids, mm_refs)
-  expect_length(self, 3L)                                   # the three link items
+  expect_length(self, 4L)                                   # the four link items
   man_refs <- regmatches(b$man, gregexpr('(?<=identifierref=")[^"]+', b$man, perl = TRUE))[[1]]
   expect_length(intersect(self, man_refs), 0L)              # never the item id in the manifest
 })

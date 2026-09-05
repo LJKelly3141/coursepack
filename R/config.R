@@ -137,11 +137,3 @@ textbook_docs_path <- function(course, proj) {
 course_slug <- function(course) {
   course$slug %||% slugify(course$canvas$course_code %||% course$code)
 }
-
-# Temporary: identical to the copy in the snapshot builder. Task 10 moves the
-# real one into R/ids.R and deletes this.
-slugify <- function(x) {
-  x <- tolower(x)
-  x <- gsub("[^a-z0-9]+", "-", x)
-  gsub("^-+|-+$", "", x)
-}

@@ -1,3 +1,7 @@
+# coursepack 0.0.0.9009
+
+* `build_cartridge()` moved, split across seven files along the script's own banners; due dates route through `local_to_utc()`; the filename is `<slug>-<date>.imscc`.
+
 # coursepack 0.0.0.9008
 
 * `diff_against_reference()`; the reference export and the declared divergences move to `reference.yml`.
