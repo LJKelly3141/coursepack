@@ -1,3 +1,8 @@
+# coursepack 1.0.0.9000
+
+* CI: the pa11y job now re-enables unprivileged user namespaces on the runner with one `sysctl` line before the test step, because Chrome's sandbox needs them and the runner restricts them by default, which is why the job's first run died at browser launch. Runner-side only; nothing in the package changed, and the job stays non-blocking under decision D12. The line is proved by the next push.
+* No cartridge output changed: this stages nothing.
+
 # coursepack 1.0.0
 
 Public. The repository is public on GitHub at the address the README's quick start installs from, `main` and the five phase tags are pushed, and CI checks every push. Every export has a documented return value and an example that runs against the installed package. Nothing from any real course is in the tree or in the history. Nothing built by this package has been imported into Canvas yet, and the README's table says so.

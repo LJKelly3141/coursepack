@@ -1,6 +1,6 @@
 Package: coursepack
 Title: Build Canvas Course Packages from Plain-Text Course Sources
-Version: 1.0.0
+Version: 1.0.0.9000
 Authors@R:
     person("Logan", "Kelly", email = "logan.kelly@uwrf.edu",
            role = c("aut", "cre"))

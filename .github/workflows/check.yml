@@ -26,5 +26,9 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y zip libmagick++-dev python3
       - uses: r-lib/actions/setup-r-dependencies@v2
       - run: npx --yes pa11y@9.1.1 --version
+      # The runner restricts unprivileged user namespaces, which Chrome's
+      # sandbox needs; without this line Chrome dies at launch with "No usable
+      # sandbox" and pa11y never runs. Runner-side only; the package is unchanged.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: Rscript -e 'testthat::test_local(filter = "a11y-integration")'
         env: { COURSEPACK_PA11Y_TESTS: "1" }
