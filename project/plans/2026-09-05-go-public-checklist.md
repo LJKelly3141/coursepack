@@ -118,12 +118,25 @@ is written when the flip happens, not before.
   `yaml`, `education`, `teaching`). Both are set in the About box on GitHub
   after the flip, by hand.
 
-- [ ] The visibility flip, by Logan, by hand. Then `Version: 1.0.0` and the
+- [x] The visibility flip, by Logan, by hand. Then `Version: 1.0.0` and the
   commit `Close phase 6: ready to go public`. The push that precedes the flip
   is `git push --force --tags origin main`, because the rewrite above replaced
   every commit the remote knows. Push before the flip, not after: the four old
   commits on GitHub carry the migration spec and the inventory, and a force
-  push is what removes them from the branch.
+  push is what removes them from the branch. **Done 2026-09-06.** The first
+  push attempt did not reach GitHub (the remote still answered with the old
+  tip and no tags, checked before anything was bumped); the second, run from
+  this session, landed `main` at a3ff3e2 and the five tags. CI's first run:
+  the check job passed; the pa11y job failed before pa11y ran, because Chrome
+  cannot start its sandbox on the runner (unprivileged user namespaces are
+  restricted there), non-blocking by D12, fix pending as one runner-side
+  line in the workflow. The flip was confirmed by the API two ways
+  (`visibility=public`, and the name in the account's public listing). Then
+  `Version: 1.0.0`, the NEWS entries since 0.5.0 collapsed under one heading,
+  the package page's stale status paragraph and `CONTRIBUTING.md`'s parity
+  paragraph rewritten for a tree with no snapshots, and the closing commit.
+  Line 8's About box was still empty at that moment (no description, no
+  topics), so line 8 stays open.
 
 ## The human gates the run could not pass (Appendix D)
 

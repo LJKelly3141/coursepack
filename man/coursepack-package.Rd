@@ -31,8 +31,12 @@ accomplish.
 \section{Status}{
 
 
-Skeleton only. No entry points have been migrated yet. The migration is
-specified in \verb{project/}; see \code{README.md}.
+1.0.0. Every entry point the two originating course toolchains had is in
+the package: checking, building, diffing against a reference export, QTI,
+preview, tile, audit, extraction, conversion, announcements, paper forms,
+the scaffold and the skills. Nothing built by this package has been
+imported into Canvas yet; \code{README.md} keeps the table of what has been
+verified by a real import.
 }
 
 \author{

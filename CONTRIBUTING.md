@@ -113,10 +113,13 @@ both should pass before a change to the audit is proposed.
 
 The parity tests are the other conditional pair. They run the Python builder this
 package replaces over the same fixture and compare the two outputs, which is what
-proves the port did not quietly change anything. They need `python3` and the
-snapshots under `project/`, they locate a snapshot by a file it must contain
-rather than by its directory name, and they skip where either is absent, which is
-the case inside a built tarball.
+proved the port did not quietly change anything. They need `python3` and a
+snapshot of that builder placed under `project/`, which the repository does not
+carry: the snapshots held course material and were removed from the tree and
+from the history before the repository went public. The tests locate a snapshot
+by a file it must contain rather than by its directory name, and they skip where
+either is absent, which is the case on every checkout and inside a built
+tarball. They are the maintainer's tests, not a contributor's.
 
 The full check, run from a scratch directory so the tarball never lands in the
 tree:
