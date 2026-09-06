@@ -1,19 +1,19 @@
 #!/usr/bin/env Rscript
-# Build a fixture course with the FROZEN snapshot builder and write its hashed
-# staging tree. This is the only legitimate way the first expected tree is
-# produced. Usage:
-#   Rscript tools/baseline.R script  <fixture-course> <out-file>
-#   Rscript tools/baseline.R package <fixture-course> <out-file>
-# `script` copies the fixture and its sibling fake-textbook into a scratch
-# directory, copies project/econ730-toolchain/scripts/{build_cartridge.R,lib/}
-# beside it (the frozen script sources lib/ via PROJ), zips the sample QTI,
-# and runs the script with PROJ set. That is the last legitimate use of PROJ.
-# `package` builds with the working package, for deliberate regenerations.
+# Build a fixture course with the working package and write its hashed staging
+# tree. This is how the expected tree is regenerated after a deliberate output
+# change; the regeneration lands in its own commit naming the changed files.
+# Usage:
+#   Rscript tools/baseline.R <fixture-course> <out-file>
+# The fixture is copied with its sibling fake-textbook into a scratch directory,
+# the sample QTI and the source cartridge are zipped beside it the way
+# copy_course() zips them, and the bank is copied under questions/.
+#
+# The first expected tree was produced the same way by the frozen builder this
+# package was ported from. That builder is no longer in the repository; the
+# frozen tree it produced is the record.
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) != 3L) stop("usage: baseline.R script|package <fixture-course> <out-file>")
-mode <- args[1]; fixture <- normalizePath(args[2]); out <- args[3]
-# script mode needs only the gate helpers; package mode loads the whole working tree below
-if (mode == "script") { source("R/utils.R"); source("R/gate.R") }
+if (length(args) != 2L) stop("usage: baseline.R <fixture-course> <out-file>")
+fixture <- normalizePath(args[1]); out <- args[2]
 
 scratch <- tempfile("baseline-"); dir.create(scratch)
 file.copy(fixture, scratch, recursive = TRUE)
@@ -39,27 +39,13 @@ utils::zip(file.path(proj, "reference", "source.imscc"),
 setwd(old)
 
 # The question bank, copied under the course's questions/ directory exactly the
-# way copy_course() copies it. Both modes get it: the frozen script never looks
-# at the directory, and the package build draws its bank quiz from it.
+# way copy_course() copies it; the build draws its bank quiz from it.
 bank_src <- file.path(dirname(fixture), "bank")
 dir.create(file.path(proj, "questions"), recursive = TRUE, showWarnings = FALSE)
 file.copy(list.files(bank_src, full.names = TRUE), file.path(proj, "questions"), recursive = TRUE)
 
-if (mode == "script") {
-  snap <- "project/econ730-toolchain/scripts"
-  dir.create(file.path(proj, "scripts", "lib"), recursive = TRUE)
-  file.copy(file.path(snap, "build_cartridge.R"), file.path(proj, "scripts"))
-  file.copy(list.files(file.path(snap, "lib"), full.names = TRUE), file.path(proj, "scripts", "lib"))
-  # PROJ only. Do NOT export TEXTBOOK_DOCS, even empty: the frozen script reads
-  # Sys.getenv("TEXTBOOK_DOCS", default) at its line 507, and an empty string
-  # defeats the default, which is exactly the make-export trap the gotchas record.
-  status <- system2("Rscript", file.path(proj, "scripts", "build_cartridge.R"),
-                    env = paste0("PROJ=", proj))
-  if (status != 0) stop("the frozen builder failed; fix the fixture, not the builder")
-} else if (mode == "package") {
-  pkgload::load_all(".", quiet = TRUE)
-  build_cartridge(proj)
-} else stop("mode must be script or package")
+pkgload::load_all(".", quiet = TRUE)
+build_cartridge(proj)
 
 stage <- file.path(proj, "build", "coursepack", "staging")
 write_expected_tree(stage, out)
