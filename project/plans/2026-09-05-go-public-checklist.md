@@ -106,7 +106,13 @@ is written when the flip happens, not before.
   and enabling Pages before it; the README now lists those steps in the same
   order. The import into a Canvas shell is what remains.
 
-- [ ] Repository description and topics set; issues on or off (D11).
+- [x] Repository description and topics set; issues on or off (D11).
+  **Done 2026-09-06, read back from the API:** the description is set word
+  for word, issues are on, and seven of the fifteen drafted topics are on
+  the repository (`canvas-lms`, `common-cartridge`, `course-authoring`,
+  `instructional-design`, `r`, `r-package`, `wcag`); the other eight
+  (`imscc`, `qti`, `accessibility`, `pa11y`, `quarto`, `yaml`, `education`,
+  `teaching`) did not take and can be added any time.
   **Issues: on, ruled by Logan 2026-09-05.** `CONTRIBUTING.md` and the
   README's Contributing section now say so: bug reports, questions, and
   requests as issues; for a pull request, open an issue first, since the
