@@ -93,6 +93,18 @@ is written when the flip happens, not before.
 
 - [ ] README quick start followed on a clean machine from `install_github()`
   to an imported scaffold, by Logan pretending to be a stranger. Not done.
+  Dry run 2026-09-05 on this machine, against the tarball installed into a
+  fresh library (the stand-in for `install_github()`, which cannot work until
+  the force push replaces the four stale commits on GitHub): the README's
+  `init_course()` call runs verbatim with its defaults (git init, 8 skills
+  installed), `make coursepack` in the new directory builds the cartridge
+  and skips the reference diff as the README says, and the second way in,
+  `from_export` with that cartridge, scaffolds a course whose rebuild reports
+  no divergence from its reference. One gap, fixed the same day: the quick
+  start went from the scaffold straight to `make coursepack`, while the
+  function's own printed next steps put `quarto render`, `make leakcheck`,
+  and enabling Pages before it; the README now lists those steps in the same
+  order. The import into a Canvas shell is what remains.
 
 - [ ] Repository description and topics set; issues on or off (D11).
   `CONTRIBUTING.md` says the outside-contributions question is open until the

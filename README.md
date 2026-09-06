@@ -51,9 +51,16 @@ coursepack::init_course(
 )
 ```
 
-Then, in the new course directory: fill in `term: first_day:` and `last_day:`
-from the registrar's calendar, write the pages and the module tree in
-`course.yml` and `modules.yml`, and build.
+Then, in the new course directory, the steps `init_course()` prints:
+
+1. Fill in `term: first_day:` and `last_day:` from the registrar's calendar,
+   and write the pages and the module tree in `course.yml` and `modules.yml`.
+2. Render the site and check it for leaks: `quarto render`, then
+   `make leakcheck`.
+3. Commit, push, and enable Pages from `main /docs`. The site has to answer
+   before a cartridge built from it is imported, because every page in the
+   cartridge is a link to it.
+4. Build.
 
 ```
 make coursepack
