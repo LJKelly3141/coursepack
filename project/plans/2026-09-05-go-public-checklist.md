@@ -25,23 +25,37 @@ is written when the flip happens, not before.
 - [x] `tools/scrub.sh` clean on the final tree. Done above; run it again after
   any edit made from this list.
 
-- [ ] **`project/` contents (decision D10, re-opened).** `project/` holds the
+- [x] **`project/` contents (decision D10, re-opened).** `project/` held the
   two toolchain snapshots (a live exam bank with keys under
   `econ202-toolchain/inputs/questions/`, 38 pages of course prose under
   `econ730-toolchain/inputs/content/canvas/`, both courses' full manifests, both
-  `CLAUDE.md`s), the three plans, and the migration spec. **The run's standing
-  ruling took recommendation (a):** move `project/` to a private companion
-  repository and leave a one-paragraph README behind. Nothing under `project/`
-  was deleted by the run; the move creates a repository outside this one and is
-  yours to make. Whatever is chosen, the bank is in history: `chapter_13` occurs
-  21 times across the commits that added the snapshots. Going public with this
-  history means the bank is public. If that matters, the choice is a fresh
-  repository (one commit with the final tree, tags recreated) or a history
-  rewrite; both are yours.
+  `CLAUDE.md`s), the plans, the migration spec, the inventory, and the
+  onboarding note. **Ruled 2026-09-05 by Logan: keep the plans, delete the
+  rest; the toolchains exist in their own repositories.** Done the same day:
+  the five paths came out of the tree (commit "Drop the toolchain snapshots
+  and the migration notes from the tree"; `tools/baseline.R` lost the
+  `script` mode that copied the frozen builder out of the snapshot), then
+  `git filter-branch` removed the same five paths from every commit on `main`
+  and re-pointed the five annotated tags. Two commits that only added
+  snapshot files were pruned as empty. The pre-rewrite refs were bundled to
+  the session scratchpad before the rewrite and the old objects were purged
+  after it. The two tests that read a snapshot now skip on every checkout.
 
 - [x] `git log -p --all | grep -c '/Users/logankelly'` is 0 outside `project/`.
-  Measured: 0 outside `project/` and `.superpowers/` (the latter is git-ignored
-  and never committed); 36 inside `project/`, which the line above resolves.
+  Re-measured after the rewrite: 0 outside `project/plans`; 9 inside the
+  plans, every one this checklist's own grep line, the workspace path, a
+  Makefile default, or a command example. `chapter_13` occurs 3 times in
+  history, all of them the name in plan prose; the bank itself is gone.
+
+- [x] **The GitHub remote (found 2026-09-05).** `origin` is
+  `github.com/LJKelly3141/coursepack`, pushed four times before the run, last
+  at "Add M19: a paper version of any assignment". Its history never received
+  the bank (`chapter_13` count 0) but does carry the migration spec, the
+  inventory, and the onboarding note. After the rewrite `main` shares no
+  commit with `origin/main`: 66 ahead, 4 behind. The first push is therefore a
+  force push, by Logan, by hand, and it belongs with the visibility flip
+  below. The local `origin/main` ref was left untouched on purpose so it still
+  records what GitHub holds.
 
 - [ ] `R CMD check --as-cran` on a machine without Node or Chrome: 0 errors,
   0 warnings; pa11y and parity tests report as skipped. Not done: this machine
@@ -71,7 +85,11 @@ is written when the flip happens, not before.
   maintainer decides.
 
 - [ ] The visibility flip, by Logan, by hand. Then `Version: 1.0.0` and the
-  commit `Close phase 6: ready to go public`.
+  commit `Close phase 6: ready to go public`. The push that precedes the flip
+  is `git push --force --tags origin main`, because the rewrite above replaced
+  every commit the remote knows. Push before the flip, not after: the four old
+  commits on GitHub carry the migration spec and the inventory, and a force
+  push is what removes them from the branch.
 
 ## The human gates the run could not pass (Appendix D)
 
