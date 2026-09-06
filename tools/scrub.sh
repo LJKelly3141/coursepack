@@ -3,7 +3,8 @@
 #
 # The allowed set is exactly two things, and nothing else:
 #   1. the string LJKelly3141/coursepack inside inst/templates/course/Makefile,
-#      README.md and DESCRIPTION, which is this package's own repository address;
+#      README.md, SETUP.md and DESCRIPTION, which is this package's own
+#      repository address;
 #   2. the Authors@R person line of DESCRIPTION, which carries the maintainer's
 #      name and institutional email because a package has to name a maintainer,
 #      together with the \author{} block of man/coursepack-package.Rd, which is
@@ -17,16 +18,16 @@ status=0
 # themselves, so those two files are excluded by name here and nowhere else.
 hits=$(grep -rniE 'econ ?730|econ ?202|managerial|macro_principles|logankelly|uwrf|river falls|real-world-statistics|kellyecon|My_Books|Teaching/' \
   --exclude=test-fixtures.R --exclude=test-skills-content.R \
-  R/ inst/ tests/ man/ NAMESPACE README.md NEWS.md CONTRIBUTING.md DESCRIPTION 2>/dev/null \
+  R/ inst/ tests/ man/ NAMESPACE README.md SETUP.md NEWS.md CONTRIBUTING.md DESCRIPTION 2>/dev/null \
   | grep -vE '^DESCRIPTION:[0-9]+: *person\(' \
   | grep -vE '^man/coursepack-package\.Rd:[0-9]+:.*\\email\{')
 [ -n "$hits" ] && { echo "course residue:"; echo "$hits"; status=1; }
-addr=$(grep -rn 'ljkelly3141' -i R/ inst/ tests/ man/ NAMESPACE README.md NEWS.md CONTRIBUTING.md DESCRIPTION 2>/dev/null \
-  | grep -viE '^(inst/templates/course/Makefile|README\.md|DESCRIPTION):.*LJKelly3141/coursepack')
+addr=$(grep -rn 'ljkelly3141' -i R/ inst/ tests/ man/ NAMESPACE README.md SETUP.md NEWS.md CONTRIBUTING.md DESCRIPTION 2>/dev/null \
+  | grep -viE '^(inst/templates/course/Makefile|README\.md|SETUP\.md|DESCRIPTION):.*LJKelly3141/coursepack')
 [ -n "$addr" ] && { echo "repository address outside the allowed files:"; echo "$addr"; status=1; }
 env=$(grep -rn 'Sys.getenv' R/); [ -n "$env" ] && { echo "Sys.getenv in R/:"; echo "$env"; status=1; }
 paths=$(grep -rnE '~/|/Users/|/home/' R/ inst/ tests/); [ -n "$paths" ] && { echo "absolute paths:"; echo "$paths"; status=1; }
-dash=$(grep -rn -- '—' R/ inst/ README.md NEWS.md CONTRIBUTING.md 2>/dev/null); [ -n "$dash" ] && { echo "em-dashes in shipped text:"; echo "$dash"; status=1; }
+dash=$(grep -rn -- '—' R/ inst/ README.md SETUP.md NEWS.md CONTRIBUTING.md 2>/dev/null); [ -n "$dash" ] && { echo "em-dashes in shipped text:"; echo "$dash"; status=1; }
 # Token shapes anywhere in the history. Two things keep this check from flagging
 # its own specification rather than a real leak. The plan documents under
 # project/plans/ and .superpowers/ quote this very grep, so those two paths are

@@ -35,7 +35,10 @@ what was built.
 
 The audit drives pa11y, which npx fetches at run time and which needs a browser.
 That is the only reason Node appears anywhere here, and none of it is needed to
-build a cartridge, a quiz package or a preview.
+build a cartridge, a quiz package or a preview. `SETUP.md` is the full
+walk-through: what to install on each platform, the install itself, starting a
+course from nothing or from a Canvas export, and every `make` target a course
+gets.
 
 ## Quick start
 

@@ -1,6 +1,7 @@
 # coursepack 1.0.0.9000
 
 * CI: the pa11y job now re-enables unprivileged user namespaces on the runner with one `sysctl` line before the test step, because Chrome's sandbox needs them and the runner restricts them by default, which is why the job's first run died at browser launch. Runner-side only; nothing in the package changed, and the job stays non-blocking under decision D12. The line is proved by the next push.
+* `SETUP.md` is the setup walk-through for a reader who has the README and nothing else: what to install on each platform and for which target, the install itself and how to check it without touching a course, starting a course from nothing or from a Canvas export, how a course carries the package as a dependency through `make install-toolchain`, every target the scaffold's `Makefile` gets, the working loop from dates to import, and what is never public. It is linked from the README's "What you need" section and sits in `.Rbuildignore` beside `CONTRIBUTING.md`. `tools/scrub.sh` scans it like the README and allows the repository address in it, so the allowed set is four files rather than three.
 * No cartridge output changed: this stages nothing.
 
 # coursepack 1.0.0

@@ -59,7 +59,7 @@ tools/scrub.sh
 ```
 
 It greps the shipped tree for course residue, for this package's own repository
-address outside the three files allowed to carry it, for `Sys.getenv()` in `R/`,
+address outside the four files allowed to carry it, for `Sys.getenv()` in `R/`,
 for absolute paths, for em-dashes in shipped text, and for token shapes anywhere
 in the git history. It prints `scrub: clean` and exits zero, or it prints every
 hit and exits non-zero. There is no allowlist to add yourself to: the allowed set
