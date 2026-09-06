@@ -25,3 +25,17 @@ colourblind reader, but whether a given chart does is a judgement about
 what the chart is for. Severity \code{review} routes it to a human by design;
 this is never auto-fixed.
 }
+\examples{
+repo <- tempfile("repo-")
+dir.create(repo)
+writeLines(c(
+  "```{r}", "ggplot(d, aes(x, y, colour = grp)) + geom_line()", "```", "",
+  "```{r}", "ggplot(d, aes(x, y, colour = grp, linetype = grp)) +",
+  "  geom_line()", "```"), file.path(repo, "chapter1.qmd"))
+
+found <- check_colour_only(repo, surface = "demo", exclude = character(0))
+nrow(found)          # the line carrying a second channel is not flagged
+found$severity       # "review": a person decides, this is never auto-fixed
+
+unlink(repo, recursive = TRUE)
+}

@@ -56,3 +56,23 @@ written to \code{announcements.generated.yml} instead and the function says so, 
 a course that has edited its announcements by hand can merge rather than
 discover the loss later.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+# The scaffold ships an announcements.yml, and an existing one is never
+# overwritten. Removing it here lets the declaration land in its own name.
+unlink(file.path(root, "announcements.yml"))
+
+writeLines(c("weeks:",
+             "  - monday: 2026-09-14",
+             '    module: "Start here"',
+             "    tuesday:",
+             '      class: "Course overview."'),
+           file.path(root, "schedule.yml"))
+
+weeks <- announcements_from_schedule(root)
+weeks[, c("id", "title", "post")]
+
+unlink(root, recursive = TRUE)
+}

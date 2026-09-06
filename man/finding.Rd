@@ -63,3 +63,16 @@ and the tool's own check code, and deliberately not the line number, the
 HTML context, or the message text, so a re-audit can tell "the same
 problem, still here" from "a new problem" across edits that move lines.
 }
+\examples{
+f <- finding(surface = "demo", file = "chapter1.html", criterion = "1.1.1",
+             level = "A", issue = "image has no alt text",
+             selector = "img[src='fig/a.png']", severity = "serious")
+f[, c("id", "surface", "criterion", "severity", "count")]
+
+# The same element under a different check is a different finding, because
+# the check's own code is part of the id.
+g <- finding("demo", "chapter1.html", "1.1.1", "A",
+             "image needs a long description", "img[src='fig/a.png']",
+             "moderate", code = "G73")
+identical(f$id, g$id)
+}

@@ -45,6 +45,13 @@
 #'
 #' @param ... Key parts. Coerced to character and joined with `"::"`.
 #' @return A Canvas identifier: `"g"` followed by 32 hex characters.
+#' @examples
+#' gid_py("group", "Module Quizzes")
+#'
+#' # The parts are joined with "::", so a multi-part key and the single string
+#' # that spells it out give the same identifier.
+#' identical(gid_py("res", "Module 1", "Welcome"),
+#'           gid_py("res::Module 1::Welcome"))
 #' @export
 gid_py <- function(...) {
   key <- paste(as.character(unlist(list(...))), collapse = "::")
@@ -177,6 +184,23 @@ check_generate_keys <- function(spec, allowed, title) {
 #' @param bank_dir The question bank directory, relative to the course project
 #'   root, written as `dir:` in every converted `bank:` block.
 #' @return `out_dir`, invisibly.
+#' @examples
+#' src <- tempfile("python-"); dir.create(src)
+#' writeLines(c("title: Example Course", "course_code: ABCD 101",
+#'              "urls:", "  site: https://example.invalid/course",
+#'              "term:", "  timezone: America/Chicago",
+#'              "assignment_groups:", "  - name: Module Quizzes"),
+#'            file.path(src, "course.yml"))
+#' writeLines(c("modules:", "  - title: Module 1", "    items:",
+#'              "      - title: Welcome", "        type: WikiPage",
+#'              "        url: https://example.invalid/course/welcome.html",
+#'              "        height: 900px"), file.path(src, "modules.yml"))
+#' out <- convert_python_manifests(file.path(src, "course.yml"),
+#'                                 file.path(src, "modules.yml"),
+#'                                 tempfile("converted-"))
+#' # The converted pair reads as a manifest in this package's own schema.
+#' names(read_manifest(out)$pages)
+#' unlink(c(src, out), recursive = TRUE)
 #' @export
 convert_python_manifests <- function(course_py, modules_py, out_dir,
                                      bank_dir = "questions") {

@@ -9,7 +9,18 @@ course_slug(course)
 \arguments{
 \item{course}{A parsed \code{course.yml}.}
 }
+\value{
+The slug, a length-one character vector.
+}
 \description{
 \verb{slug:} in \code{course.yml} when set, else the slugified Canvas course code,
 else the slugified \code{code}. Decision D1 of the portable plan.
+}
+\examples{
+# A declared slug: wins.
+course_slug(list(slug = "stat-101", code = "STAT 101"))
+# No slug:, so the Canvas course code is slugified.
+course_slug(list(code = "ABCD 101", canvas = list(course_code = "ABCD 101 F26")))
+# Neither, so code: is.
+course_slug(list(code = "ABCD 101"))
 }

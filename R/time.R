@@ -9,6 +9,13 @@
 #' @param time `"HH:MM"` or `"HH:MM:SS"`, local.
 #' @param tz An IANA zone name.
 #' @return `"YYYY-MM-DDTHH:MM:SS"` in UTC.
+#' @examples
+#' # Central time is UTC-6 in January and UTC-5 in June, and the offset is
+#' # taken per date from the zone rather than fixed once for the term.
+#' local_to_utc("2026-01-15", "23:59:59", "America/Chicago")
+#' local_to_utc("2026-06-15", "23:59:59", "America/Chicago")
+#' # An exam that ends at 09:45 local.
+#' local_to_utc("2026-06-15", "09:45", "America/New_York")
 #' @export
 local_to_utc <- function(date, time = "23:59:00", tz) {
   if (!is.character(tz) || length(tz) != 1L || !tz %in% OlsonNames())
@@ -40,6 +47,12 @@ local_to_utc <- function(date, time = "23:59:00", tz) {
 #' @param tz IANA zone.
 #' @param what A label for the error message (the announcement or assignment id).
 #' @return `NULL`, or a `POSIXct` in `tz`.
+#' @examples
+#' # A bare date is midnight local.
+#' parse_when("2026-01-15", "America/Chicago", "hw-01")
+#' parse_when("2026-01-15 14:30", "America/Chicago", "hw-01")
+#' # `immediately` posts on import, so there is no time to return.
+#' parse_when("immediately", "America/Chicago", "welcome")
 #' @export
 parse_when <- function(x, tz, what) {
   x <- trimws(as.character(x))
@@ -63,6 +76,13 @@ parse_when <- function(x, tz, what) {
 #' @param due `"YYYY-MM-DD"` or `"YYYY-MM-DD HH:MM[:SS]"`.
 #' @param due_time `"HH:MM:SS"` from `course.yml`, or `NULL`.
 #' @param tz IANA zone.
+#' @return `"YYYY-MM-DDTHH:MM:SS"`, the UTC instant Canvas stores, as a
+#'   length-one character vector.
+#' @examples
+#' # A bare date takes its clock from course.yml's due_time.
+#' due_stamp("2026-01-15", "23:59:59", "America/Chicago")
+#' # A date carrying a clock time is used as given, and needs no due_time.
+#' due_stamp("2026-01-15 09:45", NULL, "America/Chicago")
 #' @export
 due_stamp <- function(due, due_time, tz) {
   due <- trimws(as.character(due))

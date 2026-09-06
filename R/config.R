@@ -62,6 +62,19 @@ read_yaml_under <- function(proj, name) {
 #'   than `true` or `false` stops the build.
 #' @param proj Course project root.
 #' @return `read_manifest()` returns `list(course, mods, pages, assignments, quizzes)`.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' read_course(root)$code
+#' names(read_modules(root))
+#' m <- read_manifest(root)
+#' names(m)
+#' # The definitions are named by slug or id, ready to index.
+#' names(m$pages)
+#' # reference.yml is optional, and a fresh scaffold carries none.
+#' read_reference(root)
+#' unlink(root, recursive = TRUE)
 #' @export
 read_course <- function(proj) read_yaml_under(proj, "course.yml")
 
@@ -174,6 +187,17 @@ read_reference <- function(proj) {
 #' @return `NULL` when the file is absent, else `list(body_dir, tz, first_day,
 #'   last_day, announcements)`. `first_day` and `last_day` are `NULL` when no
 #'   announcement posts on a date.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' ann <- read_announcements(root, read_course(root))
+#' ann$tz
+#' names(ann$announcements)
+#' # The scaffold's one announcement posts on import, so the term window is
+#' # not needed yet and comes back NULL.
+#' ann$first_day
+#' unlink(root, recursive = TRUE)
 #' @export
 read_announcements <- function(proj, course = NULL) {
   ann_file <- file.path(proj, "announcements.yml")
@@ -243,6 +267,16 @@ read_announcements <- function(proj, course = NULL) {
 #' fact about one instructor, and a wrong zone moves every due date and every
 #' announcement by hours while looking fine in the XML.
 #' @param course A parsed `course.yml`.
+#' @return The IANA zone name, a length-one character vector. Stops when
+#'   `course.yml` declares no `term: timezone:` or names a zone R does not know.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' read_timezone(read_course(root))
+#' unlink(root, recursive = TRUE)
+#' # The zone is read straight off the parsed term block.
+#' read_timezone(list(term = list(timezone = "America/New_York")))
 #' @export
 read_timezone <- function(course) {
   tz <- if (is.list(course$term)) course$term$timezone else NULL
@@ -259,6 +293,18 @@ read_timezone <- function(course) {
 #' @param course A parsed `course.yml`.
 #' @param proj Course project root; relative values resolve against it.
 #' @return An absolute path, or `NULL` for `none`.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' course <- read_course(root)
+#' # The scaffold writes textbook_docs: none, so there is no path to hand back
+#' # and every textbook check skips loudly.
+#' textbook_docs_path(course, root)
+#' # A relative value resolves against the project root.
+#' course$textbook_docs <- "textbook/_book"
+#' textbook_docs_path(course, root)
+#' unlink(root, recursive = TRUE)
 #' @export
 textbook_docs_path <- function(course, proj) {
   v <- course$textbook_docs
@@ -273,6 +319,14 @@ textbook_docs_path <- function(course, proj) {
 #' `slug:` in `course.yml` when set, else the slugified Canvas course code,
 #' else the slugified `code`. Decision D1 of the portable plan.
 #' @param course A parsed `course.yml`.
+#' @return The slug, a length-one character vector.
+#' @examples
+#' # A declared slug: wins.
+#' course_slug(list(slug = "stat-101", code = "STAT 101"))
+#' # No slug:, so the Canvas course code is slugified.
+#' course_slug(list(code = "ABCD 101", canvas = list(course_code = "ABCD 101 F26")))
+#' # Neither, so code: is.
+#' course_slug(list(code = "ABCD 101"))
 #' @export
 course_slug <- function(course) {
   course$slug %||% slugify(course$canvas$course_code %||% course$code)

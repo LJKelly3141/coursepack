@@ -22,3 +22,18 @@ first, because each one closes many findings at once. Class (a) bullets are
 deduplicated by the same key \code{\link[=classify_fixes]{classify_fixes()}} counts leverage with, so a
 per-item fix prints one bullet per item rather than collapsing into one.
 }
+\examples{
+df <- classify_fixes(rbind(
+  finding("demo", "a.html", "1.4.3", "AA", "text contrast is too low",
+          "p.note", "serious"),
+  finding("demo", "b.html", "1.4.3", "AA", "text contrast is too low",
+          "p.lead", "serious"),
+  finding("demo", "c.html", "1.1.1", "A", "image has no alt text",
+          "img", "serious")), target = list(stylesheet = "style.css"))
+
+path <- tempfile(fileext = ".md")
+render_plan(df, meta = list(date = "2026-09-05"), path)
+grep("^(#|- \\\\[ \\\\])", readLines(path), value = TRUE)
+
+unlink(path)
+}

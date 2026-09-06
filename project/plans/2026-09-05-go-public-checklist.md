@@ -69,13 +69,21 @@ is written when the flip happens, not before.
   `.Rbuildignore`. A literal second machine was not used; the shim proves the
   same skips.
 
-- [ ] **Every exported function has a roxygen page whose example runs in
-  `tempdir()`.** Not true yet: 0 of 68 exports carry an `\examples{}` section.
-  `R CMD check` passes because there is nothing to run. This is the one item on
-  the list that is package work rather than a decision; it is a follow-up task
-  (one example per entry point, each against the synthetic fixture in a
-  temporary directory), and it should land before the flip, because a CRAN-style
-  reader expects it.
+- [x] **Every exported function has a roxygen page whose example runs in
+  `tempdir()`.** Done 2026-09-05: 68 of 68 exports carry an example, on 62 of
+  the 63 Rd pages (the package page is the one without). The fixture is the
+  package's own scaffold, `init_course()` into `tempfile()`, so the examples
+  run against the installed package with nothing from `tests/`. Seven examples
+  sit in `\dontrun{}` with the tool named: `pa11y_raw`, `serve_dir`,
+  `audit_course` (npx, python3, a browser), `quiz_student_html` and
+  `print_assessment` (pandoc), `build_qti` (the exams package and pandoc), and
+  the default `init_course()` call (git). `course_tile()` runs behind
+  `capabilities("cairo")`. The six exports with no `\value` section got one
+  (`course_slug`, `due_stamp`, `read_timezone`, and the gate page). Gate after
+  the change: suite 1083 pass, 0 fail, 5 skips; `R CMD check --as-cran` with
+  Node hidden 0 errors, 0 warnings, 1 NOTE (New submission), examples OK;
+  scrub clean (it caught one real course number in an example, since
+  replaced). Expected tree untouched.
 
 - [x] `DESCRIPTION` `Authors@R` carries the email Logan chooses (D8). The
   run's standing ruling kept the name and email as they stand; the scrub

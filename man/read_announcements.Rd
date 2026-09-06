@@ -35,3 +35,15 @@ scaffold is exactly that case: its term dates are null until someone reads
 them off the registrar's calendar, and its one announcement posts on import,
 so it builds before those dates are in without any of them being invented.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+ann <- read_announcements(root, read_course(root))
+ann$tz
+names(ann$announcements)
+# The scaffold's one announcement posts on import, so the term window is
+# not needed yet and comes back NULL.
+ann$first_day
+unlink(root, recursive = TRUE)
+}

@@ -21,3 +21,14 @@ todo/published rule, and the assignment-group check. Structural counts are
 compared against \code{reference.yml}'s \verb{counts:} block and are fatal when it is
 present; absent, they are printed and the skip is reported, never hidden.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+# Prints the whole report. A fresh scaffold passes, with two checks skipped:
+# it has no reference.yml counts block and no separate textbook.
+res <- check_manifests(root)
+res$fails
+res$skipped
+unlink(root, recursive = TRUE)
+}

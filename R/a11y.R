@@ -31,6 +31,23 @@
 #' @return Invisibly, a list with `findings` (the full frame, classified rows
 #'   plus the notice rows), `meta` (the run's metadata) and `files` (the three
 #'   paths written).
+#' @examples
+#' \dontrun{
+#' # Needs python3 to serve the pages, npx (Node.js) to fetch pa11y, and a
+#' # Chrome or Chromium binary for its headless browser.
+#' repo <- tempfile("repo-")
+#' dir.create(file.path(repo, "docs"), recursive = TRUE)
+#' writeLines(c("project:", "  type: book", "  output-dir: docs"),
+#'            file.path(repo, "_quarto.yml"))
+#' writeLines("<html lang='en'><title>Week 1</title><img src='a.png'></html>",
+#'            file.path(repo, "docs", "index.html"))
+#'
+#' out <- audit_course(repo, out_dir = file.path(tempdir(), "a11y"))
+#' out$files              # the JSON record, the findings, and the plan
+#' out$meta$pages_examined
+#'
+#' unlink(repo, recursive = TRUE)
+#' }
 #' @export
 audit_course <- function(repos, proj = ".",
                          out_dir = file.path(proj, "project", "accessibility"),

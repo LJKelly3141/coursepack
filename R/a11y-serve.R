@@ -36,6 +36,20 @@ port_is_free <- function(port) {
 #' @param port Port to listen on.
 #' @return A list of `url`, `port`, `pid`, and `stop`, a function that kills
 #'   the server this call spawned. Call `stop()` yourself; nothing else will.
+#' @examples
+#' \dontrun{
+#' # Needs python3, which serves the directory, and a free port.
+#' pages <- tempfile("site-")
+#' dir.create(pages)
+#' writeLines("<html lang='en'><title>Week 1</title></html>",
+#'            file.path(pages, "index.html"))
+#'
+#' srv <- serve_dir(pages)
+#' srv$url
+#' srv$stop()          # nothing else stops it for you
+#'
+#' unlink(pages, recursive = TRUE)
+#' }
 #' @export
 serve_dir <- function(dir, port = 8766L) {
   stopifnot(dir.exists(dir))
@@ -193,6 +207,24 @@ pa11y_classify_output <- function(out, err, status, url) {
 #' @param url URL to audit. Serve the pages first; see [serve_dir()].
 #' @param timeout_s Per-page timeout, in seconds.
 #' @return The parsed pa11y issue list, one element per issue.
+#' @examples
+#' \dontrun{
+#' # Needs npx (Node.js), which fetches pa11y, and a Chrome or Chromium binary
+#' # for its headless browser.
+#' pages <- tempfile("site-")
+#' dir.create(pages)
+#' writeLines("<html><body><img src='a.png'></body></html>",
+#'            file.path(pages, "index.html"))
+#'
+#' srv <- serve_dir(pages)
+#' issues <- pa11y_raw(paste0(srv$url, "/index.html"))
+#' srv$stop()
+#'
+#' length(issues)
+#' issues[[1]]$code
+#'
+#' unlink(pages, recursive = TRUE)
+#' }
 #' @export
 pa11y_raw <- function(url, timeout_s = 120L) {
   if (!nzchar(Sys.which("npx"))) {

@@ -31,3 +31,15 @@ the course. Without \verb{docs/}, \code{{site}} keeps the published URL.
 \code{textbook_docs: none} in \code{course.yml} previews with no textbook symlink and
 every chapter target reported unchecked.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+
+model <- build_preview(root)
+# The counts the mockup header shows, straight off the model.
+model$stats[c("modules", "items", "unpublished_items", "todo")]
+list.files(file.path(root, "build", "mockup"))
+
+unlink(root, recursive = TRUE)
+}

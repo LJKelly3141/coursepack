@@ -20,3 +20,16 @@ Full paths to every \code{.imscc} found, possibly none.
 The one place the search directories are read, so the audit driver and the
 declaration in \code{\link[=intended_surfaces]{intended_surfaces()}} can never look in different places.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course",
+                    site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE,
+                    skills = FALSE)
+invisible(build_cartridge(root))
+
+basename(cartridges_in(root))
+cartridges_in(root, dirs = "reference")   # nothing exported back yet
+
+unlink(root, recursive = TRUE)
+}

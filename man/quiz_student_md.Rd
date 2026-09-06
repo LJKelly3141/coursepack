@@ -17,3 +17,14 @@ The student-facing markdown lines before the answer key.
 \description{
 Extract student-facing quiz markdown
 }
+\examples{
+quiz <- tempfile("quiz-", fileext = ".md")
+writeLines(c("# 1. Instructions", "Answer every question.", "",
+             "# 2. Questions", "1. What is 2 + 2?", "",
+             "# 3. ANSWER KEY", "1. 4"), quiz)
+
+# Everything from the answer key heading down is dropped.
+quiz_student_md(quiz)
+
+unlink(quiz)
+}

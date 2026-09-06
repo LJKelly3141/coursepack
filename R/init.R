@@ -32,6 +32,16 @@
 #' @param values A named list of replacements. Each is coerced with
 #'   `as.character()`; `NULL` renders as an empty string.
 #' @return The rendered text, as one string.
+#' @examples
+#' render_template("Course {{code}}: {{title}}",
+#'                 list(code = "ABCD 101", title = "Demo Course"))
+#'
+#' # A NULL value renders as an empty string.
+#' render_template("{{code}} at {{institution}}",
+#'                 list(code = "ABCD 101", institution = NULL))
+#'
+#' # A hole left unfilled stops rather than shipping.
+#' try(render_template("{{code}} in {{timezone}}", list(code = "ABCD 101")))
 #' @export
 render_template <- function(text, values) {
   text <- paste(as.character(text), collapse = "\n")
@@ -175,6 +185,23 @@ reapply_course_facts <- function(f, code, title, site_url, timezone,
 #' @param ask Whether to prompt for a missing required value. Prompts only when
 #'   this is `TRUE` and the session is interactive.
 #' @return `path`, invisibly.
+#' @examples
+#' # git and skills default to TRUE, which runs git init in the new directory
+#' # and installs the shipped skills under .claude/skills/. Both are off here.
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course",
+#'                     site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE,
+#'                     skills = FALSE)
+#' list.files(root)
+#' unlink(root, recursive = TRUE)
+#'
+#' \dontrun{
+#' # The defaults, which need git on the PATH. Nothing is committed, ever.
+#' init_course(tempfile("course-"), code = "ABCD 101", title = "Demo Course",
+#'             site_url = "https://example.org/demo",
+#'             timezone = "America/Chicago")
+#' }
 #' @export
 init_course <- function(path, code, title, site_url, timezone,
                         institution = NULL, textbook_url = NULL,
@@ -345,6 +372,17 @@ init_course <- function(path, code, title, site_url, timezone,
 #'   missing directory stops: nothing was scanned, so nothing is known.
 #' @return `invisible(character(0))` when clean. Otherwise it stops, naming
 #'   every file that carries the canary.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course",
+#'                     site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE,
+#'                     skills = FALSE)
+#' # Stand in for a rendered site: docs/ is what GitHub Pages serves.
+#' dir.create(file.path(root, "docs"))
+#' writeLines("<p>A rendered page.</p>", file.path(root, "docs", "index.html"))
+#' leak_check(root)
+#' unlink(root, recursive = TRUE)
 #' @export
 leak_check <- function(proj = ".", docs = "docs") {
   root <- proj_path(proj, docs)

@@ -34,6 +34,10 @@ rel_luminance <- function(hex) {
 #' @param hex_fg,hex_bg Hex colours, with or without the leading `#`, in
 #'   3-digit or 6-digit form, any case.
 #' @return The contrast ratio, a number between 1 and 21.
+#' @examples
+#' contrast_ratio("#000000", "#ffffff")   # 21, the maximum
+#' contrast_ratio("#999", "#fff")         # 2.85, under the 4.5 AA threshold
+#' contrast_ratio("#767676", "#FFF")      # short form and case do not matter
 #' @export
 contrast_ratio <- function(hex_fg, hex_bg) {
   l1 <- rel_luminance(hex_fg); l2 <- rel_luminance(hex_bg)
@@ -113,6 +117,19 @@ normalize_hex <- function(hex) {
 #' @param hex_fg,hex_bg Hex colours, with or without the leading `#`.
 #' @param target Contrast ratio to reach. 4.5 is WCAG AA for body text.
 #' @return A 6-digit lowercase hex string, or `NA_character_`.
+#' @examples
+#' # A grey that fails on white, and the nearest grey that does not.
+#' contrast_ratio("#999999", "#ffffff")
+#' fixed <- suggest_passing_colour("#999999", "#ffffff")
+#' fixed
+#' contrast_ratio(fixed, "#ffffff")
+#'
+#' # A colour that already clears the target comes back normalized, unchanged.
+#' suggest_passing_colour("#000", "#fff")
+#'
+#' # Walking toward white is tried too, so a dark foreground on a mid grey
+#' # still gets an answer.
+#' suggest_passing_colour("#1a1a1a", "#4d4d4d")
 #' @export
 suggest_passing_colour <- function(hex_fg, hex_bg, target = 4.5) {
   hex_fg <- normalize_hex(hex_fg)
@@ -165,6 +182,18 @@ FILENAME_ALT <- "^[^ ]+\\.(png|jpe?g|gif|svg|webp|bmp|tiff?)$"
 #' @param rel The page's path relative to its output directory, as it should
 #'   appear in the report.
 #' @return A findings data frame, empty when the page is clean.
+#' @examples
+#' page <- tempfile(fileext = ".html")
+#' writeLines(c(
+#'   "<p>Two figures on one page.</p>",
+#'   "<img src='fig/a.png' alt='chart1.png'>",
+#'   "<img src='fig/b.png' alt='Enrolment by term, rising since 2019'>"), page)
+#'
+#' found <- check_filename_alt(page, surface = "demo", rel = "chapter1.html")
+#' nrow(found)          # only the filename alt is reported
+#' found$detail
+#'
+#' unlink(page)
 #' @export
 check_filename_alt <- function(html_path, surface, rel) {
   txt  <- paste(readLines(html_path, warn = FALSE), collapse = "\n")
@@ -543,6 +572,22 @@ find_rendered_figure_dir <- function(repo, stem, all_dirs) {
 #' @return A findings data frame, with `modes` and `mode` attributes. A repo
 #'   with no `.qmd` or `.Rmd` sources at all yields one loud row saying the
 #'   check examined nothing, never an empty frame.
+#' @examples
+#' # A source-only repo, so the source-heuristic mode is what runs.
+#' repo <- tempfile("repo-")
+#' dir.create(repo)
+#' writeLines(c(
+#'   "```{r fig-trend}", "plot(1:10)", "```", "",
+#'   "```{r fig-captioned}", "#| fig-alt: A line rising from left to right",
+#'   "plot(1:10)", "```"), file.path(repo, "chapter1.qmd"))
+#'
+#' found <- check_missing_fig_alt(repo, surface = "demo",
+#'                                exclude = character(0))
+#' nrow(found)              # the captioned chunk is left alone
+#' found$selector
+#' attr(found, "mode")      # say which way detection ran, never guess silently
+#'
+#' unlink(repo, recursive = TRUE)
 #' @export
 check_missing_fig_alt <- function(repo, surface, exclude) {
   require_exclude(exclude, "check_missing_fig_alt")
@@ -659,6 +704,19 @@ SECOND_CHAN <- "\\b(shape|linetype|lty|pch|alpha|size|label)\\s*="
 #'   `check_missing_fig_alt()` documents.
 #' @return A findings data frame. A repo with no `.qmd` or `.Rmd` sources at
 #'   all yields one loud row saying the check examined nothing.
+#' @examples
+#' repo <- tempfile("repo-")
+#' dir.create(repo)
+#' writeLines(c(
+#'   "```{r}", "ggplot(d, aes(x, y, colour = grp)) + geom_line()", "```", "",
+#'   "```{r}", "ggplot(d, aes(x, y, colour = grp, linetype = grp)) +",
+#'   "  geom_line()", "```"), file.path(repo, "chapter1.qmd"))
+#'
+#' found <- check_colour_only(repo, surface = "demo", exclude = character(0))
+#' nrow(found)          # the line carrying a second channel is not flagged
+#' found$severity       # "review": a person decides, this is never auto-fixed
+#'
+#' unlink(repo, recursive = TRUE)
 #' @export
 check_colour_only <- function(repo, surface, exclude) {
   require_exclude(exclude, "check_colour_only")

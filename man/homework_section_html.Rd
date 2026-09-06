@@ -24,3 +24,20 @@ The extracted student-facing HTML fragment.
 Reads the rendered textbook, never the .qmd.
 Refuses rather than falling back to the whole case study.
 }
+\examples{
+# Stand in for a rendered chapter. Only the subsections that carry no
+# subsections of their own are kept, so a walkthrough is left behind.
+docs <- tempfile("textbook-")
+dir.create(docs)
+writeLines(c('<section id="homework"><h2>Homework 1</h2>',
+             '<section id="instructions"><h3>Instructions</h3>',
+             '<p>Fit the model, then upload your write-up.</p>',
+             '<p><a href="data/wages.csv">data/wages.csv</a></p>',
+             '</section></section>'),
+           file.path(docs, "ch01.html"))
+
+# The relative link comes back absolute and the headings start at h2.
+cat(homework_section_html("ch01", "homework", docs, "https://example.org/book"))
+
+unlink(docs, recursive = TRUE)
+}

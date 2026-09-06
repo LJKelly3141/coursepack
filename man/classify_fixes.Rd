@@ -21,3 +21,18 @@ page and automatable, class (c) needs human judgement. The class letters are
 this project's own leverage labels, not WCAG conformance levels: a class (a)
 fix can target a Level AA criterion and a class (c) fix a Level A one.
 }
+\examples{
+df <- rbind(
+  finding("demo", "a.html", "1.4.3", "AA", "text contrast is too low",
+          "p.note", "serious"),
+  finding("demo", "b.html", "1.4.3", "AA", "text contrast is too low",
+          "p.lead", "serious"),
+  finding("demo", "c.html", "1.1.1", "A", "image has no alt text",
+          "img", "serious"))
+
+out <- classify_fixes(df, target = list(stylesheet = "style.css"))
+out[, c("criterion", "fix_class", "fix_target", "leverage")]
+
+# With no authored stylesheet, the shared edit is named as work to do first.
+classify_fixes(df, target = list(stylesheet = NA_character_))$fix_target[1]
+}

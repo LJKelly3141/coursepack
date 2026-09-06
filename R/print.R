@@ -339,6 +339,18 @@ render_paper <- function(qmd, formats) {
 #'   assignment, which has no answer key. `rendered` is the form's rendered
 #'   files, named by format, and is empty when nothing was rendered; a key is
 #'   rendered to the same formats beside its form.
+#' @examples
+#' \dontrun{
+#' # Both calls need pandoc, which converts the bank's question HTML to
+#' # Markdown, and the second one needs quarto as well.
+#'
+#' # Write the form and its key, and say where they landed.
+#' paper <- print_assessment(".", "module-1-quiz", seed = 7, render = FALSE)
+#' basename(c(paper$qmd, paper$key))
+#'
+#' # The same seed prints the same paper, here rendered to docx.
+#' print_assessment(".", "module-1-quiz", seed = 7, formats = "docx")
+#' }
 #' @export
 print_assessment <- function(proj = ".", id, seed,
                              out_dir = file.path(proj, "build", "paper"),

@@ -24,3 +24,20 @@ summary, the media inventory, the notice counts, and one section per
 finding. \code{meta$pages_examined} and \code{meta$surfaces} are both required, and
 their absence is stated loudly rather than left to read as a clean audit.
 }
+\examples{
+df <- classify_fixes(rbind(
+  finding("demo", "a.html", "1.4.3", "AA", "text contrast is too low",
+          "p.note", "serious"),
+  finding("demo", "b.html", "1.1.1", "A", "image has no alt text",
+          "img", "serious")), target = list(stylesheet = "style.css"))
+
+path <- tempfile(fileext = ".md")
+render_report(df, meta = list(date = "2026-09-05",
+                              pages_examined = list(demo = 12L),
+                              declared = list(demo = 12L),
+                              surfaces = "demo",
+                              failed_pages = character()), path)
+grep("^(#|Pages|Coverage)", readLines(path), value = TRUE)
+
+unlink(path)
+}

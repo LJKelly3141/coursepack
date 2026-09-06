@@ -243,6 +243,19 @@ write_extracted <- function(path, header, x) {
 #' @param overwrite Replace `course.yml`, `modules.yml` and `reference.yml` when
 #'   they are already there. `FALSE`, the default, stops instead.
 #' @return `out_dir`, invisibly.
+#' @examples
+#' # Any Canvas export will do. This one is the scaffold's own cartridge.
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' built <- build_cartridge(root)
+#'
+#' extracted <- tempfile("extracted-")
+#' extract_manifest(built$imscc, extracted)
+#' # Three manifests, plus a copy of the export under reference/.
+#' list.files(extracted)
+#'
+#' unlink(c(root, extracted), recursive = TRUE)
 #' @export
 extract_manifest <- function(imscc, out_dir, overwrite = FALSE) {
   imscc <- normalizePath(imscc, mustWork = FALSE)

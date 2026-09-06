@@ -29,6 +29,18 @@
 #' @param chapter Chapter number. Padded to two digits to make the file name.
 #' @return The parsed bank: a list with `chapter`, `title`, `source` and
 #'   `sections`, each section a list with `section` and `questions`.
+#' @examples
+#' dir <- tempfile("bank-"); dir.create(dir)
+#' item <- function(id, answer) sprintf(
+#'   '{"id": %d, "type": "multiple_choice", "question": "Which one?",
+#'     "options": {"A": "the first", "B": "the second"}, "answer": "%s"}',
+#'   id, answer)
+#' writeLines(sprintf('{"chapter": 1, "title": "Sample Chapter", "sections":
+#'   [{"section": "1.1 Ideas", "questions": [%s, %s]}]}',
+#'   item(1, "A"), item(2, "B")), file.path(dir, "chapter_01.json"))
+#' bank <- read_bank(dir, 1)
+#' c(bank$chapter, length(bank$sections[[1]]$questions))
+#' unlink(dir, recursive = TRUE)
 #' @export
 read_bank <- function(dir, chapter) {
   path <- file.path(dir, sprintf("chapter_%02d.json", as.integer(chapter)))
@@ -58,6 +70,14 @@ read_bank <- function(dir, chapter) {
 #' @param where Location prefix for the error message.
 #' @return `TRUE`, invisibly, when the question is well formed. Otherwise it
 #'   stops.
+#' @examples
+#' q <- list(type = "multiple_choice",
+#'           options = list(A = "the head", B = "the tail"), answer = "A")
+#' check_question(q, "chapter 1: 1.1 Ideas question id 1")
+#'
+#' # An answer key naming no option stops, with the location in the message.
+#' q$answer <- "C"
+#' try(check_question(q, "chapter 1: 1.1 Ideas question id 1"))
 #' @export
 check_question <- function(q, where) {
   type <- as.character(q$type %||% "multiple_choice")
@@ -90,6 +110,17 @@ check_question <- function(q, where) {
 #' @param images_dir Directory holding the bank's figure PNGs.
 #' @return `list(warnings = <character>)`, one entry per figure with no alt
 #'   text, each naming the chapter, the section and the question id.
+#' @examples
+#' one <- function(id, answer) list(id = id, type = "multiple_choice",
+#'   options = list(A = "the first", B = "the second"), answer = answer)
+#' bank <- list(chapter = 1L, sections = list(list(section = "1.1 Ideas",
+#'   questions = list(one(1L, "A"), one(2L, "B")))))
+#' # No question names an image, so no figure can be missing alt text.
+#' check_bank(bank, tempdir())$warnings
+#'
+#' # Two questions under one id would collapse into one Canvas item.
+#' bank$sections[[1]]$questions[[2]]$id <- 1L
+#' try(check_bank(bank, tempdir()))
 #' @export
 check_bank <- function(bank, images_dir) {
   warns <- character()

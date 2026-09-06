@@ -34,3 +34,20 @@ is NA on every row comes back logical rather than character or integer.
 \code{read_findings()} restores the types rather than letting a silent flip
 reach a later stage that writes into those columns.
 }
+\examples{
+two <- rbind(
+  finding("demo", "chapter1.html", "1.1.1", "A", "image has no alt text",
+          "img[src='fig/a.png']", "serious"),
+  finding("demo", "chapter2.html", "2.4.4", "A",
+          "link text does not describe its destination", "a[href='/next']",
+          "moderate"))
+
+path <- tempfile(fileext = ".json")
+write_findings(two, meta = list(date = "2026-09-05"), path)
+back <- read_findings(path)
+nrow(back)
+identical(back$id, two$id)   # every id survives the round trip
+vapply(back[, c("line", "fix_class")], class, character(1))
+
+unlink(path)
+}

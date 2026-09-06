@@ -195,6 +195,25 @@ read_schedule <- function(proj, schedule) {
 #'   `NULL` writes the paragraph without it.
 #' @return Invisibly, a data frame with one row per week: `id`, `title`, `post`
 #'   and `body`, the four fields the declaration carries.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' # The scaffold ships an announcements.yml, and an existing one is never
+#' # overwritten. Removing it here lets the declaration land in its own name.
+#' unlink(file.path(root, "announcements.yml"))
+#'
+#' writeLines(c("weeks:",
+#'              "  - monday: 2026-09-14",
+#'              '    module: "Start here"',
+#'              "    tuesday:",
+#'              '      class: "Course overview."'),
+#'            file.path(root, "schedule.yml"))
+#'
+#' weeks <- announcements_from_schedule(root)
+#' weeks[, c("id", "title", "post")]
+#'
+#' unlink(root, recursive = TRUE)
 #' @export
 announcements_from_schedule <- function(proj = ".", schedule = "schedule.yml",
                                         out_dir = "content/announcements",

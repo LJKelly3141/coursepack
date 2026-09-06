@@ -126,6 +126,19 @@ IFRAME_SRC_RE   <- stringr::regex("\\ssrc\\s*=\\s*[\"']([^\"']+)[\"']", ignore_c
 #' @param surface The caller's course-of-origin label. Required, so two
 #'   courses' findings can never collapse into each other.
 #' @return A list of one-row findings, empty when every frame is titled.
+#' @examples
+#' # One fragment carrying a titled frame beside an untitled one.
+#' page <- tempfile(fileext = ".html")
+#' writeLines(c(
+#'   "<iframe src='https://example.org/lecture' title='Week 1 lecture'></iframe>",
+#'   "<iframe src='https://example.org/sheet'></iframe>"), page)
+#'
+#' found <- check_untitled_iframes(page, surface = "demo-cartridge")
+#' length(found)              # only the second frame is reported
+#' found[[1]]$selector
+#' found[[1]]$fix_target      # the generator, not the zip
+#'
+#' unlink(page)
 #' @export
 check_untitled_iframes <- function(wiki_files, surface) {
   out <- list()
@@ -200,6 +213,20 @@ WEAK_LINK_RE <- "^(click here|here|read more|link|this|more)$"
 #' @param surface The caller's course-of-origin label. Required, for the same
 #'   reason [check_untitled_iframes()] requires it.
 #' @return A list of one-row findings, empty when every link reads well.
+#' @examples
+#' # One weblink resource, shaped the way a Common Cartridge writes them.
+#' link <- tempfile(fileext = ".xml")
+#' writeLines(c(
+#'   "<webLink xmlns='http://www.imsglobal.org/xsd/imswl_v1p1'>",
+#'   "  <title>click here</title>",
+#'   "  <url href='https://example.org/reading' />",
+#'   "</webLink>"), link)
+#'
+#' found <- check_weak_link_text(link, surface = "demo-cartridge")
+#' length(found)
+#' found[[1]]$issue
+#'
+#' unlink(link)
 #' @export
 check_weak_link_text <- function(xml_files, surface) {
   out <- list()
@@ -356,6 +383,20 @@ default_youtube_fetch <- function(video_id) {
 #' @param fetch The function that returns the watch page's text. Injectable so
 #'   a caller can drive this deterministically, without the network.
 #' @return One of the five state strings.
+#' @examples
+#' # Driven by an injected fetcher, so nothing here touches the network. This
+#' # is the payload shape a video whose account was terminated returns.
+#' dead <- paste0('"ytInitialPlayerResponse":{"playabilityStatus":',
+#'                '{"status":"ERROR","reason":"Video unavailable"}}')
+#' video_caption_state("deadDEAD01", fetch = function(id) dead)
+#'
+#' # A page that is not a real player response is never called "none".
+#' video_caption_state("whoKnows01", fetch = function(id) "a consent screen")
+#'
+#' \dontrun{
+#' # The default fetcher reads the real watch page, so this one needs network.
+#' video_caption_state("dQw4w9WgXcQ")
+#' }
 #' @export
 video_caption_state <- function(video_id, fetch = default_youtube_fetch) {
   page <- tryCatch(suppressWarnings(fetch(video_id)),
@@ -758,6 +799,18 @@ CARTRIDGE_SEARCH_DIRS <- c("build/coursepack", "reference")
 #'   conventional pair; an argument so a caller with a differently shaped
 #'   repository is not forced to move its files.
 #' @return Full paths to every `.imscc` found, possibly none.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course",
+#'                     site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE,
+#'                     skills = FALSE)
+#' invisible(build_cartridge(root))
+#'
+#' basename(cartridges_in(root))
+#' cartridges_in(root, dirs = "reference")   # nothing exported back yet
+#'
+#' unlink(root, recursive = TRUE)
 #' @export
 cartridges_in <- function(repo, dirs = CARTRIDGE_SEARCH_DIRS) {
   unlist(lapply(dirs, function(d) {
@@ -807,6 +860,23 @@ cartridge_wiki_page_count <- function(imscc_path) {
 #'   Defaults to the real network fetcher.
 #' @return A findings data frame, possibly with no rows, carrying the
 #'   `wiki_pages_read` and `topics_read` attributes.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course",
+#'                     site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE,
+#'                     skills = FALSE)
+#' invisible(build_cartridge(root))
+#'
+#' # The fetcher is stubbed, so the audit stays off the network. The scaffold
+#' # embeds no video, so nothing is asked of it.
+#' found <- audit_cartridge(cartridges_in(root)[1], surface = "demo-cartridge",
+#'                          video_fetch = function(id) "")
+#' nrow(found)                          # a clean scaffold reports none
+#' attr(found, "wiki_pages_read")       # what the audit really opened
+#' attr(found, "topics_read")
+#'
+#' unlink(root, recursive = TRUE)
 #' @export
 audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_fetch) {
   tmp <- tempfile("imscc-")
@@ -884,6 +954,17 @@ audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_f
 #' @param repo The repository path.
 #' @return A data frame with `kind`, `ref`, and `note` columns, or `NULL` when
 #'   the repository has neither images nor PDFs.
+#' @examples
+#' # The inventory lists by path and extension, so empty stand-ins are enough
+#' # to show what it reports.
+#' repo <- tempfile("repo-")
+#' dir.create(file.path(repo, "figures"), recursive = TRUE)
+#' invisible(file.create(file.path(repo, "figures", "trend.png"),
+#'                       file.path(repo, "syllabus.pdf")))
+#'
+#' inventory_media(repo)
+#'
+#' unlink(repo, recursive = TRUE)
 #' @export
 inventory_media <- function(repo) {
   imgs <- list.files(repo, pattern = "\\.(png|jpe?g|gif|svg|webp)$",

@@ -8,6 +8,26 @@
 #' supposed to change.
 #' @param dir A staging directory.
 #' @param path,expected A file of `<md5> <path>` lines.
+#' @return `tree_hashes()` returns one `<md5> <path>` string per file in `dir`,
+#'   as a character vector sorted by path. `write_expected_tree()` writes those
+#'   lines to `path` and returns `path` invisibly. `gate_check()` returns,
+#'   invisibly, a list of the `missing`, `extra` and `changed` paths, and stops
+#'   instead of returning when any of the three is non-empty.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' built <- build_cartridge(root)
+#'
+#' # One md5 per staged file, with imsmanifest.xml normalized first.
+#' head(tree_hashes(built$stage), 3)
+#'
+#' expected <- file.path(root, "expected-tree.txt")
+#' write_expected_tree(built$stage, expected)
+#' # A tree that still matches its expectation passes with nothing to report.
+#' str(gate_check(built$stage, expected))
+#'
+#' unlink(root, recursive = TRUE)
 #' @name gate
 NULL
 

@@ -46,6 +46,20 @@
 #' gets the defaults below.
 #'
 #' @return The output path, invisibly.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#'
+#' # The card is drawn from course.yml, at Canvas's documented 262 by 146.
+#' # It draws through cairo, so the call is skipped where R was built without.
+#' if (capabilities("cairo")) {
+#'   card <- course_tile(root)
+#'   basename(card)
+#'   file.exists(card)
+#' }
+#'
+#' unlink(root, recursive = TRUE)
 #' @export
 course_tile <- function(proj,
                         out = NULL,

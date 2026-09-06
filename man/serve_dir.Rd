@@ -26,3 +26,18 @@ Refuses to attach to a port something is already answering on: a leaked
 server from an earlier call would return valid JSON for the wrong
 directory, which reads as a clean audit of content nobody asked for.
 }
+\examples{
+\dontrun{
+# Needs python3, which serves the directory, and a free port.
+pages <- tempfile("site-")
+dir.create(pages)
+writeLines("<html lang='en'><title>Week 1</title></html>",
+           file.path(pages, "index.html"))
+
+srv <- serve_dir(pages)
+srv$url
+srv$stop()          # nothing else stops it for you
+
+unlink(pages, recursive = TRUE)
+}
+}

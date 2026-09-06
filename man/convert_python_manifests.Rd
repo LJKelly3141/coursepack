@@ -73,3 +73,21 @@ place disagree, which is what a merged module leaves behind, the converter
 prints \verb{positions renumbered: <old> -> <new>} so the change is on the record.
 }
 
+\examples{
+src <- tempfile("python-"); dir.create(src)
+writeLines(c("title: Example Course", "course_code: ABCD 101",
+             "urls:", "  site: https://example.invalid/course",
+             "term:", "  timezone: America/Chicago",
+             "assignment_groups:", "  - name: Module Quizzes"),
+           file.path(src, "course.yml"))
+writeLines(c("modules:", "  - title: Module 1", "    items:",
+             "      - title: Welcome", "        type: WikiPage",
+             "        url: https://example.invalid/course/welcome.html",
+             "        height: 900px"), file.path(src, "modules.yml"))
+out <- convert_python_manifests(file.path(src, "course.yml"),
+                                file.path(src, "modules.yml"),
+                                tempfile("converted-"))
+# The converted pair reads as a manifest in this package's own schema.
+names(read_manifest(out)$pages)
+unlink(c(src, out), recursive = TRUE)
+}

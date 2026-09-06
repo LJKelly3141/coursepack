@@ -29,3 +29,17 @@ function stays because it is correct and because the moment a runner that
 exposes the real pair is added, this is what turns that pair into an
 action.
 }
+\examples{
+# A grey that fails on white, and the nearest grey that does not.
+contrast_ratio("#999999", "#ffffff")
+fixed <- suggest_passing_colour("#999999", "#ffffff")
+fixed
+contrast_ratio(fixed, "#ffffff")
+
+# A colour that already clears the target comes back normalized, unchanged.
+suggest_passing_colour("#000", "#fff")
+
+# Walking toward white is tried too, so a dark foreground on a mid grey
+# still gets an answer.
+suggest_passing_colour("#1a1a1a", "#4d4d4d")
+}

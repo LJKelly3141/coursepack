@@ -19,3 +19,10 @@ The chapter URL, or the textbook root URL for an empty chapter.
 \description{
 Build a textbook chapter URL
 }
+\examples{
+chapter_url("ch01", NULL, "https://example.org/book")
+chapter_url("ch01", "sec-mean", "https://example.org/book")
+# An empty or absent chapter points at the textbook root.
+chapter_url("", NULL, "https://example.org/book")
+chapter_url(NULL, NULL, "https://example.org/book")
+}

@@ -18,6 +18,13 @@ gate_check(dir, expected)
 
 \item{path, expected}{A file of \verb{<md5> <path>} lines.}
 }
+\value{
+\code{tree_hashes()} returns one \verb{<md5> <path>} string per file in \code{dir},
+as a character vector sorted by path. \code{write_expected_tree()} writes those
+lines to \code{path} and returns \code{path} invisibly. \code{gate_check()} returns,
+invisibly, a list of the \code{missing}, \code{extra} and \code{changed} paths, and stops
+instead of returning when any of the three is non-empty.
+}
 \description{
 A cartridge's staging tree, hashed file by file. \code{imsmanifest.xml} embeds
 the build date, so that one line is normalized before hashing (spec 2f);
@@ -25,4 +32,20 @@ everything else is hashed as bytes. The gate compares two such listings and
 refuses on any difference. Never regenerate an expected tree to make a
 failing gate pass: a regeneration is a declaration that the cartridge was
 supposed to change.
+}
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+built <- build_cartridge(root)
+
+# One md5 per staged file, with imsmanifest.xml normalized first.
+head(tree_hashes(built$stage), 3)
+
+expected <- file.path(root, "expected-tree.txt")
+write_expected_tree(built$stage, expected)
+# A tree that still matches its expectation passes with nothing to report.
+str(gate_check(built$stage, expected))
+
+unlink(root, recursive = TRUE)
 }

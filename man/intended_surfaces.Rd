@@ -30,3 +30,19 @@ Halts when two repositories resolve to the same surface name, since a
 surface name is a path basename and the two would otherwise collapse into
 one, classifying one course's findings against the other's stylesheet.
 }
+\examples{
+repo <- tempfile("alpha-")
+dir.create(file.path(repo, "docs"), recursive = TRUE)
+writeLines(c("project:", "  type: book", "  output-dir: docs"),
+           file.path(repo, "_quarto.yml"))
+writeLines("<html lang='en'></html>", file.path(repo, "docs", "index.html"))
+writeLines("<html lang='en'></html>", file.path(repo, "docs", "week1.html"))
+
+# One page surface, valued at its real page count. No cartridge was found
+# here, so no cartridge surface is declared at all.
+declared <- intended_surfaces(repo)
+unname(declared)
+length(declared)
+
+unlink(repo, recursive = TRUE)
+}

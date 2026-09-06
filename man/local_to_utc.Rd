@@ -23,3 +23,11 @@ the 2026 daylight-time boundary; this does the arithmetic per date from the
 IANA zone, so a spring course crossing the March boundary gets each date
 right. No default zone exists anywhere in the package.
 }
+\examples{
+# Central time is UTC-6 in January and UTC-5 in June, and the offset is
+# taken per date from the zone rather than fixed once for the term.
+local_to_utc("2026-01-15", "23:59:59", "America/Chicago")
+local_to_utc("2026-06-15", "23:59:59", "America/Chicago")
+# An exam that ends at 09:45 local.
+local_to_utc("2026-06-15", "09:45", "America/New_York")
+}

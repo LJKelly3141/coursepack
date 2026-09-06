@@ -8,6 +8,16 @@
 #' @param proj Course project root.
 #' @param textbook_docs Override for `course.yml`'s `textbook_docs:`; `NULL` reads it.
 #' @return `invisible(list(fails, skipped))`. Stops when `fails` is non-empty.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' # Prints the whole report. A fresh scaffold passes, with two checks skipped:
+#' # it has no reference.yml counts block and no separate textbook.
+#' res <- check_manifests(root)
+#' res$fails
+#' res$skipped
+#' unlink(root, recursive = TRUE)
 #' @export
 check_manifests <- function(proj = ".", textbook_docs = NULL) {
   m <- read_manifest(proj); course <- m$course; mods <- m$mods

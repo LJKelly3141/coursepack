@@ -8,6 +8,8 @@
 #' and forgetting to reinstall builds a course with old code silently. The
 #' printed version is what tells the two apart.
 #' @return The version string, invisibly printed by the entry points.
+#' @examples
+#' coursepack_version()
 #' @export
 coursepack_version <- function() as.character(utils::packageVersion("coursepack"))
 

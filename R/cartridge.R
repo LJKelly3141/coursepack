@@ -75,6 +75,18 @@
 #' @param proj Course project root.
 #' @param modules Module titles to stage, or `NULL` for every module.
 #' @return invisible(list(imscc, stage)).
+#' @examples
+#' # Scaffold a course, then build the cartridge its two manifests describe.
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#'
+#' built <- build_cartridge(root)
+#' basename(built$imscc)
+#' # The staging tree the zip was made from stays on disk for inspection.
+#' head(list.files(built$stage, recursive = TRUE), 5)
+#'
+#' unlink(root, recursive = TRUE)
 #' @export
 build_cartridge <- function(proj = ".", modules = NULL) {
   proj <- normalizePath(proj, mustWork = TRUE)

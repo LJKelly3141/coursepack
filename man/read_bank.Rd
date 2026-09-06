@@ -21,3 +21,16 @@ chapter number are coerced to integer; everything else is returned as it was
 written, with no vector simplification, so a one-option question stays a list
 rather than becoming a bare string.
 }
+\examples{
+dir <- tempfile("bank-"); dir.create(dir)
+item <- function(id, answer) sprintf(
+  '{"id": \%d, "type": "multiple_choice", "question": "Which one?",
+    "options": {"A": "the first", "B": "the second"}, "answer": "\%s"}',
+  id, answer)
+writeLines(sprintf('{"chapter": 1, "title": "Sample Chapter", "sections":
+  [{"section": "1.1 Ideas", "questions": [\%s, \%s]}]}',
+  item(1, "A"), item(2, "B")), file.path(dir, "chapter_01.json"))
+bank <- read_bank(dir, 1)
+c(bank$chapter, length(bank$sections[[1]]$questions))
+unlink(dir, recursive = TRUE)
+}

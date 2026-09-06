@@ -32,3 +32,15 @@ heading, it stops if the canary survives that truncation, and
 \code{\link[=build_cartridge]{build_cartridge()}} scans its whole staging tree before it zips. This one
 guards the web site, which the other two never touch.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course",
+                    site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE,
+                    skills = FALSE)
+# Stand in for a rendered site: docs/ is what GitHub Pages serves.
+dir.create(file.path(root, "docs"))
+writeLines("<p>A rendered page.</p>", file.path(root, "docs", "index.html"))
+leak_check(root)
+unlink(root, recursive = TRUE)
+}

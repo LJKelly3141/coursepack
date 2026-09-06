@@ -26,3 +26,22 @@ tool that never produced output raises a \code{pa11y_unavailable} condition and
 a caller may skip on it; a tool that ran and wrote something that is not
 valid JSON raises \code{pa11y_broken} and must never read as "not run".
 }
+\examples{
+\dontrun{
+# Needs npx (Node.js), which fetches pa11y, and a Chrome or Chromium binary
+# for its headless browser.
+pages <- tempfile("site-")
+dir.create(pages)
+writeLines("<html><body><img src='a.png'></body></html>",
+           file.path(pages, "index.html"))
+
+srv <- serve_dir(pages)
+issues <- pa11y_raw(paste0(srv$url, "/index.html"))
+srv$stop()
+
+length(issues)
+issues[[1]]$code
+
+unlink(pages, recursive = TRUE)
+}
+}

@@ -20,3 +20,17 @@ An \verb{<iframe>} with no usable \code{title} is announced to a screen reader o
 "frame", which fails WCAG 4.1.2. An empty \code{title=""} counts as untitled, and
 the tag and its attribute are matched case-insensitively.
 }
+\examples{
+# One fragment carrying a titled frame beside an untitled one.
+page <- tempfile(fileext = ".html")
+writeLines(c(
+  "<iframe src='https://example.org/lecture' title='Week 1 lecture'></iframe>",
+  "<iframe src='https://example.org/sheet'></iframe>"), page)
+
+found <- check_untitled_iframes(page, surface = "demo-cartridge")
+length(found)              # only the second frame is reported
+found[[1]]$selector
+found[[1]]$fix_target      # the generator, not the zip
+
+unlink(page)
+}

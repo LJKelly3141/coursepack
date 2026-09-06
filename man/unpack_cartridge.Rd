@@ -15,3 +15,14 @@ The temporary directory containing the unpacked cartridge.
 \description{
 Unpack a cartridge for inspection
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+built <- build_cartridge(root)
+
+opened <- unpack_cartridge(built$imscc)
+head(list.files(opened, recursive = TRUE), 4)
+
+unlink(c(root, opened), recursive = TRUE)
+}

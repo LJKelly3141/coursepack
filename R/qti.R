@@ -16,6 +16,26 @@
 #'   `name`, `exercises`, and `n`, with optional `points` and `quiztype`.
 #' @param proj Project root under which the output is written.
 #' @return The path to the generated zip file, invisibly.
+#' @examples
+#' # A quiz definition names exercise files, which sit in an exercises/
+#' # directory beside the directory the definition is in.
+#' proj <- tempfile("qti-")
+#' dir.create(file.path(proj, "quizzes"), recursive = TRUE)
+#' dir.create(file.path(proj, "exercises"))
+#' writeLines(c("Question", "========", "What is 1 + 1?", "",
+#'              "Solution", "========", "2", "",
+#'              "Meta-information", "================",
+#'              "extype: num", "exsolution: 2", "exname: onePlusOne"),
+#'            file.path(proj, "exercises", "one.Rmd"))
+#' quiz_file <- file.path(proj, "quizzes", "tiny.R")
+#' writeLines('quiz <- list(name = "tiny", exercises = "one.Rmd", n = 1)', quiz_file)
+#'
+#' \dontrun{
+#' # Needs the exams package and pandoc, so this one is not run here.
+#' build_qti(quiz_file, proj)
+#' }
+#'
+#' unlink(proj, recursive = TRUE)
 #' @export
 build_qti <- function(quiz_file, proj = ".") {
   quiz_file <- normalizePath(quiz_file, mustWork = FALSE)

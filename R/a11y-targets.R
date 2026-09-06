@@ -355,6 +355,24 @@ find_stylesheet <- function(repo, framework) {
 #'   `"static"`, or `"unknown"`), `output_dir` (`NA` when it cannot be placed
 #'   confidently), `source_dir`, `pages`, `resource_dirs`,
 #'   `unproduced_sources`, and `stylesheet`.
+#' @examples
+#' # A small rendered Quarto book: config, an authored theme file, and the
+#' # output directory that config points at.
+#' repo <- tempfile("repo-")
+#' dir.create(file.path(repo, "docs"), recursive = TRUE)
+#' writeLines(c("project:", "  type: book", "  output-dir: docs",
+#'              "format:", "  html:", "    theme: [cosmo, custom.scss]"),
+#'            file.path(repo, "_quarto.yml"))
+#' writeLines("/* authored overrides */", file.path(repo, "custom.scss"))
+#' writeLines("<html lang='en'></html>", file.path(repo, "docs", "index.html"))
+#' writeLines("<html lang='en'></html>", file.path(repo, "docs", "week1.html"))
+#'
+#' tgt <- discover_target(repo)
+#' tgt$framework
+#' tgt$pages
+#' basename(tgt$stylesheet)   # NA here would mean "create one first"
+#'
+#' unlink(repo, recursive = TRUE)
 #' @export
 discover_target <- function(repo_path) {
   repo <- normalizePath(repo_path, mustWork = TRUE)
@@ -532,6 +550,21 @@ bump_examined <- function(v, surface, n = 1L) {
 #'   package default, because a declaration built over one set of directories
 #'   and an audit run over another cannot cross-check each other.
 #' @return A named integer vector, surface name to count.
+#' @examples
+#' repo <- tempfile("alpha-")
+#' dir.create(file.path(repo, "docs"), recursive = TRUE)
+#' writeLines(c("project:", "  type: book", "  output-dir: docs"),
+#'            file.path(repo, "_quarto.yml"))
+#' writeLines("<html lang='en'></html>", file.path(repo, "docs", "index.html"))
+#' writeLines("<html lang='en'></html>", file.path(repo, "docs", "week1.html"))
+#'
+#' # One page surface, valued at its real page count. No cartridge was found
+#' # here, so no cartridge surface is declared at all.
+#' declared <- intended_surfaces(repo)
+#' unname(declared)
+#' length(declared)
+#'
+#' unlink(repo, recursive = TRUE)
 #' @export
 intended_surfaces <- function(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS) {
   halt_on_surface_collision(repos)

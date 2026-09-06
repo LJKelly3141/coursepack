@@ -14,3 +14,6 @@ Every entry point prints this in its closing summary, because editing \verb{R/}
 and forgetting to reinstall builds a course with old code silently. The
 printed version is what tells the two apart.
 }
+\examples{
+coursepack_version()
+}

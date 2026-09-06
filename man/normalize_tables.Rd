@@ -23,3 +23,13 @@ Exported because a bank-authoring session normalizes a stem the same way the
 generator will, and comparing the two is how an author sees what the build
 will change.
 }
+\examples{
+html <- paste0("<p>Use the table.</p><table><tr><th>x</th><th>y</th></tr>",
+               "<tr><td>1</td><td>2</td></tr></table>")
+out <- normalize_tables(html)
+# The first row was all header cells, so it became a scoped thead.
+grepl("<thead>", out, fixed = TRUE)
+
+# Running it a second time changes nothing further.
+identical(normalize_tables(out), out)
+}

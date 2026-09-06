@@ -30,3 +30,13 @@ anyone seeing it happen.
 Nothing is written outside \code{proj}: the destination is built from \code{proj} and
 a skill name, and a name this package does not ship stops before any copy.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course",
+                    site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE,
+                    skills = FALSE)
+install_skills(root)
+list.files(file.path(root, ".claude", "skills"))
+unlink(root, recursive = TRUE)
+}

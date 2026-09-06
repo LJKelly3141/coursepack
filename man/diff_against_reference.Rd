@@ -19,3 +19,18 @@ Invisibly, a list of all, accounted-for, and unexpected divergences.
 Compares cartridge structure, never opaque identifiers. The reference export
 and deliberate divergences are declared in \code{reference.yml} under \code{proj}.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+built <- build_cartridge(root)
+
+# extract_manifest() writes a course whose reference.yml names the export it
+# was read from, so that cartridge can be diffed against its own reference.
+extracted <- tempfile("extracted-")
+extract_manifest(built$imscc, extracted)
+res <- diff_against_reference(extracted, generated = built$imscc)
+res$unexpected
+
+unlink(c(root, extracted), recursive = TRUE)
+}

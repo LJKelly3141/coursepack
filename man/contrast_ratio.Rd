@@ -17,3 +17,8 @@ The contrast ratio, a number between 1 and 21.
 The ratio WCAG 2.1 defines for success criterion 1.4.3, computed from
 relative luminance. Black on white is 21, white on white is 1.
 }
+\examples{
+contrast_ratio("#000000", "#ffffff")   # 21, the maximum
+contrast_ratio("#999", "#fff")         # 2.85, under the 4.5 AA threshold
+contrast_ratio("#767676", "#FFF")      # short form and case do not matter
+}

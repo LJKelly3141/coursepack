@@ -25,3 +25,16 @@ performed. The two fail-open scars are an absent textbook directory and a
 \code{NULL} or empty chapter; both return \code{unchecked}, even when the other input
 would permit a check.
 }
+\examples{
+docs <- file.path(tempdir(), "book-docs")
+dir.create(docs, showWarnings = FALSE)
+writeLines('<h2 id="sec-mean">The mean</h2>', file.path(docs, "ch01.html"))
+resolve_target("ch01", NULL, docs)$state
+resolve_target("ch01", "sec-mean", docs)$state
+resolve_target("ch01", "sec-nope", docs)
+resolve_target("ch99", NULL, docs)$state
+# The two fail-open scars: no chapter to check, and no textbook to check it in.
+resolve_target(NULL, NULL, docs)$state
+resolve_target("ch01", NULL, file.path(tempdir(), "no-such-book"))$state
+unlink(docs, recursive = TRUE)
+}

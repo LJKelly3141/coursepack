@@ -27,3 +27,21 @@ iframe and link-text rules over every announcement body), and reports how
 many wiki pages and how many announcement bodies it actually read, as the
 \code{wiki_pages_read} and \code{topics_read} attributes of the result.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course",
+                    site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE,
+                    skills = FALSE)
+invisible(build_cartridge(root))
+
+# The fetcher is stubbed, so the audit stays off the network. The scaffold
+# embeds no video, so nothing is asked of it.
+found <- audit_cartridge(cartridges_in(root)[1], surface = "demo-cartridge",
+                         video_fetch = function(id) "")
+nrow(found)                          # a clean scaffold reports none
+attr(found, "wiki_pages_read")       # what the audit really opened
+attr(found, "topics_read")
+
+unlink(root, recursive = TRUE)
+}

@@ -24,3 +24,18 @@ track), \code{"none"} (a real, loading video with a confirmed absence of tracks)
 (the page could not be confirmed to be a real player response). It never
 guesses: "this video has captions" is a compliance claim.
 }
+\examples{
+# Driven by an injected fetcher, so nothing here touches the network. This
+# is the payload shape a video whose account was terminated returns.
+dead <- paste0('"ytInitialPlayerResponse":{"playabilityStatus":',
+               '{"status":"ERROR","reason":"Video unavailable"}}')
+video_caption_state("deadDEAD01", fetch = function(id) dead)
+
+# A page that is not a real player response is never called "none".
+video_caption_state("whoKnows01", fetch = function(id) "a consent screen")
+
+\dontrun{
+# The default fetcher reads the real watch page, so this one needs network.
+video_caption_state("dQw4w9WgXcQ")
+}
+}

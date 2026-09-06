@@ -19,3 +19,16 @@ An absolute path, or \code{NULL} for \code{none}.
 literal value \code{none} means the course has no separate textbook and every
 textbook check skips loudly. An absent key is an error, never a guess.
 }
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+course <- read_course(root)
+# The scaffold writes textbook_docs: none, so there is no path to hand back
+# and every textbook check skips loudly.
+textbook_docs_path(course, root)
+# A relative value resolves against the project root.
+course$textbook_docs <- "textbook/_book"
+textbook_docs_path(course, root)
+unlink(root, recursive = TRUE)
+}

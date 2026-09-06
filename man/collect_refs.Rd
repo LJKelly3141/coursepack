@@ -15,3 +15,15 @@ A list of references, each containing \code{ch}, \code{anc}, and \code{what}.
 \description{
 Collect textbook references from a manifest
 }
+\examples{
+mods <- list(
+  modules = list(list(items = list(
+    list(link = "Chapter 1", chapter = "ch01", anchor = "sec-mean")))),
+  assignments = list(
+    list(id = "hw-01", homework = list(chapter = "ch01", anchor = "sec-drills"))))
+refs <- collect_refs(mods)
+length(refs)
+# A module item first, then the assignments that name a chapter.
+refs[[1]]
+refs[[2]]
+}

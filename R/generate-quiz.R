@@ -141,6 +141,15 @@ normalize_table <- function(table_html) {
 #'
 #' @param html A question stem, or any HTML fragment.
 #' @return The same HTML with every table normalized.
+#' @examples
+#' html <- paste0("<p>Use the table.</p><table><tr><th>x</th><th>y</th></tr>",
+#'                "<tr><td>1</td><td>2</td></tr></table>")
+#' out <- normalize_tables(html)
+#' # The first row was all header cells, so it became a scoped thead.
+#' grepl("<thead>", out, fixed = TRUE)
+#'
+#' # Running it a second time changes nothing further.
+#' identical(normalize_tables(out), out)
 #' @export
 normalize_tables <- function(html) {
   m <- gregexpr(TABLE_RE, html, perl = TRUE)
@@ -462,6 +471,22 @@ expand_splits <- function(groups, raw_draws, splits, title) {
 #' @param title The quiz title, used to prefix every refusal.
 #' @return `list(groups, draws)`. `groups` is a list of
 #'   `list(ch, name, qs)`; `draws` is an integer vector the same length.
+#' @examples
+#' proj <- tempfile("course-")
+#' dir.create(file.path(proj, "questions"), recursive = TRUE)
+#' item <- function(id, answer) sprintf(
+#'   '{"id": %d, "type": "multiple_choice", "question": "Which one?",
+#'     "options": {"A": "the first", "B": "the second"}, "answer": "%s"}',
+#'   id, answer)
+#' writeLines(sprintf('{"chapter": 1, "title": "Sample Chapter", "sections":
+#'   [{"section": "1.1 Ideas", "questions": [%s, %s]}]}',
+#'   item(1, "A"), item(2, "B")),
+#'   file.path(proj, "questions", "chapter_01.json"))
+#' spec <- list(dir = "questions", chapters = 1, draws = 2, points = 2)
+#' drawn <- bank_groups(spec, proj, "Module 1 Quiz")
+#' drawn$draws
+#' vapply(drawn$groups, function(g) g$name, "")
+#' unlink(proj, recursive = TRUE)
 #' @export
 bank_groups <- function(spec, proj, title) {
   bank <- as.character(spec$dir %||% "questions")

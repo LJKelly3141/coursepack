@@ -73,3 +73,17 @@ rather than one being written and another skipped, which would leave a
 \code{modules.yml} describing a course its \code{course.yml} no longer does.
 }
 
+\examples{
+# Any Canvas export will do. This one is the scaffold's own cartridge.
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+built <- build_cartridge(root)
+
+extracted <- tempfile("extracted-")
+extract_manifest(built$imscc, extracted)
+# Three manifests, plus a copy of the export under reference/.
+list.files(extracted)
+
+unlink(c(root, extracted), recursive = TRUE)
+}

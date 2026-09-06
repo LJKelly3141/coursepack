@@ -59,3 +59,16 @@ any carried \verb{source_ref:} definition keep their student-facing text outside
 this package, so they are refused rather than printed with the questions
 missing.
 }
+\examples{
+\dontrun{
+# Both calls need pandoc, which converts the bank's question HTML to
+# Markdown, and the second one needs quarto as well.
+
+# Write the form and its key, and say where they landed.
+paper <- print_assessment(".", "module-1-quiz", seed = 7, render = FALSE)
+basename(c(paper$qmd, paper$key))
+
+# The same seed prints the same paper, here rendered to docx.
+print_assessment(".", "module-1-quiz", seed = 7, formats = "docx")
+}
+}

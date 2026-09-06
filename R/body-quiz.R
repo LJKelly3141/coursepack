@@ -37,6 +37,16 @@ ANSWER_KEY_HEADING_RE <- "^#+\\s*3\\.\\s*ANSWER\\s*KEY"
 #' @param path Path to a quiz source file.
 #' @param id Quiz identifier used in error messages.
 #' @return The student-facing markdown lines before the answer key.
+#' @examples
+#' quiz <- tempfile("quiz-", fileext = ".md")
+#' writeLines(c("# 1. Instructions", "Answer every question.", "",
+#'              "# 2. Questions", "1. What is 2 + 2?", "",
+#'              "# 3. ANSWER KEY", "1. 4"), quiz)
+#'
+#' # Everything from the answer key heading down is dropped.
+#' quiz_student_md(quiz)
+#'
+#' unlink(quiz)
 #' @export
 quiz_student_md <- function(path, id = basename(path)) {
   if (!file.exists(path))
@@ -66,6 +76,21 @@ quiz_student_md <- function(path, id = basename(path)) {
 #' @inheritParams quiz_student_md
 #' @param site_base Base URL used to make relative asset paths absolute.
 #' @return The student-facing quiz HTML.
+#' @examples
+#' quiz <- tempfile("quiz-", fileext = ".md")
+#' writeLines(c("# 1. Instructions", "Answer every question.", "",
+#'              "# 2. Questions",
+#'              "1. What is 2 + 2?",
+#'              "", "![A plot](../../assets/quiz/plot.png)", "",
+#'              "# 3. ANSWER KEY", "1. 4"), quiz)
+#'
+#' \dontrun{
+#' # Needs pandoc, so this one is not run here. site_base is what turns the
+#' # relative asset path above into an absolute URL Canvas can resolve.
+#' quiz_student_html(quiz, site_base = "https://example.org/demo")
+#' }
+#'
+#' unlink(quiz)
 #' @export
 quiz_student_html <- function(path, id = basename(path), site_base = NULL) {
   kept <- quiz_student_md(path, id)

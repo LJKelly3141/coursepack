@@ -17,3 +17,13 @@ The reason for the first substring match, or \code{NA_character_}.
 \description{
 Match a divergence to its declaration
 }
+\examples{
+declared <- list(list(match = "items: 3 -> 4", why = "one page added on purpose"),
+                 list(match = "due_at", why = "dates are set by hand"))
+
+# A divergence a declaration covers comes back with the reason.
+divergence_declared("items: 3 -> 4", declared)
+divergence_declared("assignment Memo due_at: x -> y", declared)
+# Anything undeclared comes back NA, which is what makes it a generator bug.
+divergence_declared("modules: 1 -> 2", declared)
+}

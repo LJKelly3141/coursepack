@@ -25,3 +25,14 @@ Substitution is literal, not a regular expression, so a value containing a
 backslash or a dollar sign travels unchanged. A key \code{values} does not carry
 is not silently left alone: the leftover check names it and stops.
 }
+\examples{
+render_template("Course {{code}}: {{title}}",
+                list(code = "ABCD 101", title = "Demo Course"))
+
+# A NULL value renders as an empty string.
+render_template("{{code}} at {{institution}}",
+                list(code = "ABCD 101", institution = NULL))
+
+# A hole left unfilled stops rather than shipping.
+try(render_template("{{code}} in {{timezone}}", list(code = "ABCD 101")))
+}

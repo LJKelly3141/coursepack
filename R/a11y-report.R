@@ -78,6 +78,12 @@ WCAG_LEVEL <- c(
 #'
 #' @param criterion The criterion number, e.g. `"1.4.3"`, or `NA`.
 #' @return `"A"`, `"AA"`, `"AAA"`, or `NA_character_`.
+#' @examples
+#' level_for("1.1.1")        # "A"
+#' level_for("1.4.3")        # "AA", the contrast criterion
+#' level_for("1.2.6")        # "AAA"
+#' level_for("broken-embed") # NA: not a WCAG success criterion at all
+#' level_for(NA_character_)
 #' @export
 level_for <- function(criterion) {
   if (is.null(criterion) || is.na(criterion)) return(NA_character_)
@@ -252,6 +258,20 @@ HUMAN_CONTENT_CRITERIA <- c("2.4.4", "1.1.1", "1.2.2")
 #' @param target The surface's discovery result. Only `$stylesheet` is read,
 #'   for the name a shared edit lands in.
 #' @return `df` with `fix_class`, `fix_target`, and `leverage` filled in.
+#' @examples
+#' df <- rbind(
+#'   finding("demo", "a.html", "1.4.3", "AA", "text contrast is too low",
+#'           "p.note", "serious"),
+#'   finding("demo", "b.html", "1.4.3", "AA", "text contrast is too low",
+#'           "p.lead", "serious"),
+#'   finding("demo", "c.html", "1.1.1", "A", "image has no alt text",
+#'           "img", "serious"))
+#'
+#' out <- classify_fixes(df, target = list(stylesheet = "style.css"))
+#' out[, c("criterion", "fix_class", "fix_target", "leverage")]
+#'
+#' # With no authored stylesheet, the shared edit is named as work to do first.
+#' classify_fixes(df, target = list(stylesheet = NA_character_))$fix_target[1]
 #' @export
 classify_fixes <- function(df, target) {
   if (!nrow(df)) return(df)
@@ -429,6 +449,22 @@ confidence_line_for <- function(detail) {
 #'   `cartridge_files`, `media_inventory`, `notices`, `zero_page_targets`.
 #' @param path Where to write the markdown.
 #' @return `path`, invisibly.
+#' @examples
+#' df <- classify_fixes(rbind(
+#'   finding("demo", "a.html", "1.4.3", "AA", "text contrast is too low",
+#'           "p.note", "serious"),
+#'   finding("demo", "b.html", "1.1.1", "A", "image has no alt text",
+#'           "img", "serious")), target = list(stylesheet = "style.css"))
+#'
+#' path <- tempfile(fileext = ".md")
+#' render_report(df, meta = list(date = "2026-09-05",
+#'                               pages_examined = list(demo = 12L),
+#'                               declared = list(demo = 12L),
+#'                               surfaces = "demo",
+#'                               failed_pages = character()), path)
+#' grep("^(#|Pages|Coverage)", readLines(path), value = TRUE)
+#'
+#' unlink(path)
 #' @export
 render_report <- function(df, meta, path) {
   # Fixed 2026-08-13, coordinator review, finding 4 (important). A 0-row
@@ -789,6 +825,20 @@ render_report <- function(df, meta, path) {
 #' @param meta The run's metadata. Only `date` is read.
 #' @param path Where to write the markdown.
 #' @return `path`, invisibly.
+#' @examples
+#' df <- classify_fixes(rbind(
+#'   finding("demo", "a.html", "1.4.3", "AA", "text contrast is too low",
+#'           "p.note", "serious"),
+#'   finding("demo", "b.html", "1.4.3", "AA", "text contrast is too low",
+#'           "p.lead", "serious"),
+#'   finding("demo", "c.html", "1.1.1", "A", "image has no alt text",
+#'           "img", "serious")), target = list(stylesheet = "style.css"))
+#'
+#' path <- tempfile(fileext = ".md")
+#' render_plan(df, meta = list(date = "2026-09-05"), path)
+#' grep("^(#|- \\[ \\])", readLines(path), value = TRUE)
+#'
+#' unlink(path)
 #' @export
 render_plan <- function(df, meta, path) {
   head <- c(

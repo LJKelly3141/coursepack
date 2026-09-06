@@ -9,8 +9,21 @@ read_timezone(course)
 \arguments{
 \item{course}{A parsed \code{course.yml}.}
 }
+\value{
+The IANA zone name, a length-one character vector. Stops when
+\code{course.yml} declares no \verb{term: timezone:} or names a zone R does not know.
+}
 \description{
 Read from \code{course$term$timezone}. There is no default: a default zone is a
 fact about one instructor, and a wrong zone moves every due date and every
 announcement by hours while looking fine in the XML.
+}
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+read_timezone(read_course(root))
+unlink(root, recursive = TRUE)
+# The zone is read straight off the parsed term block.
+read_timezone(list(term = list(timezone = "America/New_York")))
 }

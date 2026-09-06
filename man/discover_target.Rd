@@ -27,3 +27,22 @@ argument. A missing stylesheet is reported as \code{NA} rather than guessed at,
 because a shared fix routed into a vendored or generated file is silently
 overwritten by the next build.
 }
+\examples{
+# A small rendered Quarto book: config, an authored theme file, and the
+# output directory that config points at.
+repo <- tempfile("repo-")
+dir.create(file.path(repo, "docs"), recursive = TRUE)
+writeLines(c("project:", "  type: book", "  output-dir: docs",
+             "format:", "  html:", "    theme: [cosmo, custom.scss]"),
+           file.path(repo, "_quarto.yml"))
+writeLines("/* authored overrides */", file.path(repo, "custom.scss"))
+writeLines("<html lang='en'></html>", file.path(repo, "docs", "index.html"))
+writeLines("<html lang='en'></html>", file.path(repo, "docs", "week1.html"))
+
+tgt <- discover_target(repo)
+tgt$framework
+tgt$pages
+basename(tgt$stylesheet)   # NA here would mean "create one first"
+
+unlink(repo, recursive = TRUE)
+}

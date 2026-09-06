@@ -15,6 +15,15 @@
 #' @param s A character string containing named URL tokens, or `NULL`.
 #' @param urls A named list of token replacements.
 #' @return The interpolated character string, or `NULL` when `s` is `NULL`.
+#' @examples
+#' urls <- list(site = "https://example.org/demo",
+#'              textbook = "https://example.org/book")
+#' interp_urls("{site}/content/pages/welcome.html", urls)
+#' interp_urls("{textbook}/ch01.html#sec-mean", urls)
+#' # A token with no value in urls is left alone.
+#' interp_urls("{legacy}/old.html", urls)
+#' # NULL travels through untouched.
+#' interp_urls(NULL, urls)
 #' @export
 interp_urls <- function(s, urls) {
   if (is.null(s)) return(NULL)
@@ -29,6 +38,12 @@ interp_urls <- function(s, urls) {
 #' @param anchor An optional anchor name.
 #' @param base The textbook base URL.
 #' @return The chapter URL, or the textbook root URL for an empty chapter.
+#' @examples
+#' chapter_url("ch01", NULL, "https://example.org/book")
+#' chapter_url("ch01", "sec-mean", "https://example.org/book")
+#' # An empty or absent chapter points at the textbook root.
+#' chapter_url("", NULL, "https://example.org/book")
+#' chapter_url(NULL, NULL, "https://example.org/book")
 #' @export
 chapter_url <- function(chapter, anchor, base) {
   if (is.null(chapter) || !nzchar(chapter)) return(paste0(base, "/"))
@@ -51,6 +66,18 @@ chapter_url <- function(chapter, anchor, base) {
 #' @param tb_docs Path to the rendered textbook directory.
 #' @return A list with `state` and `detail`. `state` is one of `ok`,
 #'   `missing-chapter`, `missing-anchor`, or `unchecked`.
+#' @examples
+#' docs <- file.path(tempdir(), "book-docs")
+#' dir.create(docs, showWarnings = FALSE)
+#' writeLines('<h2 id="sec-mean">The mean</h2>', file.path(docs, "ch01.html"))
+#' resolve_target("ch01", NULL, docs)$state
+#' resolve_target("ch01", "sec-mean", docs)$state
+#' resolve_target("ch01", "sec-nope", docs)
+#' resolve_target("ch99", NULL, docs)$state
+#' # The two fail-open scars: no chapter to check, and no textbook to check it in.
+#' resolve_target(NULL, NULL, docs)$state
+#' resolve_target("ch01", NULL, file.path(tempdir(), "no-such-book"))$state
+#' unlink(docs, recursive = TRUE)
 #' @export
 resolve_target <- function(chapter, anchor, tb_docs) {
   if (is.null(chapter) || !nzchar(chapter))
@@ -77,6 +104,17 @@ resolve_target <- function(chapter, anchor, tb_docs) {
 #'
 #' @param mods A parsed modules manifest.
 #' @return A list of references, each containing `ch`, `anc`, and `what`.
+#' @examples
+#' mods <- list(
+#'   modules = list(list(items = list(
+#'     list(link = "Chapter 1", chapter = "ch01", anchor = "sec-mean")))),
+#'   assignments = list(
+#'     list(id = "hw-01", homework = list(chapter = "ch01", anchor = "sec-drills"))))
+#' refs <- collect_refs(mods)
+#' length(refs)
+#' # A module item first, then the assignments that name a chapter.
+#' refs[[1]]
+#' refs[[2]]
 #' @export
 collect_refs <- function(mods) {
   refs <- list()

@@ -17,3 +17,13 @@ The interpolated character string, or \code{NULL} when \code{s} is \code{NULL}.
 \description{
 Interpolate named URL tokens
 }
+\examples{
+urls <- list(site = "https://example.org/demo",
+             textbook = "https://example.org/book")
+interp_urls("{site}/content/pages/welcome.html", urls)
+interp_urls("{textbook}/ch01.html#sec-mean", urls)
+# A token with no value in urls is left alone.
+interp_urls("{legacy}/old.html", urls)
+# NULL travels through untouched.
+interp_urls(NULL, urls)
+}

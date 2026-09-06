@@ -77,3 +77,17 @@ the source wrote it, apart from the title and the due date. Anything other
 than \code{true} or \code{false} stops the build.
 }
 
+\examples{
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course", site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE, skills = FALSE)
+read_course(root)$code
+names(read_modules(root))
+m <- read_manifest(root)
+names(m)
+# The definitions are named by slug or id, ready to index.
+names(m$pages)
+# reference.yml is optional, and a fresh scaffold carries none.
+read_reference(root)
+unlink(root, recursive = TRUE)
+}

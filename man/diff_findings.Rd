@@ -16,3 +16,18 @@ A list of \code{fixed}, \code{new}, and \code{unchanged} frames.
 Compares two findings frames by id, so a problem that is still present
 reads as unchanged even after edits that moved it down the page.
 }
+\examples{
+old <- rbind(
+  finding("demo", "a.html", "1.1.1", "A", "image has no alt text",
+          "img", "serious"),
+  finding("demo", "b.html", "2.4.4", "A", "link text says nothing",
+          "a[href='/next']", "moderate"))
+new <- rbind(
+  old[2, ],
+  finding("demo", "c.html", "1.4.3", "AA", "text contrast is too low",
+          "p.note", "serious"))
+
+changed <- diff_findings(old, new)
+vapply(changed, nrow, integer(1))   # one fixed, one new, one still here
+changed$fixed$file
+}

@@ -21,3 +21,18 @@ A list of one-row findings, empty when every link reads well.
 when read out of context, which is how a screen reader user navigates a link
 list. Reads the cartridge's \verb{<webLink>} resource files.
 }
+\examples{
+# One weblink resource, shaped the way a Common Cartridge writes them.
+link <- tempfile(fileext = ".xml")
+writeLines(c(
+  "<webLink xmlns='http://www.imsglobal.org/xsd/imswl_v1p1'>",
+  "  <title>click here</title>",
+  "  <url href='https://example.org/reading' />",
+  "</webLink>"), link)
+
+found <- check_weak_link_text(link, surface = "demo-cartridge")
+length(found)
+found[[1]]$issue
+
+unlink(link)
+}

@@ -61,6 +61,15 @@ stamp_skill <- function(path, version) {
 #' @param which Skill names to install. `NULL` installs every shipped skill.
 #' @param overwrite Whether to replace a skill already installed under `proj`.
 #' @return The destination directories, invisibly.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course",
+#'                     site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE,
+#'                     skills = FALSE)
+#' install_skills(root)
+#' list.files(file.path(root, ".claude", "skills"))
+#' unlink(root, recursive = TRUE)
 #' @export
 install_skills <- function(proj = ".", which = NULL, overwrite = FALSE) {
   src <- skills_root()

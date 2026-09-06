@@ -93,3 +93,21 @@ dates have to be rewritten to match. The closing summary says so when it
 applies.
 }
 
+\examples{
+# git and skills default to TRUE, which runs git init in the new directory
+# and installs the shipped skills under .claude/skills/. Both are off here.
+root <- init_course(tempfile("course-"), code = "ABCD 101",
+                    title = "Demo Course",
+                    site_url = "https://example.org/demo",
+                    timezone = "America/Chicago", git = FALSE,
+                    skills = FALSE)
+list.files(root)
+unlink(root, recursive = TRUE)
+
+\dontrun{
+# The defaults, which need git on the PATH. Nothing is committed, ever.
+init_course(tempfile("course-"), code = "ABCD 101", title = "Demo Course",
+            site_url = "https://example.org/demo",
+            timezone = "America/Chicago")
+}
+}

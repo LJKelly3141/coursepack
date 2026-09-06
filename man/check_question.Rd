@@ -21,3 +21,12 @@ support, fewer than two options, and an answer key naming no option. Every
 message is prefixed with \code{where}, so the author is told which item in which
 section of which chapter to open.
 }
+\examples{
+q <- list(type = "multiple_choice",
+          options = list(A = "the head", B = "the tail"), answer = "A")
+check_question(q, "chapter 1: 1.1 Ideas question id 1")
+
+# An answer key naming no option stops, with the location in the message.
+q$answer <- "C"
+try(check_question(q, "chapter 1: 1.1 Ideas question id 1"))
+}

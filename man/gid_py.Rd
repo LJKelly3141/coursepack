@@ -24,3 +24,11 @@ Exported because the converter's output is checked against it, and because a
 migration session sometimes has to work out by hand which object in Canvas an
 identifier names.
 }
+\examples{
+gid_py("group", "Module Quizzes")
+
+# The parts are joined with "::", so a multi-part key and the single string
+# that spells it out give the same identifier.
+identical(gid_py("res", "Module 1", "Welcome"),
+          gid_py("res::Module 1::Welcome"))
+}

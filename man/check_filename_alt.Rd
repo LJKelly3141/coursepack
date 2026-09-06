@@ -22,3 +22,16 @@ A findings data frame, empty when the page is clean.
 axe reports a MISSING alt. It does not report \code{alt="chart1.png"}, which is
 present, useless, and read aloud to a screen reader user verbatim.
 }
+\examples{
+page <- tempfile(fileext = ".html")
+writeLines(c(
+  "<p>Two figures on one page.</p>",
+  "<img src='fig/a.png' alt='chart1.png'>",
+  "<img src='fig/b.png' alt='Enrolment by term, rising since 2019'>"), page)
+
+found <- check_filename_alt(page, surface = "demo", rel = "chapter1.html")
+nrow(found)          # only the filename alt is reported
+found$detail
+
+unlink(page)
+}

@@ -27,6 +27,17 @@
 #' @param textbook_docs Optional path to rendered textbook documents. When `NULL`,
 #'   read `textbook_docs` from `course.yml`.
 #' @return The preview model, invisibly.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#'
+#' model <- build_preview(root)
+#' # The counts the mockup header shows, straight off the model.
+#' model$stats[c("modules", "items", "unpublished_items", "todo")]
+#' list.files(file.path(root, "build", "mockup"))
+#'
+#' unlink(root, recursive = TRUE)
 #' @export
 build_preview <- function(proj = ".", base = c("local", "live"), textbook_docs = NULL) {
   base <- match.arg(base)

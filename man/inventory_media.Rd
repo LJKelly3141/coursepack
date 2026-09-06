@@ -19,3 +19,15 @@ than silently omitted. Not a finding source: whether a listed file is in
 scope, a working file, or published but out of scope is an editorial call
 the report makes.
 }
+\examples{
+# The inventory lists by path and extension, so empty stand-ins are enough
+# to show what it reports.
+repo <- tempfile("repo-")
+dir.create(file.path(repo, "figures"), recursive = TRUE)
+invisible(file.create(file.path(repo, "figures", "trend.png"),
+                      file.path(repo, "syllabus.pdf")))
+
+inventory_media(repo)
+
+unlink(repo, recursive = TRUE)
+}

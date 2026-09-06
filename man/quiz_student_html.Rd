@@ -19,3 +19,19 @@ The student-facing quiz HTML.
 \description{
 Convert student-facing quiz markdown to HTML
 }
+\examples{
+quiz <- tempfile("quiz-", fileext = ".md")
+writeLines(c("# 1. Instructions", "Answer every question.", "",
+             "# 2. Questions",
+             "1. What is 2 + 2?",
+             "", "![A plot](../../assets/quiz/plot.png)", "",
+             "# 3. ANSWER KEY", "1. 4"), quiz)
+
+\dontrun{
+# Needs pandoc, so this one is not run here. site_base is what turns the
+# relative asset path above into an absolute URL Canvas can resolve.
+quiz_student_html(quiz, site_base = "https://example.org/demo")
+}
+
+unlink(quiz)
+}

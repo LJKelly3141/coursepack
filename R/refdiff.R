@@ -2,6 +2,16 @@
 #'
 #' @param zip Path to a Common Cartridge archive.
 #' @return The temporary directory containing the unpacked cartridge.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' built <- build_cartridge(root)
+#'
+#' opened <- unpack_cartridge(built$imscc)
+#' head(list.files(opened, recursive = TRUE), 4)
+#'
+#' unlink(c(root, opened), recursive = TRUE)
 #' @export
 unpack_cartridge <- function(zip) {
   d <- file.path(tempdir(), paste0("cc_", basename(tools::file_path_sans_ext(zip))))
@@ -16,6 +26,15 @@ unpack_cartridge <- function(zip) {
 #' @param d A reported divergence.
 #' @param declared A list of declarations with `match` and `why` fields.
 #' @return The reason for the first substring match, or `NA_character_`.
+#' @examples
+#' declared <- list(list(match = "items: 3 -> 4", why = "one page added on purpose"),
+#'                  list(match = "due_at", why = "dates are set by hand"))
+#'
+#' # A divergence a declaration covers comes back with the reason.
+#' divergence_declared("items: 3 -> 4", declared)
+#' divergence_declared("assignment Memo due_at: x -> y", declared)
+#' # Anything undeclared comes back NA, which is what makes it a generator bug.
+#' divergence_declared("modules: 1 -> 2", declared)
 #' @export
 divergence_declared <- function(d, declared) {
   if (is.null(declared) || !length(declared)) return(NA_character_)
@@ -32,6 +51,20 @@ divergence_declared <- function(d, declared) {
 #' @param generated Generated cartridge path. When `NULL`, use the newest
 #'   `.imscc` file under `build/coursepack`.
 #' @return Invisibly, a list of all, accounted-for, and unexpected divergences.
+#' @examples
+#' root <- init_course(tempfile("course-"), code = "ABCD 101",
+#'                     title = "Demo Course", site_url = "https://example.org/demo",
+#'                     timezone = "America/Chicago", git = FALSE, skills = FALSE)
+#' built <- build_cartridge(root)
+#'
+#' # extract_manifest() writes a course whose reference.yml names the export it
+#' # was read from, so that cartridge can be diffed against its own reference.
+#' extracted <- tempfile("extracted-")
+#' extract_manifest(built$imscc, extracted)
+#' res <- diff_against_reference(extracted, generated = built$imscc)
+#' res$unexpected
+#'
+#' unlink(c(root, extracted), recursive = TRUE)
 #' @export
 diff_against_reference <- function(proj = ".", generated = NULL) {
   cfg <- read_reference(proj)

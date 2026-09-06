@@ -35,3 +35,20 @@ sum to \verb{points:}, a negative draw, and a draw larger than its group.
 Exported because the printed form of a quiz draws from the same groups, and
 because an author can ask what a block would pool without building anything.
 }
+\examples{
+proj <- tempfile("course-")
+dir.create(file.path(proj, "questions"), recursive = TRUE)
+item <- function(id, answer) sprintf(
+  '{"id": \%d, "type": "multiple_choice", "question": "Which one?",
+    "options": {"A": "the first", "B": "the second"}, "answer": "\%s"}',
+  id, answer)
+writeLines(sprintf('{"chapter": 1, "title": "Sample Chapter", "sections":
+  [{"section": "1.1 Ideas", "questions": [\%s, \%s]}]}',
+  item(1, "A"), item(2, "B")),
+  file.path(proj, "questions", "chapter_01.json"))
+spec <- list(dir = "questions", chapters = 1, draws = 2, points = 2)
+drawn <- bank_groups(spec, proj, "Module 1 Quiz")
+drawn$draws
+vapply(drawn$groups, function(g) g$name, "")
+unlink(proj, recursive = TRUE)
+}

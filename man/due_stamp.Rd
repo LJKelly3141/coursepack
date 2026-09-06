@@ -13,8 +13,18 @@ due_stamp(due, due_time, tz)
 
 \item{tz}{IANA zone.}
 }
+\value{
+\code{"YYYY-MM-DDTHH:MM:SS"}, the UTC instant Canvas stores, as a
+length-one character vector.
+}
 \description{
 A bare date takes \code{due_time} from \code{course.yml}; a date with a clock time is
 used as given (an in-person exam ending at 09:45 is due at 09:45, not at
 midnight). Decision D6: the package has no default \code{due_time}.
+}
+\examples{
+# A bare date takes its clock from course.yml's due_time.
+due_stamp("2026-01-15", "23:59:59", "America/Chicago")
+# A date carrying a clock time is used as given, and needs no due_time.
+due_stamp("2026-01-15 09:45", NULL, "America/Chicago")
 }

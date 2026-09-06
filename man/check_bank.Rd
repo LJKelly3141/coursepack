@@ -25,3 +25,15 @@ the run, because the item still renders.
 Exported so a bank-authoring session can check its own work without building
 anything.
 }
+\examples{
+one <- function(id, answer) list(id = id, type = "multiple_choice",
+  options = list(A = "the first", B = "the second"), answer = answer)
+bank <- list(chapter = 1L, sections = list(list(section = "1.1 Ideas",
+  questions = list(one(1L, "A"), one(2L, "B")))))
+# No question names an image, so no figure can be missing alt text.
+check_bank(bank, tempdir())$warnings
+
+# Two questions under one id would collapse into one Canvas item.
+bank$sections[[1]]$questions[[2]]$id <- 1L
+try(check_bank(bank, tempdir()))
+}

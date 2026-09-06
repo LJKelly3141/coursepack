@@ -21,3 +21,10 @@ parse_when(x, tz, what)
 \verb{YYYY-MM-DD HH:MM[:SS]}. Anything else stops, because a value that fails to
 parse must never quietly become "post now".
 }
+\examples{
+# A bare date is midnight local.
+parse_when("2026-01-15", "America/Chicago", "hw-01")
+parse_when("2026-01-15 14:30", "America/Chicago", "hw-01")
+# `immediately` posts on import, so there is no time to return.
+parse_when("immediately", "America/Chicago", "welcome")
+}

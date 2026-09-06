@@ -31,3 +31,20 @@ a plotting-call scan stands in. The result's \code{mode} attribute says which
 ran, per file in \code{modes} and overall in \code{mode}, so a caller can always tell
 verified figures from guessed ones.
 }
+\examples{
+# A source-only repo, so the source-heuristic mode is what runs.
+repo <- tempfile("repo-")
+dir.create(repo)
+writeLines(c(
+  "```{r fig-trend}", "plot(1:10)", "```", "",
+  "```{r fig-captioned}", "#| fig-alt: A line rising from left to right",
+  "plot(1:10)", "```"), file.path(repo, "chapter1.qmd"))
+
+found <- check_missing_fig_alt(repo, surface = "demo",
+                               exclude = character(0))
+nrow(found)              # the captioned chunk is left alone
+found$selector
+attr(found, "mode")      # say which way detection ran, never guess silently
+
+unlink(repo, recursive = TRUE)
+}

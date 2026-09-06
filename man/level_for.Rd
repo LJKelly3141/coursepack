@@ -18,3 +18,10 @@ Returns \code{NA} for anything not in it, including a criterion that is not a
 WCAG success criterion at all, so the report prints the number alone rather
 than a guessed level.
 }
+\examples{
+level_for("1.1.1")        # "A"
+level_for("1.4.3")        # "AA", the contrast criterion
+level_for("1.2.6")        # "AAA"
+level_for("broken-embed") # NA: not a WCAG success criterion at all
+level_for(NA_character_)
+}

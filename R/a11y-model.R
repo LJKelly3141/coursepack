@@ -73,6 +73,18 @@ finding_id <- function(surface, file, criterion, selector, code = NA_character_)
 #' @param code The producing check's own identifier, hashed into the id so
 #'   two different checks on one element stay two findings.
 #' @return A one-row data frame with the `FINDING_COLS` columns.
+#' @examples
+#' f <- finding(surface = "demo", file = "chapter1.html", criterion = "1.1.1",
+#'              level = "A", issue = "image has no alt text",
+#'              selector = "img[src='fig/a.png']", severity = "serious")
+#' f[, c("id", "surface", "criterion", "severity", "count")]
+#'
+#' # The same element under a different check is a different finding, because
+#' # the check's own code is part of the id.
+#' g <- finding("demo", "chapter1.html", "1.1.1", "A",
+#'              "image needs a long description", "img[src='fig/a.png']",
+#'              "moderate", code = "G73")
+#' identical(f$id, g$id)
 #' @export
 finding <- function(surface, file, criterion, level, issue, selector, severity,
                     detail = "", source_file = NA_character_,
@@ -580,6 +592,22 @@ from_pa11y <- function(raw, surface, file) {
 #' @param path The JSON file to write or read.
 #' @return `write_findings()` returns `path` invisibly; `read_findings()`
 #'   returns a data frame with the `FINDING_COLS` columns.
+#' @examples
+#' two <- rbind(
+#'   finding("demo", "chapter1.html", "1.1.1", "A", "image has no alt text",
+#'           "img[src='fig/a.png']", "serious"),
+#'   finding("demo", "chapter2.html", "2.4.4", "A",
+#'           "link text does not describe its destination", "a[href='/next']",
+#'           "moderate"))
+#'
+#' path <- tempfile(fileext = ".json")
+#' write_findings(two, meta = list(date = "2026-09-05"), path)
+#' back <- read_findings(path)
+#' nrow(back)
+#' identical(back$id, two$id)   # every id survives the round trip
+#' vapply(back[, c("line", "fix_class")], class, character(1))
+#'
+#' unlink(path)
 #' @name findings_file
 NULL
 
@@ -634,6 +662,20 @@ read_findings <- function(path) {
 #'
 #' @param old_df,new_df Findings frames, older and newer.
 #' @return A list of `fixed`, `new`, and `unchanged` frames.
+#' @examples
+#' old <- rbind(
+#'   finding("demo", "a.html", "1.1.1", "A", "image has no alt text",
+#'           "img", "serious"),
+#'   finding("demo", "b.html", "2.4.4", "A", "link text says nothing",
+#'           "a[href='/next']", "moderate"))
+#' new <- rbind(
+#'   old[2, ],
+#'   finding("demo", "c.html", "1.4.3", "AA", "text contrast is too low",
+#'           "p.note", "serious"))
+#'
+#' changed <- diff_findings(old, new)
+#' vapply(changed, nrow, integer(1))   # one fixed, one new, one still here
+#' changed$fixed$file
 #' @export
 diff_findings <- function(old_df, new_df) {
   list(
