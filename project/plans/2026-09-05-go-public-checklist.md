@@ -57,11 +57,17 @@ is written when the flip happens, not before.
   below. The local `origin/main` ref was left untouched on purpose so it still
   records what GitHub holds.
 
-- [ ] `R CMD check --as-cran` on a machine without Node or Chrome: 0 errors,
-  0 warnings; pa11y and parity tests report as skipped. Not done: this machine
-  has both. The suite's opt-in tests skip by environment variable, and the
-  parity and snapshot tests skip when `project/` is absent, so the tarball is
-  expected to pass; the run did not have a second machine to prove it.
+- [x] `R CMD check --as-cran` on a machine without Node or Chrome: 0 errors,
+  0 warnings; pa11y and parity tests report as skipped. Done 2026-09-05 on
+  this machine with `node` and `npx` removed from the search path (a shim of
+  homebrew's bin without them, so pandoc and python3 stayed), which is what
+  the tests probe: 0 errors, 0 warnings, 1 NOTE ("New submission", inherent
+  to as-cran on a package not on CRAN). Inside the check: 1075 pass, 0 fail,
+  8 skips (2 network, 3 "npx is not on the PATH" covering pa11y and the two
+  serve tests, 2 snapshot, 1 scrub script absent from the tarball). A second
+  NOTE, `CONTRIBUTING.md` at top level, was cleared by adding it to
+  `.Rbuildignore`. A literal second machine was not used; the shim proves the
+  same skips.
 
 - [ ] **Every exported function has a roxygen page whose example runs in
   `tempdir()`.** Not true yet: 0 of 68 exports carry an `\examples{}` section.
