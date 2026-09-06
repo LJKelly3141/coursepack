@@ -1,14 +1,17 @@
 # Contributing to coursepack
 
-## Whether contributions are taken at all
+## Issues are open; for a pull request, ask first
 
-This is an open question, not a policy. The package was extracted from a working
-course toolchain and put into public view so that the courses built with it can
-depend on something installable; whether pull requests, issues and outside
-patches are accepted, and under what terms, has not been decided. Nothing here
-should be read as an invitation or as a refusal. Until the maintainer decides and
-this section is rewritten, the safe assumption is that an unsolicited pull
-request may sit unanswered. Opening an issue to ask first costs nothing.
+Bug reports, questions, and requests are welcome as issues, and issues are on
+for that reason. The package was extracted from a working course toolchain and
+put into public view so that the courses built with it can depend on something
+installable, so a report from a course that is not the maintainer's is the most
+useful thing an outsider can send: what broke, on what input, and what was
+expected instead.
+
+Pull requests are a different matter. Whether outside patches are taken, and
+under what terms, has not been decided. Open an issue first and say what you
+want to change. An unsolicited pull request may sit unanswered.
 
 Everything below applies to any change to this package, including the
 maintainer's own. It is the shape the code has to keep.

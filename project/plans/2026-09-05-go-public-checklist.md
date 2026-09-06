@@ -107,8 +107,16 @@ is written when the flip happens, not before.
   order. The import into a Canvas shell is what remains.
 
 - [ ] Repository description and topics set; issues on or off (D11).
-  `CONTRIBUTING.md` says the outside-contributions question is open until the
-  maintainer decides.
+  **Issues: on, ruled by Logan 2026-09-05.** `CONTRIBUTING.md` and the
+  README's Contributing section now say so: bug reports, questions, and
+  requests as issues; for a pull request, open an issue first, since the
+  outside-patches question stays undecided. The description and the topics
+  are drafted (a one-line description leading with what the package
+  produces, and fifteen topics: `r`, `r-package`, `canvas-lms`,
+  `common-cartridge`, `imscc`, `qti`, `course-authoring`,
+  `instructional-design`, `accessibility`, `wcag`, `pa11y`, `quarto`,
+  `yaml`, `education`, `teaching`). Both are set in the About box on GitHub
+  after the flip, by hand.
 
 - [ ] The visibility flip, by Logan, by hand. Then `Version: 1.0.0` and the
   commit `Close phase 6: ready to go public`. The push that precedes the flip

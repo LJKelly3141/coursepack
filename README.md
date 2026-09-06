@@ -161,5 +161,5 @@ course repositories and is not covered here.
 
 ## Contributing
 
-See `CONTRIBUTING.md`. Whether contributions from outside are taken at all is
-still an open question there.
+See `CONTRIBUTING.md`. Issues are open for bug reports, questions, and
+requests. For a pull request, open an issue first.
