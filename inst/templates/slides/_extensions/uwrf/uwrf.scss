@@ -1,0 +1,313 @@
+/*-- scss:defaults --*/
+
+// UWRF brand colors, taken from the university PowerPoint theme.
+$uwrf-red: #BE0F34;          // Passion Red, the primary color
+$uwrf-dark-red: #8F010A;     // accent2
+$uwrf-crimson: #CF002D;      // accent6
+$uwrf-blue: #2EC7FF;         // accent1, hyperlink
+$uwrf-black: #000000;        // dk1
+$uwrf-white: #FFFFFF;        // lt1
+$uwrf-gray: #CACACA;         // accent5
+
+// The brand blue at 32 percent lightness. #2EC7FF is 1.96:1 on white and
+// fails WCAG AA for text; this keeps the hue and reaches 5.0:1.
+$uwrf-blue-dark: #0077A3;
+
+// White "Snow Cap" background, matching the official UWRF template.
+$backgroundColor: $uwrf-white;
+$mainColor: #333333;
+$headingColor: $uwrf-red;
+$presentation-heading-color: $uwrf-red;
+$link-color: $uwrf-blue-dark;
+$body-color: #333333;
+$presentation-font-size-root: 34px;
+
+// Font floor. On the 1280 by 720 canvas one px is three quarters of a point,
+// the same as a 16:9 PowerPoint slide, so 24px is 18pt and 32px is 24pt. Body
+// text is 34px (25.5pt) and nothing on a slide may render below 24px. Every
+// reduced size below is set in px, not em, so a .smaller slide cannot shrink
+// it under the floor.
+$uwrf-font-min: 24px;
+$presentation-font-smaller: 0.75;   // Quarto's default 0.7 lands at 17.9pt
+$code-block-font-size: 0.72em;      // Quarto's default 0.55em lands at 14pt
+$presentation-heading-font: Impact, "Arial Black", sans-serif;
+$body-font: Arial, Helvetica, sans-serif;
+$font-family-sans-serif: Arial, Helvetica, sans-serif;
+
+/*-- scss:rules --*/
+
+.reveal {
+  background-color: $uwrf-white;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+// Title slide
+.reveal .slides section.quarto-title-block h1,
+.reveal .slides section.quarto-title-block .title {
+  color: $uwrf-red;
+  font-family: Impact, "Arial Black", sans-serif;
+  text-transform: uppercase;
+}
+
+.reveal .slides section.quarto-title-block .subtitle {
+  color: $uwrf-black;
+  font-weight: 600;
+}
+
+// Headings
+.reveal h1, .reveal h2 {
+  font-family: Impact, "Arial Black", sans-serif;
+  text-transform: uppercase;
+  color: $uwrf-red;
+}
+
+// Section divider: a level-one heading with {.section-header} becomes a red
+// slide with a white title.
+.section-header {
+  background-color: $uwrf-red !important;
+  color: $uwrf-white !important;
+
+  h1, h2 {
+    color: $uwrf-white !important;
+  }
+}
+
+// Lists
+.reveal section ul {
+  font-size: 1em;                   // the PAR deck used 0.8em, 20.4pt
+  list-style-type: disc;
+}
+
+.reveal section ul li {
+  margin-bottom: 0.4em;
+  color: $uwrf-black;
+}
+
+.reveal section ul li::marker {
+  color: $uwrf-black;
+}
+
+// Links are underlined. No color both clears 4.5:1 on white and 3:1 against
+// the body text, so color alone cannot mark a link.
+.reveal .slides a,
+.reveal .footer a {
+  text-decoration: underline;
+}
+
+// Bold text
+.reveal strong {
+  color: $uwrf-black;
+}
+
+// Tables: clean, with red header accents. Cells align left; add class="num"
+// to a cell to right-align a number.
+.reveal table {
+  color: #333;
+}
+
+.reveal table th {
+  color: $uwrf-red;
+  border-bottom: 3px solid $uwrf-red;
+}
+
+.reveal table td {
+  border-bottom: 1px solid $uwrf-gray;
+}
+
+.reveal table th, .reveal table td {
+  text-align: left;
+}
+
+.reveal table .num {
+  text-align: right;
+}
+
+.reveal .smaller table {
+  font-size: 1em;                   // 0.85em on a .smaller slide is 16pt
+}
+
+.small-table {
+  font-size: $uwrf-font-min;
+  table {
+    width: 100%;
+  }
+}
+
+// Two-column layout, as an alternative to Quarto's column divs
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+// Callout box: a short takeaway with a red rule down the left
+.reveal .callout-box {
+  background: #f6f6f6;
+  border-left: 6px solid $uwrf-red;
+  padding: 0.4em 0.8em;
+  margin-top: 0.6em;
+}
+
+// Big-number callout, the UWRF "stat callout" slide style
+.highlight-stat {
+  text-align: center;
+
+  .big-number {
+    font-size: 3.5em;
+    font-weight: 800;
+    font-family: Impact, "Arial Black", sans-serif;
+    color: $uwrf-blue-dark;
+    margin: 0.2em 0;
+  }
+
+  .stat-label {
+    font-size: 30px;
+    color: #555;
+    margin-top: 0.1em;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 0;
+
+    .stat-item {
+      text-align: center;
+      padding: 0.6rem 1.2rem;
+
+      .number {
+        font-size: 2.1em;
+        font-weight: 700;
+        font-family: Impact, "Arial Black", sans-serif;
+        color: $uwrf-blue-dark;
+      }
+
+      .label {
+        font-size: 26px;
+        color: #555;
+      }
+    }
+  }
+}
+
+// Small uppercase red label above a paragraph
+.impact-label {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 1em;
+  color: $uwrf-red;
+  margin-top: 0.35em;
+  margin-bottom: 0.1em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+// Status badges
+.status-green {
+  color: #2E7D32;
+  font-weight: 700;
+}
+.status-yellow {
+  color: #E65100;
+  font-weight: 700;
+}
+.status-red {
+  color: $uwrf-red;
+  font-weight: 700;
+}
+
+// Footer band at the bottom of a slide, for a source line or a note
+.slide-footer-band {
+  font-size: $uwrf-font-min;
+  color: #666;
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid $uwrf-gray;
+  line-height: 1.4;
+}
+
+// Quarto shrinks its callouts by the .smaller factor, which on a .smaller
+// slide compounds to 14pt. Callouts take the slide's own size instead.
+.reveal .slides section div.callout,
+.reveal .slides section.smaller div.callout {
+  font-size: 1em;
+}
+
+// Screen-reader-only text, for table captions that should not print
+.reveal .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Code cells and chart output fill the slide width
+.plotly {
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+.reveal .slide .cell {
+  width: 100% !important;
+  margin-bottom: 0 !important;
+}
+
+.reveal .slide .highlight-stat {
+  margin-top: 0 !important;
+}
+
+.reveal .slide .cell-output-display {
+  width: 100% !important;
+  display: flex;
+  justify-content: center;
+}
+
+.reveal .slide .cell-output-display > div {
+  width: 100% !important;
+}
+
+// Logo, slide number, controls, footer
+.reveal .slide-logo {
+  max-height: 50px !important;
+}
+
+// Divider slides, the level-one headings, show no logo. divider.html mirrors
+// the current slide's classes onto the container, since the logo and the
+// chrome sit outside the slides.
+.reveal.uwrf-divider .slide-logo {
+  display: none;
+}
+
+// A red .section-header divider gets white chrome: #666 on the red is 2.2:1.
+.reveal.uwrf-divider-dark .footer,
+.reveal.uwrf-divider-dark .slide-number {
+  color: $uwrf-white;
+}
+
+// The menu icon is an SVG background image with its color baked in, so it is
+// turned white with a filter rather than a color.
+.reveal.uwrf-divider-dark .slide-menu-button .fas::before {
+  filter: brightness(0) invert(1);
+}
+
+.reveal .slide-number {
+  color: #666;
+  font-size: $uwrf-font-min !important;   // Quarto sets 16px
+}
+
+.reveal .controls button {
+  color: $uwrf-red;
+}
+
+.reveal .footer {
+  color: #666;
+  font-size: $uwrf-font-min !important;   // Quarto sets 16px
+}

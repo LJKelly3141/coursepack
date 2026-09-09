@@ -63,7 +63,10 @@ address outside the four files allowed to carry it, for `Sys.getenv()` in `R/`,
 for absolute paths, for em-dashes in shipped text, and for token shapes anywhere
 in the git history. It prints `scrub: clean` and exits zero, or it prints every
 hit and exits non-zero. There is no allowlist to add yourself to: the allowed set
-is two entries and both are load-bearing. `tests/testthat/test-scrub.R` runs the
+is three entries and all are load-bearing. The third is the ids of the slide
+styles under `inst/templates/slides/_extensions/`, read off the directory names,
+because a slide style carries an institution's brand on purpose; only the id is
+allowed, and a course number inside a style file still fails. `tests/testthat/test-scrub.R` runs the
 same script from the suite, and skips only where the script is absent, which is
 inside a built tarball.
 

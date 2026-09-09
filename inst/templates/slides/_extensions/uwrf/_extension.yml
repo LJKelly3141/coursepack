@@ -1,0 +1,17 @@
+title: UWRF
+author: Logan Kelly
+version: 1.0.0
+quarto-required: ">=1.4.0"
+contributes:
+  formats:
+    revealjs:
+      theme: [white, uwrf.scss]
+      logo: uwrf-logo.png
+      include-after-body: divider.html
+      slide-number: true
+      transition: slide
+      navigation-mode: linear
+      controls: true
+      width: 1280
+      height: 720
+      embed-resources: true

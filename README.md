@@ -106,6 +106,18 @@ every carried deadline is written as the UTC instant Canvas stored, with
 `term: timezone: UTC` above it, so those two lines belong to each other and
 naming a local zone means rewriting the dates to match.
 
+## Slide style
+
+Decks are Quarto reveal.js documents. The package carries one slide style, UWRF:
+a format extension under `inst/templates/slides/` that gives a deck the
+university brand when it declares `format: uwrf-revealjs`. `use_uwrf_slides()`
+copies the extension into a course's deck directory; the course's `_quarto.yml`
+is left alone, and the closing summary says what to add to it. UWRF is the only
+style so far. Another institution's or department's style would be a second
+extension beside it, installed the same way: a directory under
+`inst/templates/slides/_extensions/`, whose name the public-readiness scrub
+allows the moment it exists, and a `use_<id>_slides()` of its own.
+
 ## What has been verified
 
 Nothing here has been imported into Canvas from this package yet. The table is
