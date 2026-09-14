@@ -30,6 +30,7 @@ what was built.
 
 | To do this | You need |
 |---|---|
+| install the package | R 4.1 or later; on Linux, ImageMagick's `libmagick++-dev`, which the `magick` dependency builds against |
 | build a cartridge | R, `zip`, `pandoc` |
 | preview or audit | `python3`; Node, `npx` and a Chrome or Chromium binary for the audit; `quarto` for paper forms |
 
@@ -120,15 +121,17 @@ allows the moment it exists, and a `use_<id>_slides()` of its own.
 
 ## What has been verified
 
-Nothing here has been imported into Canvas from this package yet. The table is
-the honest state of that.
+Two courses have been built with this package, each started from its own Canvas
+export, and taken through the full round trip: imported into a shell, exported
+back out, and compared against what was built. The table is the honest state of
+what that covers.
 
 | Entry point | Verified by a real Canvas import | Date |
 |---|---|---|
 | `build_cartridge()` (generated items, announcements, embedded R/exams quiz) | the toolchain this package descends from, before the move | 2026-08-12, 2026-09-02 |
-| `build_cartridge()` from this package | not yet | |
+| `build_cartridge()` from this package | two courses, full round trip | September 2026 |
 | carried resources, bank quizzes, `description:` assignments | not yet | |
-| `extract_manifest()` | synthetic round trip only | |
+| `extract_manifest()` | two courses started from their Canvas exports, full round trip | September 2026 |
 | `init_course()` scaffold | not yet | |
 | `audit_course()` | ran end to end on two real courses before the move | 2026-09-01 |
 
