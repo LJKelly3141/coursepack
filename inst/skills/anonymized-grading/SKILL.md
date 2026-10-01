@@ -32,7 +32,7 @@ notes file, not the nicknames file, not a gradebook export or import.
 | 4. Grade | one agent per assignment | reads `anon/` only, writes `anon/feedback/` and `anon/scores.csv` |
 | 5. Rulings | the instructor | one decision at a time |
 | 6. Relink | instructor's machine | `coursepack::relink(".", "semester/<term>/<Assignment>")` |
-| 7. Grades for Canvas | instructor's machine | `coursepack::canvas_grades(".", gradebook = "semester/<term>/gradebook_export/<fresh export>.csv", map = "semester/<term>/canvas_columns.csv", import_dir = "semester/<term>/gradebook_import")` |
+| 7. Grades for Canvas | instructor's machine | `coursepack::canvas_grades(".", gradebook = "semester/<term>/gradebook_export/<fresh export>.csv", map = "semester/<term>/canvas_columns.csv")`, written to `semester/<term>/gradebook_import/` |
 | 8. Forget the key | instructor's machine | `coursepack::anon_forget(".", "semester/<term>/<Assignment>")`, once the upload is confirmed |
 
 Every command prints counts and codes only. That output is safe to read.
@@ -139,17 +139,22 @@ kept cell is the export's own text except the filled scores, written with two
 decimals. Every other assignment and every read-only total is dropped, so the
 import cannot roll back a grade it does not carry.
 
-Exports go in `gradebook_export/` and imports go in `gradebook_import/`. The
-tool reads exports and writes only imports, never into the export's folder or
-an assignment folder, and it stops if `import_dir` or `out` points at the
-export's folder or anywhere below it. Ask the instructor to download a new export after
+Exports go in `semester/<term>/gradebook_export/` and imports go in the
+sibling `semester/<term>/gradebook_import/`, which is the default. The tool
+reads exports and writes only imports, never into the export's folder or an
+assignment folder, and it stops if `import_dir` or `out` points at the
+export's folder or anywhere below it. Only the term is read from the paths,
+never a folder to write in: it is the folder name right after `semester/` in
+the export's path, and every mapped assignment folder must be in the same
+term. If the export is not under `semester/<term>/`, or a folder is in another
+term or in none, the call stops and lists each path with its term; fix the
+paths or the map rather than passing `import_dir` to get past it. Ask the instructor to download a new export after
 relinking and right before importing, so every student scored is in it, then
 fill it:
 
 ```r
 coursepack::canvas_grades(".", gradebook = "semester/<term>/gradebook_export/<export>.csv",
-                          map = "semester/<term>/canvas_columns.csv",
-                          import_dir = "semester/<term>/gradebook_import")
+                          map = "semester/<term>/canvas_columns.csv")
 ```
 
 The map has one row per assignment, `folder,column`, where `column` is text
@@ -158,7 +163,7 @@ that matches exactly one assignment column, and an optional third column,
 scores are elsewhere. End case studies with a colon (`Case Study 1:`) so they
 cannot also match `Case Study 10`. Coded scores are placed through each
 folder's own key, so no `key` is passed. The result is
-`<YYYY-MM-DD>_<folder>_import.csv` in the import folder for one assignment, or
+`<YYYY-MM-DD>_<folder>_import.csv` in `semester/<term>/gradebook_import/` for one assignment, or
 `<YYYY-MM-DD>_<N>-assignments_import.csv` for several. It never replaces an
 existing file; after a ruling, re-run with `overwrite = TRUE`. Tell the
 instructor to read Canvas's import preview before confirming.
@@ -190,5 +195,5 @@ nothing on the machine links that run's codes to students.
 | A full-width import, or one with blank cells for other assignments | Canvas writes every cell back, rolling back or deleting grades | `canvas_grades()`, which carries the mapped columns only |
 | One key reused across assignments | a single leaked file de-anonymizes all of them | `anon_key()` per assignment, `anon_forget()` when done |
 | Nicknames typed into a key | they are lost when the key is deleted | the term nicknames file |
-| An import written beside the export | exports and imports get mixed up | let `canvas_grades()` write to `gradebook_import/` |
+| An import written beside the export | exports and imports get mixed up | let `canvas_grades()` write to `semester/<term>/gradebook_import/` |
 | Anything under `semester/` committed | student data enters git history for good | `semester/` stays git-ignored; check before every commit |

@@ -23,10 +23,15 @@ write_export <- function(path, eol = "\n") {
 }
 
 # A course root with the export in gradebook_export/ and two scored
-# assignment folders. The default import_dir is semester/gradebook_import.
-grades_course <- function(env = parent.frame()) {
-  td <- normalizePath(withr::local_tempdir("canvas_", .local_envir = env))
-  dir.create(file.path(td, "gradebook_export"))
+# assignment folders. With a term, all of it sits under semester/<term>/ in
+# proj, g$td is that term folder, and the default import_dir is its sibling
+# semester/<term>/gradebook_import. Without one it sits directly in proj, which
+# has no term, so every call passes import_dir or out; g$imp is then only a
+# folder for fill_gradebook() called directly.
+grades_course <- function(term = NULL, env = parent.frame()) {
+  proj <- normalizePath(withr::local_tempdir("canvas_", .local_envir = env))
+  td <- if (is.null(term)) proj else file.path(proj, "semester", term)
+  dir.create(file.path(td, "gradebook_export"), recursive = TRUE)
   gb <- write_export(file.path(td, "gradebook_export", "export.csv"))
   ad <- file.path(td, "CaseStudy03"); dir.create(ad)
   utils::write.csv(data.frame(student = c("x", "y"), canvas_user_id = c("1001", "1002"),
@@ -35,9 +40,10 @@ grades_course <- function(env = parent.frame()) {
   a4 <- file.path(td, "CaseStudy04"); dir.create(a4)
   utils::write.csv(data.frame(canvas_user_id = c("1003"), total = c("30")),
                    file.path(a4, "case04_scores.csv"), row.names = FALSE)
-  imp <- file.path(td, "semester", "gradebook_import")
+  imp <- if (is.null(term)) file.path(proj, "semester", "gradebook_import") else
+    file.path(td, "gradebook_import")
   today <- format(Sys.Date(), "%Y-%m-%d")
-  list(proj = td, td = td, gb = gb, ad = ad, a4 = a4, imp = imp,
+  list(proj = proj, td = td, gb = gb, ad = ad, a4 = a4, imp = imp,
        out_one = file.path(imp, paste0(today, "_CaseStudy03_import.csv")),
        out_two = file.path(imp, paste0(today, "_2-assignments_import.csv")))
 }
@@ -72,7 +78,7 @@ two_expected <- c(
   '"Student, Test",9999,,,x.edu,90-01,,')
 
 test_that("one assignment: identity columns and the mapped column only, every row kept", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   out <- quiet(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3"))
   expect_identical(out, g$out_one)   # dated, named for the folder, under import_dir
   expect_identical(raw_text(out), paste0(paste(one_expected, collapse = "\n"), "\n"))
@@ -100,7 +106,7 @@ test_that("one assignment: identity columns and the mapped column only, every ro
 })
 
 test_that("the export's folder gains nothing; imports go only to import_dir", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   before <- sort(list.files(file.path(g$td, "gradebook_export"), all.files = TRUE, no.. = TRUE))
   out <- quiet(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3"))
   expect_identical(sort(list.files(file.path(g$td, "gradebook_export"), all.files = TRUE,
@@ -116,7 +122,7 @@ test_that("the export's folder gains nothing; imports go only to import_dir", {
 })
 
 test_that("several assignments fill one narrow file; overlaps, misses and overwrites stop", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   mp <- write_map(g$td, c(g$ad, g$a4), c("Case Study 3", "Case Study 4"))
   out <- quiet(canvas_grades(g$proj, g$gb, map = mp))
   expect_identical(out, g$out_two)
@@ -145,14 +151,15 @@ test_that("several assignments fill one narrow file; overlaps, misses and overwr
 })
 
 test_that("a mapped folder that does not exist stops, naming the folder path", {
-  g <- grades_course()
-  msg <- errors_with(canvas_grades(g$proj, g$gb, folder = "CaseStudy09", column = "Case Study 3"))
-  expect_identical(msg, paste0("no assignment folder at ", file.path(g$proj, "CaseStudy09")))
+  g <- grades_course("fall2026")
+  msg <- errors_with(canvas_grades(g$proj, g$gb, folder = "semester/fall2026/CaseStudy09",
+                                   column = "Case Study 3"))
+  expect_identical(msg, paste0("no assignment folder at ", file.path(g$td, "CaseStudy09")))
   expect_false(dir.exists(g$imp))
 })
 
 test_that("bad scores stop without printing an id, and nothing is written", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   bad <- file.path(g$td, "Bad"); dir.create(bad)
   utils::write.csv(data.frame(canvas_user_id = "4242", total = "10"),
                    file.path(bad, "bad_scores.csv"), row.names = FALSE)
@@ -189,7 +196,7 @@ test_that("the map file reads its folders and defaults the scores column", {
 })
 
 test_that("coded scores are placed through the folder's own key, and only a matching key", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   kg <- file.path(g$td, "keygb.csv")
   writeLines(c('Student,ID,SIS User ID,SIS Login ID,Root Account,Section',
                '    Points Possible,,,,,',
@@ -197,7 +204,7 @@ test_that("coded scores are placed through the folder's own key, and only a matc
                '"Rivera, Morgan",1002,U2,XQ1002,x,90',
                '"Stone, Pat",1003,U3,XQ1003,x,90'), kg)
   cd <- file.path(g$td, "Coded"); dir.create(file.path(cd, "anon"), recursive = TRUE)
-  k <- quiet(anon_key(g$proj, "keygb.csv", "Coded"))
+  k <- quiet(anon_key(g$proj, "semester/fall2026/keygb.csv", "semester/fall2026/Coded"))
   rivera <- k$code[k$canvas_id == "1002"]   # the code is shuffled; read it from the key
   utils::write.csv(data.frame(code = rivera, total = "41"), file.path(cd, "anon", "scores.csv"),
                    row.names = FALSE)
@@ -213,12 +220,12 @@ test_that("coded scores are placed through the folder's own key, and only a matc
 
   # An explicit key is accepted only when it is this folder's run.
   out <- quiet(canvas_grades(g$proj, g$gb, folder = cd, column = "Case Study 4",
-                             key = "Coded/anon_key.csv", overwrite = TRUE))
+                             key = "semester/fall2026/Coded/anon_key.csv", overwrite = TRUE))
   expect_identical(raw_text(out), paste0(paste(exp3, collapse = "\n"), "\n"))
   other <- file.path(g$td, "Other"); dir.create(other)
-  quiet(anon_key(g$proj, "keygb.csv", "Other"))
+  quiet(anon_key(g$proj, "semester/fall2026/keygb.csv", "semester/fall2026/Other"))
   msg <- errors_with(canvas_grades(g$proj, g$gb, folder = cd, column = "Case Study 4",
-                                   key = "Other/anon_key.csv", overwrite = TRUE))
+                                   key = "semester/fall2026/Other/anon_key.csv", overwrite = TRUE))
   expect_true(grepl("Other", msg) && grepl("Coded", msg))
 
   unlink(file.path(cd, "anon_key.csv"))
@@ -246,7 +253,7 @@ test_that("canvas_grades() resolves paths against proj and refuses an ambiguous 
 # ---- review fixes (1.2.2) ----------------------------------------------------------
 
 test_that("a scores row with a blank id and a total stops", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   bl <- file.path(g$td, "BlankId"); dir.create(bl)
   utils::write.csv(data.frame(canvas_user_id = c("1001", ""), total = c("45", "10")),
                    file.path(bl, "bl_scores.csv"), row.names = FALSE)
@@ -256,7 +263,7 @@ test_that("a scores row with a blank id and a total stops", {
 })
 
 test_that("rows without a numeric ID are never filled, whatever the scores say", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   mp_lines <- append(export_lines,
                      '    Manual Posting,,,,,,,Manual Posting,,,', after = 2)
   gb <- file.path(g$td, "gradebook_export", "export_mp.csv")
@@ -290,7 +297,7 @@ test_that("an import is never written into the export's folder or over the expor
 })
 
 test_that("an Integration ID column is kept as an identity column", {
-  g <- grades_course()
+  g <- grades_course("fall2026")
   il <- sub("SIS Login ID,", "SIS Login ID,Integration ID,", export_lines[1], fixed = TRUE)
   il <- c(il, sub("^(([^,]*,){3})", "\\1,", export_lines[2]),
           sub("XQ1001,", "XQ1001,INT1,", export_lines[3], fixed = TRUE),
@@ -320,4 +327,111 @@ test_that("an import is never written anywhere inside the export's folder tree",
   out <- quiet(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3",
                              import_dir = "gradebook_export_imports"))
   expect_true(file.exists(out))
+})
+
+# ---- the term-aware default (1.2.3) -------------------------------------------------
+# Only the term is taken from the input paths, never a folder to write in: the
+# default import_dir is semester/<term>/gradebook_import under proj.
+
+test_that("the derived default is the sibling semester/<term>/gradebook_import", {
+  g <- grades_course("fall2026")
+  ex <- file.path(g$td, "gradebook_export")
+  before <- list.files(ex, recursive = TRUE, include.dirs = TRUE, all.files = TRUE)
+  out <- quiet(canvas_grades(g$proj, "semester/fall2026/gradebook_export/export.csv",
+                             folder = "semester/fall2026/CaseStudy03", column = "Case Study 3"))
+  expect_identical(out, file.path(g$proj, "semester", "fall2026", "gradebook_import",
+                                  basename(g$out_one)))
+  expect_identical(list.files(ex, recursive = TRUE, include.dirs = TRUE, all.files = TRUE),
+                   before)
+  expect_false(dir.exists(file.path(g$proj, "semester", "gradebook_import")))
+
+  mp <- write_map(g$td, c("semester/fall2026/CaseStudy03", "semester/fall2026/CaseStudy04"),
+                  c("Case Study 3", "Case Study 4"))
+  out <- quiet(canvas_grades(g$proj, g$gb, map = mp))
+  expect_identical(out, g$out_two)
+  expect_identical(list.files(ex, recursive = TRUE, include.dirs = TRUE, all.files = TRUE),
+                   before)
+})
+
+test_that("an export directly in semester/<term>/ takes that term; the guard still holds", {
+  p <- normalizePath(withr::local_tempdir("canvas_"))
+  td <- file.path(p, "semester", "fall-2026"); dir.create(td, recursive = TRUE)
+  gb <- write_export(file.path(td, "export.csv"))
+  ad <- file.path(td, "CaseStudy03"); dir.create(ad)
+  utils::write.csv(data.frame(canvas_user_id = "1001", total = "45"),
+                   file.path(ad, "case03_scores.csv"), row.names = FALSE)
+  # The derived folder, semester/fall-2026/gradebook_import, is below the
+  # export's own folder, so the guard stops it and nothing is created.
+  msg <- errors_with(canvas_grades(p, "semester/fall-2026/export.csv",
+                                   folder = "semester/fall-2026/CaseStudy03",
+                                   column = "Case Study 3"))
+  expect_true(grepl("different folders", msg))
+  expect_true(grepl(file.path("semester", "fall-2026", "gradebook_import"), msg, fixed = TRUE))
+  expect_false(dir.exists(file.path(td, "gradebook_import")))
+  expect_identical(sort(list.files(td)), c("CaseStudy03", "export.csv"))
+})
+
+test_that("an export outside semester/<term>/ stops when the import_dir is derived", {
+  g <- grades_course()
+  msg <- errors_with(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3"))
+  expect_true(grepl("term", msg))
+  expect_true(grepl("gradebook_export/export.csv", msg, fixed = TRUE))
+  expect_true(grepl("(none)", msg, fixed = TRUE))
+  expect_false(grepl("Quill|Rivera|Stone|100[123]", msg))
+  expect_false(dir.exists(file.path(g$proj, "semester")))
+
+  # semester/ with no term folder below it is not a term either.
+  dir.create(file.path(g$proj, "semester"))
+  file.copy(g$gb, file.path(g$proj, "semester", "export.csv"))
+  msg <- errors_with(canvas_grades(g$proj, "semester/export.csv", folder = g$ad,
+                                   column = "Case Study 3"))
+  expect_true(grepl("term", msg) && grepl("(none)", msg, fixed = TRUE))
+  expect_identical(list.files(file.path(g$proj, "semester")), "export.csv")
+})
+
+test_that("an export and an assignment folder in different terms stop", {
+  g <- grades_course("fall2026")
+  sp <- file.path(g$proj, "semester", "spring2027", "CaseStudy03")
+  dir.create(sp, recursive = TRUE)
+  file.copy(file.path(g$ad, "case03_scores.csv"), sp)
+  msg <- errors_with(canvas_grades(g$proj, g$gb, folder = "semester/spring2027/CaseStudy03",
+                                   column = "Case Study 3"))
+  expect_true(grepl("fall2026", msg) && grepl("spring2027", msg))
+  expect_true(grepl("semester/spring2027/CaseStudy03", msg, fixed = TRUE))
+  expect_false(dir.exists(g$imp))
+  expect_false(dir.exists(file.path(g$proj, "semester", "spring2027", "gradebook_import")))
+
+  # Through a map, one folder in another term is enough to stop it.
+  mp <- write_map(g$td, c(g$ad, sp), c("Case Study 3", "Case Study 4"))
+  msg <- errors_with(canvas_grades(g$proj, g$gb, map = mp))
+  expect_true(grepl("spring2027", msg))
+  # And an assignment folder outside semester/<term>/ has no term to agree.
+  out_folder <- file.path(g$proj, "Loose"); dir.create(out_folder)
+  msg <- errors_with(canvas_grades(g$proj, g$gb, folder = "Loose", column = "Case Study 3"))
+  expect_true(grepl("Loose", msg) && grepl("(none)", msg, fixed = TRUE))
+  expect_false(dir.exists(g$imp))
+})
+
+test_that("an explicit import_dir or out wins over the derived default", {
+  g <- grades_course("fall2026")
+  out <- quiet(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3",
+                             import_dir = "elsewhere"))
+  expect_identical(out, file.path(g$proj, "elsewhere", basename(g$out_one)))
+  out <- quiet(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3",
+                             out = "picked/here.csv"))
+  expect_identical(out, file.path(g$proj, "picked", "here.csv"))
+  expect_false(dir.exists(g$imp))
+  # Nothing is derived when import_dir is given, so a folder in another term
+  # does not stop it.
+  sp <- file.path(g$proj, "semester", "spring2027", "CaseStudy03")
+  dir.create(sp, recursive = TRUE)
+  file.copy(file.path(g$ad, "case03_scores.csv"), sp)
+  out <- quiet(canvas_grades(g$proj, g$gb, folder = sp, column = "Case Study 3",
+                             import_dir = "elsewhere", overwrite = TRUE))
+  expect_true(file.exists(out))
+  # And the guard still applies to an explicit choice.
+  msg <- errors_with(canvas_grades(g$proj, g$gb, folder = g$ad, column = "Case Study 3",
+                                   import_dir = "semester/fall2026/gradebook_export/in"))
+  expect_true(grepl("different folders", msg))
+  expect_false(dir.exists(g$imp))
 })

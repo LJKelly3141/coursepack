@@ -13,7 +13,7 @@ canvas_grades(
   scores = NULL,
   key = NULL,
   out = NULL,
-  import_dir = "semester/gradebook_import",
+  import_dir = NULL,
   overwrite = FALSE
 )
 }
@@ -23,7 +23,7 @@ including the folders and scores files named inside a map.}
 
 \item{gradebook}{The Canvas gradebook export, downloaded fresh, so every
 student scored is in it. Keep exports in their own folder, such as
-\verb{semester/gradebook_export/}; nothing is written there.}
+\verb{semester/<term>/gradebook_export/}; nothing is written there.}
 
 \item{map}{A CSV with one row per assignment and columns \code{folder} and
 \code{column}, plus an optional third column \code{scores} naming a scores file for
@@ -47,7 +47,8 @@ is that folder.}
 the default name.}
 
 \item{import_dir}{The folder imports are written to, created when missing.
-The default is \code{semester/gradebook_import} under \code{proj}.}
+When it and \code{out} are both \code{NULL}, it is \verb{semester/<term>/gradebook_import}
+under \code{proj}, with the term read from the export's path.}
 
 \item{overwrite}{\code{FALSE} stops when the output file already exists. \code{TRUE}
 replaces it, for a re-run after a ruling.}
@@ -86,7 +87,21 @@ the folder the export sits in or into any assignment folder: an \code{out} or
 naming the export itself,
 stops the call, whatever \code{overwrite} says. Only rows whose \code{ID} is a Canvas
 id, all digits, ever take a score, so the \verb{Points Possible} row and any
-other row Canvas writes without a student id are kept as they are. The default
+other row Canvas writes without a student id are kept as they are.
+
+The default \code{import_dir} is \verb{semester/<term>/gradebook_import} under \code{proj}.
+Only the term is read from the input paths, never a folder to write in: the
+term is the folder name right after \verb{semester/} in the export's path
+relative to \code{proj}, so an export at
+\code{semester/fall2026/gradebook_export/export.csv} is in term \code{fall2026}, and
+every assignment folder, from the map or \code{folder}, must be in the same term.
+When the export is not under \verb{semester/<term>/}, or an assignment folder is
+in another term or in none, the call stops and lists each path with the
+term found; it never falls back to a folder without a term. An \code{import_dir}
+or \code{out} given explicitly is used as given and no term is read. An export
+directly in \verb{semester/<term>/} stops at the guard above, because the
+derived folder would be below the export's own; keep exports in
+\verb{semester/<term>/gradebook_export/}. The default
 name is \verb{<YYYY-MM-DD>_<folder>_import.csv} for one assignment, named for its
 folder, or \verb{<YYYY-MM-DD>_<N>-assignments_import.csv} for several. Download
 the export right before importing, so every student scored is in it.
@@ -103,7 +118,8 @@ Codes are placed through the folder's own \code{anon_key.csv}, the key
 \code{\link[=anon_key]{anon_key()}} built for that assignment, so no \code{key} is needed.
 
 Every assignment is resolved and checked before anything is written, so a
-failing one leaves no file. It stops when the output file already exists and
+failing one leaves no file. It stops when the default import folder cannot
+be named because the paths are not in one term, when the output file already exists and
 \code{overwrite} is \code{FALSE}, when a mapped folder does not exist, when a column
 text matches no column or more than one, when two assignments point at the
 same column, when a score belongs to a student who is not in the export,
@@ -116,17 +132,19 @@ headers and folder paths, never a student's name or id.
 }
 \examples{
 p <- tempfile("course-"); dir.create(p)
-dir.create(file.path(p, "semester", "gradebook_export"), recursive = TRUE)
+dir.create(file.path(p, "semester", "fall2026", "gradebook_export"), recursive = TRUE)
 writeLines(c(
   "Student,ID,SIS User ID,SIS Login ID,Section,Essay 1 (101),Quiz 1 (102),Current Score",
   "    Points Possible,,,,,10.00,5.00,(read only)",
   "\"Quill, Pat\",1001,U1,XQ1001,01,,4.00,0.00"),
-  file.path(p, "semester", "gradebook_export", "export.csv"))
-dir.create(file.path(p, "semester", "Essay1"))
+  file.path(p, "semester", "fall2026", "gradebook_export", "export.csv"))
+dir.create(file.path(p, "semester", "fall2026", "Essay1"))
 write.csv(data.frame(canvas_id = "1001", total = "9"),
-          file.path(p, "semester", "Essay1", "essay1_scores.csv"), row.names = FALSE)
-out <- canvas_grades(p, "semester/gradebook_export/export.csv",
-                     folder = "semester/Essay1", column = "Essay 1")
+          file.path(p, "semester", "fall2026", "Essay1", "essay1_scores.csv"),
+          row.names = FALSE)
+# Written to semester/fall2026/gradebook_import/
+out <- canvas_grades(p, "semester/fall2026/gradebook_export/export.csv",
+                     folder = "semester/fall2026/Essay1", column = "Essay 1")
 readLines(out)
 unlink(p, recursive = TRUE)
 }

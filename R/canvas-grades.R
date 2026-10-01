@@ -13,6 +13,7 @@
 #
 # Exports are read and imports are written, and the two never share a folder:
 # the output goes to import_dir, never beside the export or any assignment.
+# The default import_dir takes only the term from the export's path.
 # Messages print counts, column headers and folder paths, never a student's
 # name or id.
 
@@ -135,6 +136,47 @@ resolve_path <- function(p) {
   sub("/+$", "", do.call(file.path, as.list(c(p, rest))))
 }
 
+# A path relative to proj, or the resolved path when it is outside proj.
+proj_rel <- function(proj, p) {
+  rp <- resolve_path(p); pp <- resolve_path(proj)
+  if (startsWith(rp, paste0(pp, "/"))) substring(rp, nchar(pp) + 2L) else rp
+}
+
+# The term a path sits in: the folder name right after semester/ in its path
+# relative to proj, or NA. For a file, only the folders it sits in count, so
+# semester/export.csv has no term.
+path_term <- function(proj, p, is_file = FALSE) {
+  rp <- resolve_path(p); pp <- resolve_path(proj)
+  if (!startsWith(rp, paste0(pp, "/"))) return(NA_character_)
+  parts <- strsplit(substring(rp, nchar(pp) + 2L), "/", fixed = TRUE)[[1]]
+  if (is_file) parts <- utils::head(parts, -1L)
+  if (length(parts) >= 2L && parts[1] == "semester" && nzchar(parts[2])) parts[2] else
+    NA_character_
+}
+
+# The default import folder, semester/<term>/gradebook_import under proj. Only
+# the term is read from the input paths, never a folder to write in. The export
+# and every assignment folder must sit in one term, or it stops listing what it
+# found: paths and terms, nothing else.
+term_import_dir <- function(proj, gradebook_csv, folders) {
+  term <- path_term(proj, gradebook_csv, is_file = TRUE)
+  fterms <- vapply(folders, function(f) path_term(proj, f), "", USE.NAMES = FALSE)
+  if (!is.na(term) && all(!is.na(fterms) & fterms == term)) {
+    return(file.path(proj, "semester", term, "gradebook_import"))
+  }
+  shown <- function(t) ifelse(is.na(t), "(none)", t)
+  found <- c(sprintf("  export %s: term %s", proj_rel(proj, gradebook_csv), shown(term)),
+             sprintf("  folder %s: term %s",
+                     vapply(folders, function(f) proj_rel(proj, f), "", USE.NAMES = FALSE),
+                     shown(fterms)))
+  why <- if (is.na(term)) "the export is not under semester/<term>/ in proj" else
+    "the export and the assignment folders are not all in one term"
+  stop("cannot name the default import folder: ", why, ". The default is ",
+       "semester/<term>/gradebook_import, with the term read from the export's path; ",
+       "keep the export and every assignment folder under one semester/<term>/, or ",
+       "pass import_dir or out. Found:\n", paste(found, collapse = "\n"), call. = FALSE)
+}
+
 # targets: data.frame(folder, column, scores), paths already resolved. Writes
 # one narrow import file to `out`, or to import_dir under import_name(). Every
 # target is resolved and validated before a byte is written, so a failing
@@ -154,8 +196,9 @@ fill_gradebook <- function(gradebook_csv, targets, proj, import_dir, out = NULL,
   same_file <- identical(resolve_path(out), resolve_path(gradebook_csv))
   if (inside || same_file) {
     stop("the import would be written to ", dirname(out), ", inside the export's own ",
-         "folder; exports and imports must live in different folders. Point import_dir ",
-         "or out elsewhere, such as semester/gradebook_import.", call. = FALSE)
+         "folder; exports and imports must live in different folders. Keep exports in ",
+         "their own folder, such as semester/<term>/gradebook_export, or point ",
+         "import_dir or out elsewhere.", call. = FALSE)
   }
   if (file.exists(out) && !isTRUE(overwrite)) {
     stop(out, " already exists; pass overwrite = TRUE to replace it, for a re-run ",
@@ -283,7 +326,21 @@ fill_gradebook <- function(gradebook_csv, targets, proj, import_dir, out = NULL,
 #' naming the export itself,
 #' stops the call, whatever `overwrite` says. Only rows whose `ID` is a Canvas
 #' id, all digits, ever take a score, so the `Points Possible` row and any
-#' other row Canvas writes without a student id are kept as they are. The default
+#' other row Canvas writes without a student id are kept as they are.
+#'
+#' The default `import_dir` is `semester/<term>/gradebook_import` under `proj`.
+#' Only the term is read from the input paths, never a folder to write in: the
+#' term is the folder name right after `semester/` in the export's path
+#' relative to `proj`, so an export at
+#' `semester/fall2026/gradebook_export/export.csv` is in term `fall2026`, and
+#' every assignment folder, from the map or `folder`, must be in the same term.
+#' When the export is not under `semester/<term>/`, or an assignment folder is
+#' in another term or in none, the call stops and lists each path with the
+#' term found; it never falls back to a folder without a term. An `import_dir`
+#' or `out` given explicitly is used as given and no term is read. An export
+#' directly in `semester/<term>/` stops at the guard above, because the
+#' derived folder would be below the export's own; keep exports in
+#' `semester/<term>/gradebook_export/`. The default
 #' name is `<YYYY-MM-DD>_<folder>_import.csv` for one assignment, named for its
 #' folder, or `<YYYY-MM-DD>_<N>-assignments_import.csv` for several. Download
 #' the export right before importing, so every student scored is in it.
@@ -300,7 +357,8 @@ fill_gradebook <- function(gradebook_csv, targets, proj, import_dir, out = NULL,
 #' [anon_key()] built for that assignment, so no `key` is needed.
 #'
 #' Every assignment is resolved and checked before anything is written, so a
-#' failing one leaves no file. It stops when the output file already exists and
+#' failing one leaves no file. It stops when the default import folder cannot
+#' be named because the paths are not in one term, when the output file already exists and
 #' `overwrite` is `FALSE`, when a mapped folder does not exist, when a column
 #' text matches no column or more than one, when two assignments point at the
 #' same column, when a score belongs to a student who is not in the export,
@@ -315,7 +373,7 @@ fill_gradebook <- function(gradebook_csv, targets, proj, import_dir, out = NULL,
 #'   including the folders and scores files named inside a map.
 #' @param gradebook The Canvas gradebook export, downloaded fresh, so every
 #'   student scored is in it. Keep exports in their own folder, such as
-#'   `semester/gradebook_export/`; nothing is written there.
+#'   `semester/<term>/gradebook_export/`; nothing is written there.
 #' @param map A CSV with one row per assignment and columns `folder` and
 #'   `column`, plus an optional third column `scores` naming a scores file for
 #'   that row, for a folder that holds more than one or whose scores are
@@ -332,37 +390,37 @@ fill_gradebook <- function(gradebook_csv, targets, proj, import_dir, out = NULL,
 #' @param out The file to write, a full path that overrides `import_dir` and
 #'   the default name.
 #' @param import_dir The folder imports are written to, created when missing.
-#'   The default is `semester/gradebook_import` under `proj`.
+#'   When it and `out` are both `NULL`, it is `semester/<term>/gradebook_import`
+#'   under `proj`, with the term read from the export's path.
 #' @param overwrite `FALSE` stops when the output file already exists. `TRUE`
 #'   replaces it, for a re-run after a ruling.
 #' @return The path written, invisibly.
 #' @seealso [anon_key()], [anonymize()], [relink()], [anon_forget()]
 #' @examples
 #' p <- tempfile("course-"); dir.create(p)
-#' dir.create(file.path(p, "semester", "gradebook_export"), recursive = TRUE)
+#' dir.create(file.path(p, "semester", "fall2026", "gradebook_export"), recursive = TRUE)
 #' writeLines(c(
 #'   "Student,ID,SIS User ID,SIS Login ID,Section,Essay 1 (101),Quiz 1 (102),Current Score",
 #'   "    Points Possible,,,,,10.00,5.00,(read only)",
 #'   "\"Quill, Pat\",1001,U1,XQ1001,01,,4.00,0.00"),
-#'   file.path(p, "semester", "gradebook_export", "export.csv"))
-#' dir.create(file.path(p, "semester", "Essay1"))
+#'   file.path(p, "semester", "fall2026", "gradebook_export", "export.csv"))
+#' dir.create(file.path(p, "semester", "fall2026", "Essay1"))
 #' write.csv(data.frame(canvas_id = "1001", total = "9"),
-#'           file.path(p, "semester", "Essay1", "essay1_scores.csv"), row.names = FALSE)
-#' out <- canvas_grades(p, "semester/gradebook_export/export.csv",
-#'                      folder = "semester/Essay1", column = "Essay 1")
+#'           file.path(p, "semester", "fall2026", "Essay1", "essay1_scores.csv"),
+#'           row.names = FALSE)
+#' # Written to semester/fall2026/gradebook_import/
+#' out <- canvas_grades(p, "semester/fall2026/gradebook_export/export.csv",
+#'                      folder = "semester/fall2026/Essay1", column = "Essay 1")
 #' readLines(out)
 #' unlink(p, recursive = TRUE)
 #' @export
 canvas_grades <- function(proj, gradebook, map = NULL, folder = NULL, column = NULL,
                           scores = NULL, key = NULL, out = NULL,
-                          import_dir = "semester/gradebook_import", overwrite = FALSE) {
+                          import_dir = NULL, overwrite = FALSE) {
   proj <- anon_proj(proj)
   given <- function(x) !is.null(x) && length(x) == 1L && !is.na(x) && nzchar(x)
   if (given(map) && (given(folder) || given(column))) {
     stop("give map, or folder with column, not both", call. = FALSE)
-  }
-  if (!given(import_dir) && !given(out)) {
-    stop("import_dir is empty; name the folder imports are written to", call. = FALSE)
   }
   targets <- if (given(map)) {
     read_map(proj_path(proj, map))
@@ -377,8 +435,15 @@ canvas_grades <- function(proj, gradebook, map = NULL, folder = NULL, column = N
   targets$scores <- vapply(targets$scores, function(s) {
     if (is.na(s) || !nzchar(s)) "" else proj_path(proj, s)
   }, "", USE.NAMES = FALSE)
-  res <- fill_gradebook(proj_path(proj, gradebook), targets, proj,
-                        import_dir = if (given(import_dir)) proj_path(proj, import_dir) else "",
+  gradebook_csv <- proj_path(proj, gradebook)
+  import_dir <- if (given(import_dir)) {
+    proj_path(proj, import_dir)
+  } else if (given(out)) {
+    ""
+  } else {
+    term_import_dir(proj, gradebook_csv, targets$folder)
+  }
+  res <- fill_gradebook(gradebook_csv, targets, proj, import_dir = import_dir,
                         out = if (given(out)) proj_path(proj, out) else NULL,
                         key_path = if (given(key)) proj_path(proj, key) else NULL,
                         overwrite = overwrite)

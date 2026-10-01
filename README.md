@@ -126,14 +126,15 @@ ever seeing a name, a Canvas id or a login. Identity is handled only on the
 instructor's machine, and the upload back to Canvas works as it always has.
 
 ```r
-coursepack::anon_key(".", "semester/gradebook_export/<export>.csv",  # this run's key, codes shuffled
-                     "semester/CaseStudy03", nicknames = "semester/nicknames.csv")
-coursepack::anonymize(".", "semester/CaseStudy03")        # coded text into semester/CaseStudy03/anon/
-coursepack::relink(".", "semester/CaseStudy03")           # feedback, scores and feedback.zip
-coursepack::canvas_grades(".", "semester/gradebook_export/<export>.csv",  # narrow import into
-                          folder = "semester/CaseStudy03",                # semester/gradebook_import/
-                          column = "Case Study 3")
-coursepack::anon_forget(".", "semester/CaseStudy03")      # delete the key once Canvas has it all
+coursepack::anon_key(".", "semester/fall2026/gradebook_export/<export>.csv",  # this run's key
+                     "semester/fall2026/CaseStudy03",                         # codes shuffled
+                     nicknames = "semester/fall2026/nicknames.csv")
+coursepack::anonymize(".", "semester/fall2026/CaseStudy03")  # coded text into its anon/
+coursepack::relink(".", "semester/fall2026/CaseStudy03")     # feedback, scores and feedback.zip
+coursepack::canvas_grades(".", "semester/fall2026/gradebook_export/<export>.csv",  # narrow import
+                          folder = "semester/fall2026/CaseStudy03",  # into semester/fall2026/
+                          column = "Case Study 3")                   # gradebook_import/
+coursepack::anon_forget(".", "semester/fall2026/CaseStudy03")  # delete the key once Canvas has it all
 ```
 
 The workflow runs in that order:
@@ -171,10 +172,18 @@ The workflow runs in that order:
    writes back every cell an import carries and reads a blank as a deletion,
    but leaves alone an assignment column the import does not carry, so other
    assignments' grades cannot be rolled back. Exports go in
-   `gradebook_export/` and imports go in `gradebook_import/`: the function reads
-   exports and writes only imports, by default to
-   `semester/gradebook_import/<YYYY-MM-DD>_<folder>_import.csv`, or
-   `<YYYY-MM-DD>_<N>-assignments_import.csv` for several assignments. It stops
+   `semester/<term>/gradebook_export/` and imports go in the sibling
+   `semester/<term>/gradebook_import/`: the function reads exports and writes
+   only imports, by default to
+   `semester/<term>/gradebook_import/<YYYY-MM-DD>_<folder>_import.csv`, or
+   `<YYYY-MM-DD>_<N>-assignments_import.csv` for several assignments. Only the
+   term is read from the input paths, never a folder to write in: it is the
+   folder name right after `semester/` in the export's path, and every
+   assignment folder must be in the same term. An export outside
+   `semester/<term>/`, or an assignment folder in another term or in none,
+   stops the call with a list of each path and its term, unless `import_dir` or
+   `out` names where to write; there is no fallback to a folder without a term.
+   It stops
    rather than write into the export's own folder, any folder below it, or
    over the export, and it
    never overwrites an import unless given `overwrite = TRUE`, for a re-run
