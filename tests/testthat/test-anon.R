@@ -519,9 +519,12 @@ test_that("a code listed twice in scores.csv stops relink with nothing written",
 test_that("a conversion failure names the code and file position, and stays NOT_READY", {
   cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
   cf <- file.path(td, "ConvFail"); dir.create(cf)
+  # A document comes first so the student has a target; a student with no
+  # document at all stops earlier, at target selection.
+  writeLines("x", file.path(cf, "quillpat_1001_9700_hw.md"))
   writeLines("x", file.path(cf, "quillpat_1001_9701_hw.xlsx"))
   msg9 <- errors_with(anon(proj, cf, kp))
-  expect_true(startsWith(msg9, "S01 (file1): unsupported submission type: .xlsx"))
+  expect_true(startsWith(msg9, "S01 (file2): unsupported submission type: .xlsx"))
   expect_false(grepl("quill|1001", msg9, ignore.case = TRUE))
   expect_true(file.exists(file.path(cf, "anon", "NOT_READY")))
 })
@@ -670,4 +673,133 @@ test_that("multi-file submissions anonymize in order and relink attaches only to
   zmf <- utils::unzip(file.path(omf, "feedback.zip"), list = TRUE)$Name
   expect_identical(sort(sub("^feedback/", "", zmf[zmf != "feedback/"])),
                    "quillpat_1001_6102_Case analysis.docx")
+})
+
+# ---- OpenDocument text and the document-type target rule ----------------------------
+
+md_image_links <- function(md) {
+  l <- readLines(md, warn = FALSE)
+  m <- regmatches(l, regexpr("!\\[[^]]*\\]\\([^)]+\\)", l))
+  sub("^!\\[[^]]*\\]\\(([^) ]+).*$", "\\1", m)
+}
+
+test_that("an .odt submission converts like a .docx, images extracted and links resolving", {
+  skip_if_no("pandoc")
+  cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
+  od <- file.path(td, "Odt"); dir.create(od)
+  png_path <- mk_png(file.path(td, "fig.png"))
+  mk_odt(file.path(od, "quillpat_1001_9551_hw.odt"),
+         c("Figure by Pat Quill below.", "", paste0("![](", png_path, ")")))
+  anon(proj, od, kp)
+  md <- file.path(od, "anon", "S01", "file1.md")
+  txt <- readLines(md, warn = FALSE)
+  expect_true(any(grepl("Figure by S01 below.", txt, fixed = TRUE)))   # text survives, redacted
+  expect_false(any(grepl("Quill", txt)))
+  link <- md_image_links(md)
+  expect_identical(length(link), 1L)
+  expect_false(startsWith(link, "/"))
+  expect_true(startsWith(link, "file1_media/"))
+  expect_true(file.exists(file.path(dirname(md), link)))              # resolves beside the .md
+  man <- utils::read.csv(file.path(od, "anon", "manifest.csv"), colClasses = "character")
+  expect_identical(man$ext, "odt")
+  expect_identical(man$target, "TRUE")
+})
+
+test_that("an .odt target gets a valid ODT under its exact name", {
+  skip_if_no("pandoc")
+  td <- withr::local_tempdir()
+  target <- file.path(td, "quillpat_1001_5001_essay.odt")
+  render_feedback(c("# Feedback: Pat Quill", "", "Good work, Pat Quill."), target, "S01")
+  expect_true(file.exists(target))
+  ents <- tryCatch(utils::unzip(target, list = TRUE)$Name, error = function(e) character())
+  expect_true(all(c("mimetype", "content.xml") %in% ents))
+  ex <- tryCatch(utils::unzip(target, files = "mimetype", exdir = file.path(td, "x")),
+                 error = function(e) character())
+  expect_identical(length(ex), 1L)
+  if (length(ex)) expect_identical(raw_text(ex), "application/vnd.oasis.opendocument.text")
+  back <- paste(suppressWarnings(system2("pandoc", c(shQuote(target), "-t", "plain"),
+                                         stdout = TRUE, stderr = TRUE)), collapse = " ")
+  expect_true(grepl("Pat Quill", back))
+})
+
+test_that("relink writes ODT feedback for an .odt submission under its exact name", {
+  skip_if_no("pandoc"); skip_if_no("zip")
+  cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
+  od <- file.path(td, "OdtRelink"); dir.create(od)
+  mk_odt(file.path(od, "quillpat_1001_9561_Essay 1.odt"), "Pat Quill's essay.")
+  anon(proj, od, kp)
+  dir.create(file.path(od, "anon", "feedback"))
+  writeLines(c("# Feedback: S01", "", "Good work, S01."), file.path(od, "anon", "feedback", "S01.md"))
+  utils::write.csv(data.frame(code = "S01", total = "9"), file.path(od, "anon", "scores.csv"),
+                   row.names = FALSE)
+  oo <- file.path(td, "out_odt"); dir.create(oo)
+  relnk(proj, od, kp, out_dir = oo)
+  fb <- file.path(oo, "feedback", "quillpat_1001_9561_Essay 1.odt")
+  expect_true(file.exists(fb))
+  expect_true("content.xml" %in% tryCatch(utils::unzip(fb, list = TRUE)$Name,
+                                          error = function(e) character()))
+  back <- paste(system2("pandoc", c(shQuote(fb), "-t", "plain"), stdout = TRUE), collapse = " ")
+  expect_true(grepl("Good work, Pat Quill", back))
+})
+
+test_that("render_feedback writes text for text targets and refuses any other type", {
+  td <- withr::local_tempdir()
+  for (e in c("md", "qmd", "Rmd", "txt")) {
+    t <- file.path(td, paste0("quillpat_1001_5001_notes.", e))
+    render_feedback("Good, Pat Quill.", t, "S01")
+    expect_identical(readLines(t), "Good, Pat Quill.")
+  }
+  bad <- file.path(td, "bad"); dir.create(bad)
+  for (e in c("R", "xlsx", "html", "pptx")) {
+    t <- file.path(bad, paste0("quillpat_1001_5001_script.", e))
+    msg <- errors_with(render_feedback("Good, Pat Quill.", t, "S01"))
+    expect_false(is.na(msg))
+    expect_true(grepl("^S01:", msg))                                   # names the code
+    expect_true(grepl(paste0(".", tolower(e)), msg, fixed = TRUE))    # and the extension
+    expect_false(grepl("quill|1001|5001|script", msg, ignore.case = TRUE))  # never the filename
+  }
+  expect_identical(length(list.files(bad, all.files = TRUE, no.. = TRUE)), 0L)   # nothing written
+})
+
+test_that("the target is the latest document-type file, never a script", {
+  cc <- anon_course()
+  k <- read_key(cc$kp)
+  mk <- function(ids, origs) {
+    data.frame(file = paste0("quillpat_1001_", ids, "_", origs), prefix = "quillpat",
+               late = FALSE, canvas_id = "1001", submission_id = ids, original = origs,
+               stringsAsFactors = FALSE)
+  }
+  a <- assign_files(mk(c("401", "402"), c("analysis.docx", "script.R")), k)
+  expect_identical(a$original[a$target], "analysis.docx")
+  expect_identical(a$anon_name, c("file1", "file2"))
+
+  b <- assign_files(mk(c("501", "502", "503"),
+                       c("spec.docx", "spec_v2.odt", "spec_code.R")), k)
+  expect_identical(b$original[b$target], "spec_v2.odt")   # every file a spec: latest spec doc
+
+  msg <- errors_with(assign_files(mk("601", "script.R"), k))
+  expect_false(is.na(msg))
+  expect_true(grepl("^S01:", msg))
+  expect_false(grepl("quill|1001|601|script", msg, ignore.case = TRUE))
+})
+
+test_that("a .R file is still anonymized as text, and feedback goes to the document", {
+  skip_if_no("zip")
+  cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
+  rd <- file.path(td, "WithScript"); dir.create(rd)
+  writeLines("Analysis by Pat Quill.", file.path(rd, "quillpat_1001_9571_analysis.md"))
+  writeLines("# Pat Quill\nx <- 1", file.path(rd, "quillpat_1001_9572_script.R"))
+  anon(proj, rd, kp)
+  expect_identical(readLines(file.path(rd, "anon", "S01", "file2.md")), c("# S01", "x <- 1"))
+  man <- utils::read.csv(file.path(rd, "anon", "manifest.csv"), colClasses = "character")
+  expect_identical(man$file[man$target == "TRUE"], "file1")
+  dir.create(file.path(rd, "anon", "feedback"))
+  writeLines("Good, S01.", file.path(rd, "anon", "feedback", "S01.md"))
+  utils::write.csv(data.frame(code = "S01", total = "9"), file.path(rd, "anon", "scores.csv"),
+                   row.names = FALSE)
+  orr <- file.path(td, "out_script"); dir.create(orr)
+  relnk(proj, rd, kp, out_dir = orr)
+  expect_identical(list.files(file.path(orr, "feedback")), "quillpat_1001_9571_analysis.md")
+  expect_identical(readLines(file.path(orr, "feedback", "quillpat_1001_9571_analysis.md")),
+                   "Good, Pat Quill.")
 })

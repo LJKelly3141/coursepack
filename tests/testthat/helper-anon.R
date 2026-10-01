@@ -48,4 +48,16 @@ mk_docx <- function(path, lines) {
   system2("pandoc", c(shQuote(s), "-o", shQuote(path)))
 }
 
+# pandoc picks the writer from the output extension, so the same builder makes
+# an OpenDocument text file when the path ends in .odt.
+mk_odt <- mk_docx
+
+# A small PNG to embed in a built document.
+mk_png <- function(path) {
+  grDevices::png(path, width = 50, height = 50)
+  grid::grid.rect(gp = grid::gpar(fill = "grey"))
+  invisible(grDevices::dev.off())
+  path
+}
+
 raw_text <- function(p) rawToChar(readBin(p, "raw", file.info(p)$size))

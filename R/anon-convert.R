@@ -4,6 +4,11 @@
 
 TEXT_EXTS <- c("md", "qmd", "rmd", "r", "txt")
 
+# Feedback can be written back as each of these, so only these can be a
+# target. A script (.R) is read for grading but never answered in its own type.
+FEEDBACK_TEXT_EXTS <- c("md", "qmd", "rmd", "txt")
+DOCUMENT_EXTS <- c("docx", "odt", "pdf", FEEDBACK_TEXT_EXTS)
+
 run_tool <- function(cmd, args) {
   res <- suppressWarnings(system2(cmd, args, stdout = TRUE, stderr = TRUE))
   st <- attr(res, "status")
@@ -14,10 +19,11 @@ run_tool <- function(cmd, args) {
 convert_to_text <- function(path, out_md, media_dir) {
   ext <- tolower(tools::file_ext(path))
   dir.create(dirname(out_md), recursive = TRUE, showWarnings = FALSE)
-  if (ext == "docx") {
-    # pandoc writes image links using the --extract-media path as given, so
-    # run it from the .md's own folder with a relative media folder: links
-    # then read <file>_media/media/image1.png and resolve for the grader.
+  if (ext %in% c("docx", "odt")) {
+    # pandoc picks the reader from the extension. It writes image links using
+    # the --extract-media path as given, so run it from the .md's own folder
+    # with a relative media folder: links then read <file>_media/media/...
+    # (Pictures/... for an .odt) and resolve for the grader.
     if (!identical(normalizePath(dirname(media_dir)), normalizePath(dirname(out_md)))) {
       stop("media_dir must sit beside out_md", call. = FALSE)
     }

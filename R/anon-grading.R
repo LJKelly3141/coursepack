@@ -31,9 +31,11 @@ list_submissions <- function(assignment_dir) {
 # A student may submit any number of files. For each student, files are
 # ordered by upload (submission_id) and numbered file1, file2, ... in that
 # order. "spec" must start a word: "Perspective analysis" is not a spec.
-# Exactly one file per student is the target, the file feedback attaches to:
-# the latest-uploaded non-spec file, or, if every file is a spec, the latest
-# file overall.
+# Exactly one file per student is the target, the file feedback attaches to.
+# It must be a document type, one relink() can write back under the same name
+# as a valid file of that type: the latest-uploaded non-spec document, or, if
+# every document is a spec, the latest document. A student with no document
+# at all stops the run, because there is nothing to attach feedback to.
 assign_files <- function(subs, key) {
   unknown <- !(subs$canvas_id %in% key$canvas_id)
   if (any(unknown)) {
@@ -43,14 +45,20 @@ assign_files <- function(subs, key) {
   }
   subs$code <- key$code[match(subs$canvas_id, key$canvas_id)]
   subs$spec <- grepl("(^|[^a-z])spec", subs$original, ignore.case = TRUE, perl = TRUE)
+  doc <- tolower(tools::file_ext(subs$original)) %in% DOCUMENT_EXTS
   subs$position <- NA_integer_
   subs$target <- FALSE
   for (cd in unique(subs$code)) {
     i <- which(subs$code == cd)
     ord <- i[order(as.numeric(subs$submission_id[i]))]
     subs$position[ord] <- seq_along(ord)
-    non_spec <- ord[!subs$spec[ord]]
-    tgt <- if (length(non_spec)) non_spec[length(non_spec)] else ord[length(ord)]
+    docs <- ord[doc[ord]]
+    if (!length(docs)) {
+      stop(cd, ": no document file (", paste(DOCUMENT_EXTS, collapse = ", "),
+           ") to attach feedback to", call. = FALSE)
+    }
+    non_spec <- docs[!subs$spec[docs]]
+    tgt <- if (length(non_spec)) non_spec[length(non_spec)] else docs[length(docs)]
     subs$target[tgt] <- TRUE
   }
   subs$anon_name <- paste0("file", subs$position)
@@ -65,9 +73,10 @@ assign_files <- function(subs, key) {
 #'
 #' Every file whose name has Canvas's bulk-download shape,
 #' `prefix[_LATE]_canvasid_submissionid_original`, is converted to text: a
-#' `.docx` through pandoc with tracked changes accepted and its images
-#' extracted, a `.pdf` through `pdftotext -layout` with its images through
-#' `pdfimages`, and `.md`, `.qmd`, `.Rmd`, `.R` and `.txt` copied as text.
+#' `.docx` or `.odt` through pandoc with tracked changes accepted and its
+#' images extracted, a `.pdf` through `pdftotext -layout` with its images
+#' through `pdfimages`, and `.md`, `.qmd`, `.Rmd`, `.R` and `.txt` copied as
+#' text.
 #' Converting is what removes document metadata such as an author field. Any
 #' other type stops the run, naming the code and file position. Files without
 #' the Canvas shape are skipped and counted, never named.
@@ -76,8 +85,11 @@ assign_files <- function(subs, key) {
 #' in upload order and written as `anon_dir/<code>/file1.md`, `file2.md` and so
 #' on, with images under `file<k>_media/`. A file is a spec when "spec" starts a
 #' word in its original name. Exactly one file per student is the target that
-#' [relink()] attaches feedback to: the latest-uploaded file that is not a spec,
-#' or the latest file when every file is a spec. `anon_dir/manifest.csv` records
+#' [relink()] attaches feedback to, and it is always a document type
+#' (`.docx`, `.odt`, `.pdf`, `.md`, `.qmd`, `.Rmd` or `.txt`), never a script
+#' such as `.R`: the latest-uploaded document that is not a spec, or the
+#' latest document when every document is a spec. A student with no document
+#' at all stops the run, naming only the code. `anon_dir/manifest.csv` records
 #' `code`, `file`, `late`, `ext`, `spec` and `target`, and carries no names, ids
 #' or original filenames.
 #'
@@ -252,15 +264,22 @@ foreign_terms <- function(key, code) {
 
 # `code` is what an error names; target is a Canvas filename and carries the
 # student's name prefix and id.
+# Every feedback file must be a valid file of its submission's type, so a type
+# with no writer here stops before anything is written.
 render_feedback <- function(md_lines, target, code) {
   ext <- tolower(tools::file_ext(target))
+  if (!ext %in% DOCUMENT_EXTS) {
+    stop(code, ": cannot write feedback as a .", ext, " file; feedback is written ",
+         "only as ", paste(DOCUMENT_EXTS, collapse = ", "), call. = FALSE)
+  }
   tmp <- tempfile(fileext = ".md")
   on.exit(unlink(tmp), add = TRUE)
   writeLines(md_lines, tmp, useBytes = TRUE)
   if (ext == "pdf") {
     run_tool("pandoc", c(shQuote(tmp), "--pdf-engine=xelatex",
                          "-V", "geometry:margin=1in", "-o", shQuote(target)))
-  } else if (ext == "docx") {
+  } else if (ext %in% c("docx", "odt")) {
+    # pandoc picks the writer from the target's extension.
     run_tool("pandoc", c(shQuote(tmp), "-o", shQuote(target)))
   } else {
     # file.copy's own warning would print the target path (a Canvas filename).
@@ -282,9 +301,12 @@ render_feedback <- function(md_lines, target, code) {
 #' code, every multi-word name form, file prefix, login and Canvas id. A hit
 #' stops the run naming only the code whose feedback to fix. Feedback is then
 #' rendered under the exact file name of that student's target submission (see
-#' [anonymize()]): a `.pdf` submission gets a PDF through pandoc and xelatex, a
-#' `.docx` submission gets a Word file through pandoc, and any other type gets
-#' the feedback text under the submission's own name.
+#' [anonymize()], which picks it by the same rule), and the file is a valid
+#' file of that type: a `.pdf` submission gets a PDF through pandoc and
+#' xelatex, a `.docx` submission a Word file and an `.odt` submission an
+#' OpenDocument text file, both through pandoc, and a `.md`, `.qmd`, `.Rmd` or
+#' `.txt` submission gets the feedback text. Any other type stops the run,
+#' naming the code and the extension, before that file is written.
 #'
 #' Three files are written to `out_dir`: `feedback/`, holding one file per
 #' scored student; `<assignment>_scores.csv`, named from the assignment

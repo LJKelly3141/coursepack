@@ -87,7 +87,10 @@ contains exactly these parts:
    em-dashes, no mention of AI.
 
 When a student uploaded several files, the grader sees all of them. Feedback
-attaches to that student's latest file whose name does not start with "spec".
+attaches to that student's latest document (`.docx`, `.odt`, `.pdf`, `.md`,
+`.qmd`, `.Rmd` or `.txt`) whose name does not start a word with "spec", or to
+the latest document when every one is a spec. A script such as `.R` is read but
+never gets feedback, and a student with no document at all stops the run.
 
 ### 5: rulings
 

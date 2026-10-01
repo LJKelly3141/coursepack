@@ -40,9 +40,10 @@ grader is given \code{anon_dir} and the rubric and nothing else.
 \details{
 Every file whose name has Canvas's bulk-download shape,
 \verb{prefix[_LATE]_canvasid_submissionid_original}, is converted to text: a
-\code{.docx} through pandoc with tracked changes accepted and its images
-extracted, a \code{.pdf} through \code{pdftotext -layout} with its images through
-\code{pdfimages}, and \code{.md}, \code{.qmd}, \code{.Rmd}, \code{.R} and \code{.txt} copied as text.
+\code{.docx} or \code{.odt} through pandoc with tracked changes accepted and its
+images extracted, a \code{.pdf} through \code{pdftotext -layout} with its images
+through \code{pdfimages}, and \code{.md}, \code{.qmd}, \code{.Rmd}, \code{.R} and \code{.txt} copied as
+text.
 Converting is what removes document metadata such as an author field. Any
 other type stops the run, naming the code and file position. Files without
 the Canvas shape are skipped and counted, never named.
@@ -51,8 +52,11 @@ A student may submit any number of files. Each student's files are numbered
 in upload order and written as \verb{anon_dir/<code>/file1.md}, \code{file2.md} and so
 on, with images under \verb{file<k>_media/}. A file is a spec when "spec" starts a
 word in its original name. Exactly one file per student is the target that
-\code{\link[=relink]{relink()}} attaches feedback to: the latest-uploaded file that is not a spec,
-or the latest file when every file is a spec. \code{anon_dir/manifest.csv} records
+\code{\link[=relink]{relink()}} attaches feedback to, and it is always a document type
+(\code{.docx}, \code{.odt}, \code{.pdf}, \code{.md}, \code{.qmd}, \code{.Rmd} or \code{.txt}), never a script
+such as \code{.R}: the latest-uploaded document that is not a spec, or the
+latest document when every document is a spec. A student with no document
+at all stops the run, naming only the code. \code{anon_dir/manifest.csv} records
 \code{code}, \code{file}, \code{late}, \code{ext}, \code{spec} and \code{target}, and carries no names, ids
 or original filenames.
 

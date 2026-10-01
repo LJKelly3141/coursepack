@@ -147,17 +147,25 @@ The workflow runs in that order:
 3. The grader is given only `anon/` and the rubric, and writes
    `anon/feedback/<code>.md` and `anon/scores.csv`, keyed by code.
 4. `relink()` puts the names back, refuses feedback that mentions another
-   student, names each feedback file exactly like the submission it answers,
-   and writes the scores file and `feedback.zip`.
+   student, and writes each feedback file under a name identical to the
+   submission it answers, as a valid file of that type: a PDF for a `.pdf`, a
+   Word file for a `.docx`, OpenDocument text for an `.odt`, and the text
+   itself for `.md`, `.qmd`, `.Rmd` and `.txt`. Then it writes the scores file
+   and `feedback.zip`. When a student uploads several files, feedback goes to
+   the latest document of those types whose name does not start a word with
+   "spec", or to the latest document when every one is a spec. A script such
+   as `.R` is converted for the grader but never answered, and a student with
+   no document at all stops the run.
 5. `canvas_grades()` copies a fresh gradebook export byte for byte, filling in
    only the scored cells, so Canvas accepts it as an import.
 
 The key and every output live in the course's `semester/` folder, which the
 course's `.gitignore` must exclude. The key is the only file that joins a code
 to a name. None of these functions prints a student's name, id or original file
-name; their messages name codes, positions and counts. Converting `.docx` needs
-`pandoc`, `.pdf` needs `pdftotext` and `pdfimages`, PDF feedback needs
-`xelatex`, and `relink()` needs `zip`.
+name; their messages name codes, positions and counts. Converting `.docx` or
+`.odt` needs `pandoc`, `.pdf` needs `pdftotext` and `pdfimages`, Word and
+OpenDocument feedback need `pandoc`, PDF feedback needs `pandoc` and `xelatex`,
+and `relink()` needs `zip`.
 
 ## What has been verified
 

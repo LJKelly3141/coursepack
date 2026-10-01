@@ -47,9 +47,12 @@ student's name and the result is checked against every other student: their
 code, every multi-word name form, file prefix, login and Canvas id. A hit
 stops the run naming only the code whose feedback to fix. Feedback is then
 rendered under the exact file name of that student's target submission (see
-\code{\link[=anonymize]{anonymize()}}): a \code{.pdf} submission gets a PDF through pandoc and xelatex, a
-\code{.docx} submission gets a Word file through pandoc, and any other type gets
-the feedback text under the submission's own name.
+\code{\link[=anonymize]{anonymize()}}, which picks it by the same rule), and the file is a valid
+file of that type: a \code{.pdf} submission gets a PDF through pandoc and
+xelatex, a \code{.docx} submission a Word file and an \code{.odt} submission an
+OpenDocument text file, both through pandoc, and a \code{.md}, \code{.qmd}, \code{.Rmd} or
+\code{.txt} submission gets the feedback text. Any other type stops the run,
+naming the code and the extension, before that file is written.
 
 Three files are written to \code{out_dir}: \verb{feedback/}, holding one file per
 scored student; \verb{<assignment>_scores.csv}, named from the assignment
