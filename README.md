@@ -119,6 +119,46 @@ extension beside it, installed the same way: a directory under
 `inst/templates/slides/_extensions/`, whose name the public-readiness scrub
 allows the moment it exists, and a `use_<id>_slides()` of its own.
 
+## Grading without student identity
+
+Four functions let a grader, a person or an agent, score submissions without
+ever seeing a name, a Canvas id or a login. Identity is handled only on the
+instructor's machine, and the upload back to Canvas works as it always has.
+
+```r
+coursepack::anon_key(".", "semester/gradebook.csv")       # once per term, and again when students join
+coursepack::anonymize(".", "semester/CaseStudy03")        # coded text into semester/CaseStudy03/anon/
+coursepack::relink(".", "semester/CaseStudy03")           # feedback, scores and feedback.zip
+coursepack::canvas_grades(".", "semester/gradebook.csv",  # canvas_import.csv for the Gradebook's Import
+                          folder = "semester/CaseStudy03", column = "Case Study 3")
+```
+
+The workflow runs in that order:
+
+1. `anon_key()` reads a Canvas gradebook export and gives every student a code,
+   `S01`, `S02` and so on, that holds for the term. A re-run adds new students
+   and never drops or renumbers a row, and nicknames typed into the key by hand
+   are kept.
+2. `anonymize()` converts one assignment's Canvas downloads to plain text,
+   replaces every name form, nickname, file prefix, login and Canvas id of every
+   student with that student's code, and then checks its own output for anything
+   left. It refuses to release the folder until nothing is: `anon/NOT_READY`
+   stays until the check passes.
+3. The grader is given only `anon/` and the rubric, and writes
+   `anon/feedback/<code>.md` and `anon/scores.csv`, keyed by code.
+4. `relink()` puts the names back, refuses feedback that mentions another
+   student, names each feedback file exactly like the submission it answers,
+   and writes the scores file and `feedback.zip`.
+5. `canvas_grades()` copies a fresh gradebook export byte for byte, filling in
+   only the scored cells, so Canvas accepts it as an import.
+
+The key and every output live in the course's `semester/` folder, which the
+course's `.gitignore` must exclude. The key is the only file that joins a code
+to a name. None of these functions prints a student's name, id or original file
+name; their messages name codes, positions and counts. Converting `.docx` needs
+`pandoc`, `.pdf` needs `pdftotext` and `pdfimages`, PDF feedback needs
+`xelatex`, and `relink()` needs `zip`.
+
 ## What has been verified
 
 Two courses have been built with this package, each started from its own Canvas
