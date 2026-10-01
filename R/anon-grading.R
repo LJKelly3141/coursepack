@@ -13,6 +13,8 @@
 list_submissions <- function(assignment_dir) {
   f <- list.files(assignment_dir, all.files = FALSE, no.. = TRUE)
   f <- f[!dir.exists(file.path(assignment_dir, f))]
+  # The run's own key sits beside the downloads; it is not a stray file.
+  f <- setdiff(f, KEY_FILE)
   parsed <- lapply(f, parse_canvas_filename)
   keep <- !vapply(parsed, is.null, logical(1))
   if (!any(keep)) stop("no Canvas submission files found in ", assignment_dir, call. = FALSE)
@@ -79,7 +81,8 @@ assign_files <- function(subs, key) {
 #' text.
 #' Converting is what removes document metadata such as an author field. Any
 #' other type stops the run, naming the code and file position. Files without
-#' the Canvas shape are skipped and counted, never named.
+#' the Canvas shape are skipped and counted, never named; the assignment's own
+#' `anon_key.csv` is neither converted nor counted.
 #'
 #' A student may submit any number of files. Each student's files are numbered
 #' in upload order and written as `anon_dir/<code>/file1.md`, `file2.md` and so
@@ -108,7 +111,8 @@ assign_files <- function(subs, key) {
 #' never the value found. Until the check passes, `anon_dir/NOT_READY` exists,
 #' and [relink()] refuses a folder carrying it, so a failed run never leaves an
 #' old folder looking ready. The fix for a leftover is to add the missing form
-#' to the student's `nicknames` in the key and run again.
+#' to the student's nicknames in the term nicknames file, run [anon_key()]
+#' again for this assignment, and run this again.
 #'
 #' A re-run replaces the previous output. It refuses when `anon_dir/feedback/`
 #' or `anon_dir/scores.csv` exists, because that is grading work. It also
@@ -122,7 +126,10 @@ assign_files <- function(subs, key) {
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of one assignment's Canvas downloads, usually
 #'   under the course's git-ignored semester folder.
-#' @param key The anonymization key [anon_key()] wrote.
+#' @param key The anonymization key [anon_key()] wrote for this assignment.
+#'   The default is `anon_key.csv` in `assignment`, where [anon_key()] writes
+#'   it. A key whose `run` is not this assignment stops the run before
+#'   anything is written.
 #' @param anon_dir Where the coded text is written. `NULL` means `anon/`
 #'   inside `assignment`.
 #' @param dict Word list, one word per line. A first-initial-plus-surname form
@@ -131,23 +138,24 @@ assign_files <- function(subs, key) {
 #'   system word list where one exists.
 #' @return A list with `students`, `files` and `replacements` counts,
 #'   invisibly. The run stops instead of returning when a leftover is found.
-#' @seealso [anon_key()], [relink()], [canvas_grades()]
+#' @seealso [anon_key()], [relink()], [anon_forget()], [canvas_grades()]
 #' @examples
 #' p <- tempfile("course-"); dir.create(p)
 #' writeLines(c(
 #'   "Student,ID,SIS User ID,SIS Login ID,Root Account,Section",
 #'   "\"Quill, Pat\",1001,U1,XQ1001,x,01",
 #'   "\"Rivera, Morgan\",1002,U2,XQ1002,x,01"), file.path(p, "gradebook.csv"))
-#' anon_key(p, "gradebook.csv")
 #' a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
+#' anon_key(p, "gradebook.csv", "semester/Essay1")
 #' writeLines("Pat Quill wrote this with Morgan Rivera.",
 #'            file.path(a, "quillpat_1001_5001_essay.md"))
 #' writeLines("By Morgan Rivera.", file.path(a, "riveramorgan_1002_5002_essay.md"))
 #' anonymize(p, "semester/Essay1", dict = NULL)
-#' readLines(file.path(a, "anon", "S01", "file1.md"))
+#' code <- list.files(file.path(a, "anon"), pattern = "^S")[1]
+#' readLines(file.path(a, "anon", code, "file1.md"))
 #' unlink(p, recursive = TRUE)
 #' @export
-anonymize <- function(proj, assignment, key = "semester/anon_key.csv",
+anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.csv"),
                       anon_dir = NULL, dict = default_dict()) {
   proj <- anon_proj(proj)
   assignment_dir <- proj_path(proj, assignment)
@@ -159,6 +167,8 @@ anonymize <- function(proj, assignment, key = "semester/anon_key.csv",
   if (!dir.exists(assignment_dir)) {
     stop("no assignment folder at ", assignment_dir, call. = FALSE)
   }
+  # The key must be this assignment's own, checked before anything is touched.
+  key <- check_run(read_key(key_path), key_path, run_id(proj, assignment_dir))
 
   if (dir.exists(file.path(anon_dir, "feedback")) ||
       file.exists(file.path(anon_dir, "scores.csv"))) {
@@ -194,7 +204,6 @@ anonymize <- function(proj, assignment, key = "semester/anon_key.csv",
                file.path(anon_dir, "NOT_READY"))
   }
 
-  key <- read_key(key_path)
   listed <- list_submissions(assignment_dir)
   ignored <- attr(listed, "ignored")
   if (!is.null(ignored) && ignored > 0) {
@@ -325,10 +334,15 @@ render_feedback <- function(md_lines, target, code) {
 #' so a failure partway through leaves no partial `feedback/`. Submissions
 #' with no feedback are reported by code at the end.
 #'
+#' Once the feedback upload and the grade import are confirmed in Canvas,
+#' [anon_forget()] deletes this assignment's key.
+#'
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of the assignment's Canvas downloads, the one
 #'   [anonymize()] read.
-#' @param key The anonymization key [anon_key()] wrote.
+#' @param key The anonymization key [anon_key()] wrote for this assignment.
+#'   The default is `anon_key.csv` in `assignment`. A key whose `run` is not
+#'   this assignment stops the run.
 #' @param anon_dir The graded coded folder. `NULL` means `anon/` inside
 #'   `assignment`.
 #' @param out_dir Where feedback, scores and the zip are written. `NULL` means
@@ -338,14 +352,14 @@ render_feedback <- function(md_lines, target, code) {
 #'   only multi-word name forms, and a first-initial-plus-surname form is a
 #'   single word.
 #' @return A list with the `students` count, invisibly.
-#' @seealso [anon_key()], [anonymize()], [canvas_grades()]
+#' @seealso [anon_key()], [anonymize()], [anon_forget()], [canvas_grades()]
 #' @examples
 #' p <- tempfile("course-"); dir.create(p)
 #' writeLines(c(
 #'   "Student,ID,SIS User ID,SIS Login ID,Root Account,Section",
 #'   "\"Quill, Pat\",1001,U1,XQ1001,x,01"), file.path(p, "gradebook.csv"))
-#' anon_key(p, "gradebook.csv")
 #' a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
+#' anon_key(p, "gradebook.csv", "semester/Essay1")
 #' writeLines("Pat Quill's essay.", file.path(a, "quillpat_1001_5001_essay.md"))
 #' anonymize(p, "semester/Essay1", dict = NULL)
 #' dir.create(file.path(a, "anon", "feedback"))
@@ -358,7 +372,7 @@ render_feedback <- function(md_lines, target, code) {
 #' }
 #' unlink(p, recursive = TRUE)
 #' @export
-relink <- function(proj, assignment, key = "semester/anon_key.csv",
+relink <- function(proj, assignment, key = file.path(assignment, "anon_key.csv"),
                    anon_dir = NULL, out_dir = NULL, dict = default_dict()) {
   proj <- anon_proj(proj)
   assignment_dir <- proj_path(proj, assignment)
@@ -390,7 +404,7 @@ relink <- function(proj, assignment, key = "semester/anon_key.csv",
     stop("feedback.zip already exists in the output folder; move it first", call. = FALSE)
   }
 
-  key <- read_key(key_path)
+  key <- check_run(read_key(key_path), key_path, run_id(proj, assignment_dir))
   subs <- assign_files(list_submissions(assignment_dir), key)
   if (!file.exists(file.path(anon_dir, "scores.csv"))) {
     stop("no scores.csv in anon/; the grader writes it, keyed by code", call. = FALSE)

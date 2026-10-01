@@ -7,7 +7,7 @@
 relink(
   proj,
   assignment,
-  key = "semester/anon_key.csv",
+  key = file.path(assignment, "anon_key.csv"),
   anon_dir = NULL,
   out_dir = NULL,
   dict = default_dict()
@@ -19,7 +19,9 @@ relink(
 \item{assignment}{Folder of the assignment's Canvas downloads, the one
 \code{\link[=anonymize]{anonymize()}} read.}
 
-\item{key}{The anonymization key \code{\link[=anon_key]{anon_key()}} wrote.}
+\item{key}{The anonymization key \code{\link[=anon_key]{anon_key()}} wrote for this assignment.
+The default is \code{anon_key.csv} in \code{assignment}. A key whose \code{run} is not
+this assignment stops the run.}
 
 \item{anon_dir}{The graded coded folder. \code{NULL} means \verb{anon/} inside
 \code{assignment}.}
@@ -70,14 +72,17 @@ codes in \code{scores.csv} and the feedback files disagree. Feedback renders int
 a scratch folder that moves into place only once every file has rendered,
 so a failure partway through leaves no partial \verb{feedback/}. Submissions
 with no feedback are reported by code at the end.
+
+Once the feedback upload and the grade import are confirmed in Canvas,
+\code{\link[=anon_forget]{anon_forget()}} deletes this assignment's key.
 }
 \examples{
 p <- tempfile("course-"); dir.create(p)
 writeLines(c(
   "Student,ID,SIS User ID,SIS Login ID,Root Account,Section",
   "\"Quill, Pat\",1001,U1,XQ1001,x,01"), file.path(p, "gradebook.csv"))
-anon_key(p, "gradebook.csv")
 a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
+anon_key(p, "gradebook.csv", "semester/Essay1")
 writeLines("Pat Quill's essay.", file.path(a, "quillpat_1001_5001_essay.md"))
 anonymize(p, "semester/Essay1", dict = NULL)
 dir.create(file.path(a, "anon", "feedback"))
@@ -91,5 +96,5 @@ if (nzchar(Sys.which("zip"))) {
 unlink(p, recursive = TRUE)
 }
 \seealso{
-\code{\link[=anon_key]{anon_key()}}, \code{\link[=anonymize]{anonymize()}}, \code{\link[=canvas_grades]{canvas_grades()}}
+\code{\link[=anon_key]{anon_key()}}, \code{\link[=anonymize]{anonymize()}}, \code{\link[=anon_forget]{anon_forget()}}, \code{\link[=canvas_grades]{canvas_grades()}}
 }

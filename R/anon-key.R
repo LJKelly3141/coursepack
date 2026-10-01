@@ -1,12 +1,58 @@
-# The anonymization key: one row per student, a stable code for the term.
+# The anonymization key: one row per student, for one grading run.
 #
-# The key is the only place a code meets a name. It lives in the course's
-# git-ignored semester folder beside the Canvas downloads, and the grader never
-# reads it. Nothing in this file prints a name, an id or a login: an error
-# names a gradebook row number, a count or a code.
+# The key is the only place a code meets a name. Each assignment gets its own,
+# at <assignment>/anon_key.csv beside the Canvas downloads and never inside
+# anon/, with the codes shuffled afresh, so a leaked key de-anonymizes one
+# assignment and no other. The grader never reads it. Nothing in this file
+# prints a name, an id or a login: an error names a gradebook row number, a
+# count, a code or a folder path.
 
-KEY_COLUMNS <- c("code", "canvas_id", "name", "name_forms",
+KEY_COLUMNS <- c("run", "code", "canvas_id", "name", "name_forms",
                  "file_prefix", "login", "nicknames")
+
+KEY_FILE <- "anon_key.csv"
+
+# A random order, kept in its own function so the fixtures can switch it off.
+# It draws from a fresh, unseeded stream, so a set.seed() earlier in the
+# session cannot make two runs share a mapping, and it puts the session's RNG
+# state back afterwards, as draw_items() does, so a simulation running in the
+# same session is not moved.
+shuffle <- function(x) {
+  if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+    old <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    on.exit(assign(".Random.seed", old, envir = globalenv()), add = TRUE)
+  } else {
+    on.exit(suppressWarnings(rm(".Random.seed", envir = globalenv())), add = TRUE)
+  }
+  set.seed(NULL)
+  x[sample.int(length(x))]
+}
+
+# The run a key belongs to: the assignment folder's path relative to proj,
+# always with forward slashes. A folder outside proj has no run.
+run_id <- function(proj, assignment_dir) {
+  p <- sub("/+$", "", normalizePath(proj, winslash = "/", mustWork = TRUE))
+  a <- sub("/+$", "", normalizePath(assignment_dir, winslash = "/", mustWork = TRUE))
+  if (!startsWith(a, paste0(p, "/"))) {
+    stop("assignment folder ", assignment_dir, " is not inside the project ", proj,
+         call. = FALSE)
+  }
+  substring(a, nchar(p) + 2L)
+}
+
+# Stops unless every row of the key records `run`.
+check_run <- function(key, key_path, run) {
+  r <- unique(key$run)
+  if (length(r) != 1L || !nzchar(r)) {
+    stop("key ", key_path, " does not record a single run; rebuild it with anon_key()",
+         call. = FALSE)
+  }
+  if (!identical(r, run)) {
+    stop("key ", key_path, " belongs to the run '", r, "', not '", run, "'. Each ",
+         "assignment has its own key; build this one's with anon_key()", call. = FALSE)
+  }
+  invisible(key)
+}
 
 # Canvas bulk-download names: prefix[_LATE]_canvasid_submissionid_original
 parse_canvas_filename <- function(name) {
@@ -74,12 +120,34 @@ read_key <- function(key_path) {
   k[KEY_COLUMNS]
 }
 
-# Adds rows for students not yet in the key. Existing rows, including any
-# nicknames typed in by hand, are kept exactly.
-build_key <- function(gradebook_csv, key_path) {
+# The term nicknames file: canvas_id,nicknames, nicknames separated by ";".
+# It carries no codes, so it says nothing about any grading run. Returns the
+# nicknames as a list named by canvas_id.
+read_nicknames <- function(path) {
+  if (!file.exists(path)) stop("no nicknames file at ", path, call. = FALSE)
+  n <- utils::read.csv(path, colClasses = "character", na.strings = character(),
+                       check.names = FALSE, strip.white = TRUE)
+  miss <- setdiff(c("canvas_id", "nicknames"), names(n))
+  if (length(miss)) {
+    stop("nicknames file ", path, " is missing column(s): ", paste(miss, collapse = ", "),
+         "; it needs canvas_id,nicknames", call. = FALSE)
+  }
+  ids <- unique(n$canvas_id[nzchar(n$canvas_id)])
+  stats::setNames(lapply(ids, function(id) {
+    unique(unlist(lapply(n$nicknames[n$canvas_id == id], split_list)))
+  }), ids)
+}
+
+# Builds the key for one run, or extends it when it already exists for the
+# same run: existing rows, codes and any nicknames typed in by hand are kept
+# exactly, and only new students are added, at the next free codes in a
+# random order. A key of another run stops before anything is written.
+# Nicknames from the term nicknames file are merged into every matching row.
+build_key <- function(gradebook_csv, key_path, run, nicknames_path = NULL) {
   if (!file.exists(gradebook_csv)) {
     stop("no gradebook export at ", gradebook_csv, call. = FALSE)
   }
+  nick <- if (!is.null(nicknames_path)) read_nicknames(nicknames_path) else list()
   g <- utils::read.csv(gradebook_csv, check.names = FALSE,
                        colClasses = "character", na.strings = character())
   miss <- setdiff(c("Student", "ID", "SIS Login ID"), names(g))
@@ -88,24 +156,34 @@ build_key <- function(gradebook_csv, key_path) {
          call. = FALSE)
   }
   rows <- which(grepl("^[0-9]+$", g$ID) & trimws(g$Student) != "Student, Test")
-  key <- if (file.exists(key_path)) read_key(key_path) else empty_key()
+  key <- if (file.exists(key_path)) {
+    check_run(read_key(key_path), key_path, run)
+  } else empty_key()
   rows <- rows[!(g$ID[rows] %in% key$canvas_id)]
   rows <- rows[order(as.numeric(g$ID[rows]))]
   n0 <- if (nrow(key)) max(as.integer(sub("^S", "", key$code))) else 0L
   if (length(rows)) {
+    codes <- sprintf("S%02d", shuffle(n0 + seq_along(rows)))
     add <- do.call(rbind, lapply(seq_along(rows), function(i) {
       r <- rows[i]
       f <- name_forms(g$Student[r], r)
-      data.frame(code = sprintf("S%02d", n0 + i), canvas_id = g$ID[r],
+      data.frame(run = run, code = codes[i], canvas_id = g$ID[r],
                  name = f$full, name_forms = paste(f$forms, collapse = "; "),
                  file_prefix = f$prefix, login = g[["SIS Login ID"]][r],
                  nicknames = "", stringsAsFactors = FALSE)
     }))
     key <- rbind(key, add)
   }
+  matched <- 0L
+  for (i in which(key$canvas_id %in% names(nick))) {
+    merged <- unique(c(split_list(key$nicknames[i]), nick[[key$canvas_id[i]]]))
+    key$nicknames[i] <- paste(merged, collapse = "; ")
+    matched <- matched + 1L
+  }
   dir.create(dirname(key_path), recursive = TRUE, showWarnings = FALSE)
   utils::write.csv(key, key_path, row.names = FALSE)
-  cat(sprintf("key: %d students (%d new)\n", nrow(key), length(rows)))
+  cat(sprintf("key: %d students (%d new) for run %s%s\n", nrow(key), length(rows), run,
+              if (length(nick)) sprintf(", nicknames for %d", matched) else ""))
   invisible(key)
 }
 
@@ -188,28 +266,40 @@ key_terms <- function(key, extra = NULL, dict_path = NULL) {
   out[order(-nchar(out$term), out$term), , drop = FALSE]
 }
 
-#' Build or extend the anonymization key
+#' Build the anonymization key for one grading run
 #'
-#' Read a Canvas gradebook export and give every student in it a code, `S01`,
-#' `S02` and so on, that stays theirs for the term. The key is the only file
-#' that joins a code to a name, and it belongs in the course's git-ignored
-#' semester folder: the grader is never given it.
+#' Read a Canvas gradebook export and give every student in it a code for one
+#' assignment's grading run: `S01` to `Snn`, handed out in a random order, so
+#' no two runs share a mapping. The key is written to
+#' `<assignment>/anon_key.csv`, beside the Canvas downloads and never inside
+#' `anon/`, which is what the grader reads. It is the only file that joins a
+#' code to a name, and because every assignment has its own, a key that leaks
+#' de-anonymizes that one assignment and no other. Build it from the latest
+#' export right before anonymizing, and delete it with [anon_forget()] once
+#' the feedback and grades are in Canvas.
 #'
-#' A key that already exists is extended and never rebuilt. Students already
-#' in it keep their codes and every field exactly as it is, including any
-#' `nicknames` typed in by hand, and no row is ever dropped, so a student who
-#' left the course keeps their code. New students get the next free codes, in
-#' Canvas id order. The export's `Points Possible` row and Canvas's
-#' `Student, Test` row are skipped.
+#' Every row records the run it belongs to in a `run` column: the assignment
+#' folder's path relative to `proj`, the same on every row. Running
+#' `anon_key()` again for the same assignment keeps every row, code and field
+#' exactly as it is, including `nicknames` typed in by hand, and adds only
+#' students who are new in the export, at the next free codes in a random
+#' order. A key already in the folder that records a different run stops the
+#' call before anything is written. The export's `Points Possible` row and
+#' Canvas's `Student, Test` row are skipped.
 #'
-#' Each row carries `code`, `canvas_id`, `name` ("First Last"), `name_forms`
-#' (every spelling redacted from a submission, semicolon separated: the full
-#' name both ways round, each name part, the joined forms such as
-#' "patquill", the first-initial-plus-surname form, and accent-stripped copies
-#' of all of them), `file_prefix` (the name prefix Canvas puts on downloaded
-#' files), `login` and `nicknames`. To catch a name a student uses that the
-#' roster does not, add it to `nicknames`, semicolon separated, and re-run
-#' [anonymize()].
+#' Each row carries `run`, `code`, `canvas_id`, `name` ("First Last"),
+#' `name_forms` (every spelling redacted from a submission, semicolon
+#' separated: the full name both ways round, each name part, the joined forms
+#' such as "patquill", the first-initial-plus-surname form, and
+#' accent-stripped copies of all of them), `file_prefix` (the name prefix
+#' Canvas puts on downloaded files), `login` and `nicknames`.
+#'
+#' Nicknames belong in a term nicknames file that the instructor keeps, a CSV
+#' with columns `canvas_id,nicknames` and the nicknames separated by `;`. It
+#' holds no codes, so it reveals no grading if it leaks. When `nicknames` names
+#' it, each student's nicknames are merged into that student's `nicknames` in
+#' the key. To catch a name a student uses that the roster does not, add it to
+#' the nicknames file, run `anon_key()` again and re-run [anonymize()].
 #'
 #' Nothing printed names a student. A malformed row is reported by its row
 #' number in the export.
@@ -218,9 +308,12 @@ key_terms <- function(key, extra = NULL, dict_path = NULL) {
 #' @param gradebook Canvas gradebook export, downloaded from the Gradebook's
 #'   Export menu. Needs the `Student`, `ID` and `SIS Login ID` columns, and
 #'   `Student` in "Last, First" form.
-#' @param key The key to create or extend.
+#' @param assignment Folder of one assignment's Canvas downloads, inside
+#'   `proj`. The key is written to `anon_key.csv` in it.
+#' @param nicknames Optional term nicknames file, columns `canvas_id` and
+#'   `nicknames`. `NULL` adds no nicknames.
 #' @return The key as a data frame, invisibly.
-#' @seealso [anonymize()], [relink()], [canvas_grades()]
+#' @seealso [anonymize()], [relink()], [anon_forget()], [canvas_grades()]
 #' @examples
 #' p <- tempfile("course-"); dir.create(p)
 #' writeLines(c(
@@ -228,15 +321,89 @@ key_terms <- function(key, extra = NULL, dict_path = NULL) {
 #'   "    Points Possible,,,,,",
 #'   "\"Quill, Pat\",1001,U1,XQ1001,x,01",
 #'   "\"Rivera, Morgan\",1002,U2,XQ1002,x,01"), file.path(p, "gradebook.csv"))
-#' key <- anon_key(p, "gradebook.csv")
-#' key$code
+#' dir.create(file.path(p, "semester", "Essay1"), recursive = TRUE)
+#' key <- anon_key(p, "gradebook.csv", "semester/Essay1")
+#' key[c("run", "code")]
 #' unlink(p, recursive = TRUE)
 #' @export
-anon_key <- function(proj, gradebook, key = "semester/anon_key.csv") {
+anon_key <- function(proj, gradebook, assignment, nicknames = NULL) {
   proj <- anon_proj(proj)
-  out <- build_key(proj_path(proj, gradebook), proj_path(proj, key))
+  assignment_dir <- proj_path(proj, assignment)
+  if (!dir.exists(assignment_dir)) {
+    stop("no assignment folder at ", assignment_dir, call. = FALSE)
+  }
+  nick <- if (!is.null(nicknames) && length(nicknames) == 1L && !is.na(nicknames) &&
+              nzchar(nicknames)) proj_path(proj, nicknames) else NULL
+  out <- build_key(proj_path(proj, gradebook), file.path(assignment_dir, KEY_FILE),
+                   run_id(proj, assignment_dir), nicknames_path = nick)
   version_line("anon_key")
   invisible(out)
+}
+
+#' Delete one assignment's anonymization key once grading is finished
+#'
+#' Delete `<assignment>/anon_key.csv`, the key [anon_key()] built for this
+#' assignment's grading run. After that, nothing on the machine can link this
+#' run's codes back to students, so the coded folder, the grader's notes and
+#' any terminal scrollback carrying codes stop being identifying.
+#'
+#' It refuses until [relink()] has finished for the assignment, because the
+#' key is needed to put the names back: the assignment's `feedback/` folder and
+#' its relinked `<assignment>_scores.csv` must both exist in the assignment
+#' folder, which is where [relink()] writes them by default. Run it once the
+#' Canvas feedback upload and the grade import are confirmed. It prints one
+#' line naming the file deleted, then the version line every entry point
+#' prints.
+#'
+#' @param proj Course project root. Relative paths are resolved against it.
+#' @param assignment Folder of the assignment's Canvas downloads, the one
+#'   [anon_key()], [anonymize()] and [relink()] were given.
+#' @return The path of the deleted key, invisibly.
+#' @seealso [anon_key()], [relink()], [canvas_grades()]
+#' @examples
+#' p <- tempfile("course-"); dir.create(p)
+#' writeLines(c(
+#'   "Student,ID,SIS User ID,SIS Login ID,Root Account,Section",
+#'   "\"Quill, Pat\",1001,U1,XQ1001,x,01"), file.path(p, "gradebook.csv"))
+#' a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
+#' anon_key(p, "gradebook.csv", "semester/Essay1")
+#' writeLines("Pat Quill's essay.", file.path(a, "quillpat_1001_5001_essay.md"))
+#' anonymize(p, "semester/Essay1", dict = NULL)
+#' code <- list.files(file.path(a, "anon"), pattern = "^S")
+#' dir.create(file.path(a, "anon", "feedback"))
+#' writeLines("Good work.", file.path(a, "anon", "feedback", paste0(code, ".md")))
+#' write.csv(data.frame(code = code, total = "9"),
+#'           file.path(a, "anon", "scores.csv"), row.names = FALSE)
+#' if (nzchar(Sys.which("zip"))) {
+#'   relink(p, "semester/Essay1", dict = NULL)
+#'   anon_forget(p, "semester/Essay1")
+#' }
+#' unlink(p, recursive = TRUE)
+#' @export
+anon_forget <- function(proj, assignment) {
+  proj <- anon_proj(proj)
+  assignment_dir <- proj_path(proj, assignment)
+  if (!dir.exists(assignment_dir)) {
+    stop("no assignment folder at ", assignment_dir, call. = FALSE)
+  }
+  key_path <- file.path(assignment_dir, KEY_FILE)
+  if (!file.exists(key_path)) {
+    stop("no key at ", key_path, "; there is nothing to forget", call. = FALSE)
+  }
+  scores <- paste0(tolower(basename(assignment_dir)), "_scores.csv")
+  missing <- c(if (!dir.exists(file.path(assignment_dir, "feedback"))) "feedback/",
+               if (!file.exists(file.path(assignment_dir, scores))) scores)
+  if (length(missing)) {
+    stop("relink() has not finished for this assignment (no ",
+         paste(missing, collapse = " and no "), " in ", assignment_dir,
+         "); the key is still needed to put the names back. Keep it until ",
+         "relink() has run and the Canvas upload is confirmed.", call. = FALSE)
+  }
+  if (!file.remove(key_path)) stop("could not delete ", key_path, call. = FALSE)
+  cat(sprintf("anon_forget: deleted %s; this run's codes can no longer be linked to students\n",
+              key_path))
+  version_line("anon_forget")
+  invisible(key_path)
 }
 
 anon_proj <- function(proj) {

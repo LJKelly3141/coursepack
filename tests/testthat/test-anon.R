@@ -19,32 +19,43 @@ test_that("Canvas download names parse into prefix, LATE flag, ids and original 
 
 test_that("the key drops the points row and test student, and a rebuild keeps hand edits", {
   cc <- anon_course(nickname = FALSE)
-  k <- quiet(build_key(fake_gradebook(cc$td), cc$kp))
-  expect_identical(nrow(k), 3L)                       # points row and test student dropped
-  expect_identical(k$code, c("S01", "S02", "S03"))   # codes in id order
+  kp <- file.path(cc$td, "k.csv")
+  k <- quiet(build_key(fake_gradebook(cc$td), kp, "Quiz"))
+  expect_identical(nrow(k), 3L)                                  # points row and test student dropped
+  expect_identical(sort(k$code), c("S01", "S02", "S03"))        # codes are a permutation
+  expect_identical(k$canvas_id, c("1001", "1002", "1003"))      # rows in id order
+  expect_identical(unique(k$run), "Quiz")
   expect_identical(k$name[1], "Pat Quill")
   expect_identical(k$file_prefix[1], "quillpat")
   expect_true("Quill, Pat" %in% split_list(k$name_forms[1]))
 
-  k2 <- read_key(cc$kp); k2$nicknames[2] <- "Mo"; utils::write.csv(k2, cc$kp, row.names = FALSE)
-  k3 <- quiet(build_key(fake_gradebook(cc$td), cc$kp))
+  k2 <- read_key(kp); k2$nicknames[2] <- "Mo"; utils::write.csv(k2, kp, row.names = FALSE)
+  k3 <- quiet(build_key(fake_gradebook(cc$td), kp, "Quiz"))
   expect_identical(k3$nicknames[2], "Mo")   # rebuild keeps a hand-added nickname
   expect_identical(nrow(k3), 3L)            # rebuild adds no duplicate rows
+  expect_identical(k3$code, k$code)         # and changes no code
 
-  tt <- key_terms(read_key(cc$kp))
+  tt <- key_terms(read_key(kp))
+  rivera <- k$code[k$canvas_id == "1002"]
   expect_true(nchar(tt$term[1]) >= nchar(tt$term[nrow(tt)]))   # longest first
   expect_identical(tt$code[tolower(tt$term) == "pat"], "SXX")    # shared first name
-  expect_identical(tt$code[tt$term == "Mo"], "S02")              # nickname present
+  expect_identical(tt$code[tt$term == "Mo"], rivera)             # nickname present
 })
 
-test_that("anon_key() resolves paths against proj and prints no name", {
+test_that("anon_key() writes the key into the assignment folder, under proj, and prints no name", {
   cc <- anon_course(nickname = FALSE)
-  out <- capture.output(k <- anon_key(cc$proj, "gradebook.csv", "semester/key.csv"))
-  expect_true(file.exists(file.path(cc$proj, "semester", "key.csv")))
-  expect_identical(k$code, c("S01", "S02", "S03"))
+  dir.create(file.path(cc$proj, "semester", "Essay"), recursive = TRUE)
+  out <- capture.output(k <- anon_key(cc$proj, "gradebook.csv", "semester/Essay"))
+  kp <- file.path(cc$proj, "semester", "Essay", "anon_key.csv")
+  expect_true(file.exists(kp))
+  expect_false(file.exists(file.path(cc$proj, "semester", "Essay", "anon", "anon_key.csv")))
+  expect_identical(sort(k$code), c("S01", "S02", "S03"))
+  expect_identical(unique(read_key(kp)$run), "semester/Essay")
   expect_false(any(grepl("Quill|Rivera|Stone|100[123]|XQ", out)))
   expect_true(any(grepl("coursepack", out)))
-  expect_error(anon_key(file.path(cc$proj, "nope"), "gradebook.csv"), "not a directory")
+  expect_error(anon_key(file.path(cc$proj, "nope"), "gradebook.csv", "semester/Essay"),
+               "not a directory")
+  expect_error(anon_key(cc$proj, "gradebook.csv", "semester/Nope"), "no assignment folder")
 })
 
 # ---- redaction ---------------------------------------------------------------
@@ -214,7 +225,8 @@ test_that("anonymize() resolves relative paths against proj and defaults anon_di
   cc <- anon_course()
   ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
   writeLines("Pat Quill wrote this.", file.path(ad, "quillpat_1001_5001_essay.md"))
-  out <- capture.output(anonymize(cc$proj, "semester/Essay", "anon_key.csv", dict = NULL))
+  stage_key(cc$proj, "semester/Essay", cc$kp)
+  out <- capture.output(anonymize(cc$proj, "semester/Essay", dict = NULL))
   expect_identical(readLines(file.path(ad, "anon", "S01", "file1.md")), "S01 wrote this.")
   expect_true(any(grepl("coursepack", out)))
   expect_false(any(grepl("Quill|1001|5001|essay", out)))
@@ -348,12 +360,12 @@ test_that("relink() defaults anon_dir and out_dir to the assignment folder, unde
   cc <- anon_course()
   ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
   writeLines("Pat Quill wrote this.", file.path(ad, "quillpat_1001_5001_essay.md"))
-  anon(cc$proj, "semester/Essay", "anon_key.csv")
+  anon(cc$proj, "semester/Essay", cc$kp)
   dir.create(file.path(ad, "anon", "feedback"))
   writeLines("Good, S01.", file.path(ad, "anon", "feedback", "S01.md"))
   utils::write.csv(data.frame(code = "S01", total = "9"), file.path(ad, "anon", "scores.csv"),
                    row.names = FALSE)
-  out <- capture.output(relink(cc$proj, "semester/Essay", "anon_key.csv", dict = NULL))
+  out <- capture.output(relink(cc$proj, "semester/Essay", dict = NULL))
   expect_identical(readLines(file.path(ad, "feedback", "quillpat_1001_5001_essay.md")),
                    "Good, Pat Quill.")
   expect_true(file.exists(file.path(ad, "essay_scores.csv")))
@@ -374,7 +386,7 @@ test_that("joined, initial and accent-stripped forms redact, with letter-only na
     '"Umlauf, Ashley",2001,U1,XQ2001,x,90',
     '"N\u00fa\u00f1ez, Jos\u00e9",2002,U2,XQ2002,x,90'), gb1, useBytes = TRUE)
   kp1 <- file.path(td1, "anon_key1.csv")
-  quiet(build_key(gb1, kp1))
+  fixture_key(gb1, kp1)
   terms1 <- key_terms(read_key(kp1))
   f1 <- function(s) redact_text(s, terms1)$text
   expect_identical(f1("by AshleyUmlauf today"), "by S01 today")
@@ -414,11 +426,12 @@ test_that("ignored files are counted, never named, and unfed submissions reporte
   cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
   ig <- file.path(td, "Ignored"); dir.create(ig)
   mk_docx(file.path(ig, "quillpat_1001_9901_q.docx"), "a")
-  out_ign <- capture.output(anonymize(proj, ig, kp, dict = NULL))
-  expect_false(any(grepl("ignored", out_ign)))
+  stage_key(proj, ig, kp)
+  out_ign <- capture.output(anonymize(proj, ig, dict = NULL))
+  expect_false(any(grepl("ignored", out_ign)))   # the key beside the downloads is not counted
   writeLines("x", file.path(ig, "notes.txt"))
   writeLines("x", file.path(ig, "other.csv"))
-  out_ign2 <- tryCatch(capture.output(anonymize(proj, ig, kp, dict = NULL)),
+  out_ign2 <- tryCatch(capture.output(anonymize(proj, ig, dict = NULL)),
                        error = function(e) conditionMessage(e))
   expect_true(any(grepl("^2 file\\(s\\) ignored \\(not Canvas submission names\\)", out_ign2)))
   expect_false(any(grepl("notes|other", out_ign2)))
@@ -433,7 +446,7 @@ test_that("ignored files are counted, never named, and unfed submissions reporte
   utils::write.csv(data.frame(code = "S01", total = "9"), file.path(nf, "anon", "scores.csv"),
                    row.names = FALSE)
   onf <- file.path(td, "out_nf"); dir.create(onf)
-  out_nf <- capture.output(relink(proj, nf, kp, out_dir = onf, dict = NULL))
+  out_nf <- capture.output(relink(proj, nf, out_dir = onf, dict = NULL))
   expect_true(any(grepl("^2 submission\\(s\\) have no feedback: S02, S03$", out_nf)))
   expect_false(any(grepl("Rivera|Stone|1002|1003", out_nf)))
 })
@@ -561,7 +574,7 @@ test_that("a first-initial+last form that is a word in the word list is not a na
     '    Points Possible,,,,,',
     '"Hall, Sam",3001,U1,XQ3001,x,90',
     '"Quill, Pat",3002,U2,XQ3002,x,90'), gbf)
-  kpf <- file.path(tdf, "anon_key_f.csv"); quiet(build_key(gbf, kpf))
+  kpf <- file.path(tdf, "anon_key_f.csv"); fixture_key(gbf, kpf)
   kf <- read_key(kpf)
   tdict <- key_terms(kf, dict_path = dict)
   expect_false("shall" %in% tolower(tdict$term))
@@ -802,4 +815,128 @@ test_that("a .R file is still anonymized as text, and feedback goes to the docum
   expect_identical(list.files(file.path(orr, "feedback")), "quillpat_1001_9571_analysis.md")
   expect_identical(readLines(file.path(orr, "feedback", "quillpat_1001_9571_analysis.md")),
                    "Good, Pat Quill.")
+})
+
+# ---- one key per grading run (1.2.2) --------------------------------------------
+
+# The mapping a key holds, as "canvas_id=code" pairs in id order.
+key_mapping <- function(kp) {
+  k <- read_key(kp)
+  k <- k[order(as.numeric(k$canvas_id)), ]
+  paste(k$canvas_id, k$code, sep = "=", collapse = " ")
+}
+
+test_that("each run's codes are a fresh shuffle of S01..Snn", {
+  cc <- anon_course(nickname = FALSE)
+  maps <- vapply(1:10, function(i) {
+    a <- file.path("semester", paste0("Run", i))
+    dir.create(file.path(cc$proj, a), recursive = TRUE)
+    k <- quiet(anon_key(cc$proj, "gradebook.csv", a))
+    expect_identical(sort(k$code), c("S01", "S02", "S03"))   # a permutation, every run
+    key_mapping(file.path(cc$proj, a, "anon_key.csv"))
+  }, "")
+  expect_gt(length(unique(maps)), 1L)   # 10 builds of 3 students: all equal has odds 6^-9
+})
+
+test_that("a key records its run, and every function refuses another run's key", {
+  cc <- anon_course(nickname = FALSE)
+  a <- file.path(cc$proj, "semester", "A"); b <- file.path(cc$proj, "semester", "B")
+  dir.create(a, recursive = TRUE); dir.create(b, recursive = TRUE)
+  writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
+  writeLines("Pat Quill wrote this.", file.path(b, "quillpat_1001_5002_essay.md"))
+  quiet(anon_key(cc$proj, "gradebook.csv", "semester/A"))
+  ka <- file.path(a, "anon_key.csv")
+  expect_identical(unique(read_key(ka)$run), "semester/A")
+
+  msg <- errors_with(anonymize(cc$proj, "semester/B", key = "semester/A/anon_key.csv",
+                               dict = NULL))
+  expect_true(grepl("semester/A", msg) && grepl("semester/B", msg))
+  expect_false(dir.exists(file.path(b, "anon")))   # refused before anything was written
+  msg <- errors_with(anonymize(cc$proj, "semester/B", dict = NULL))
+  expect_true(grepl("no key", msg))                # B has no key of its own yet
+
+  file.copy(ka, file.path(b, "anon_key.csv"))
+  before <- raw_text(file.path(b, "anon_key.csv"))
+  expect_true(grepl("run", errors_with(quiet(anon_key(cc$proj, "gradebook.csv", "semester/B")))))
+  expect_identical(raw_text(file.path(b, "anon_key.csv")), before)   # left as it was
+  expect_true(grepl("semester/A", errors_with(anonymize(cc$proj, "semester/B", dict = NULL))))
+  expect_true(grepl("semester/A", errors_with(relink(cc$proj, "semester/B", dict = NULL))))
+})
+
+test_that("a same-run rebuild keeps every row and code and adds new students at new codes", {
+  cc <- anon_course(nickname = FALSE)
+  dir.create(file.path(cc$proj, "Quiz"))
+  quiet(anon_key(cc$proj, "gradebook.csv", "Quiz"))
+  kp <- file.path(cc$proj, "Quiz", "anon_key.csv")
+  k1 <- read_key(kp); k1$nicknames[k1$canvas_id == "1002"] <- "Mo"
+  utils::write.csv(k1, kp, row.names = FALSE)
+  writeLines(c(readLines(file.path(cc$td, "gradebook.csv")),
+               '"Tern, Avery",1004,U4,XQ1004,x,90',
+               '"Vale, Robin",1005,U5,XQ1005,x,90'),
+             file.path(cc$td, "gradebook2.csv"))
+  k2 <- quiet(anon_key(cc$proj, "gradebook2.csv", "Quiz"))
+  expect_identical(as.list(k2[1:3, ]), as.list(k1))                                 # old rows byte for byte
+  expect_identical(sort(k2$code[4:5]), c("S04", "S05"))             # new students, next free codes
+  expect_identical(unique(k2$run), "Quiz")
+})
+
+test_that("nicknames from the term nicknames file reach the key and are redacted", {
+  cc <- anon_course(nickname = FALSE)
+  ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
+  writeLines(c("canvas_id,nicknames", "1002,Mo; Morgs", "4242,Ghost"),
+             file.path(cc$proj, "semester", "nicknames.csv"))
+  writeLines("Morgs and Mo wrote this.", file.path(ad, "riveramorgan_1002_5001_essay.md"))
+  out <- capture.output(k <- anon_key(cc$proj, "gradebook.csv", "semester/Essay",
+                                      nicknames = "semester/nicknames.csv"))
+  expect_identical(split_list(k$nicknames[k$canvas_id == "1002"]), c("Mo", "Morgs"))
+  expect_identical(k$nicknames[k$canvas_id != "1002"], c("", ""))
+  expect_false(any(grepl("Mo|Morgs|Ghost|1002|4242", out)))
+  code <- k$code[k$canvas_id == "1002"]
+  quiet(anonymize(cc$proj, "semester/Essay", dict = NULL))
+  expect_identical(readLines(file.path(ad, "anon", code, "file1.md")),
+                   paste(code, "and", code, "wrote this."))
+
+  writeLines("id,nick\n1002,x", file.path(cc$proj, "semester", "bad.csv"))
+  expect_true(grepl("canvas_id", errors_with(quiet(anon_key(
+    cc$proj, "gradebook.csv", "semester/Essay", nicknames = "semester/bad.csv")))))
+})
+
+test_that("anon_forget() refuses before relink has finished, then deletes the key", {
+  skip_if_no("zip")
+  cc <- anon_course()
+  ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
+  writeLines("Pat Quill wrote this.", file.path(ad, "quillpat_1001_5001_essay.md"))
+  anon(cc$proj, "semester/Essay", cc$kp)
+  kp <- file.path(ad, "anon_key.csv")
+  msg <- errors_with(quiet(anon_forget(cc$proj, "semester/Essay")))
+  expect_true(grepl("relink", msg))
+  expect_true(file.exists(kp))
+
+  dir.create(file.path(ad, "anon", "feedback"))
+  writeLines("Good, S01.", file.path(ad, "anon", "feedback", "S01.md"))
+  utils::write.csv(data.frame(code = "S01", total = "9"), file.path(ad, "anon", "scores.csv"),
+                   row.names = FALSE)
+  quiet(relink(cc$proj, "semester/Essay", dict = NULL))
+  out <- capture.output(anon_forget(cc$proj, "semester/Essay"))
+  expect_false(file.exists(kp))
+  expect_true(grepl("^anon_forget: deleted ", out[1]))
+  expect_false(any(grepl("Quill|1001|5001", out)))
+  expect_true(grepl("no key", errors_with(quiet(anon_forget(cc$proj, "semester/Essay")))))
+})
+
+test_that("a session seed does not repeat the shuffle, and the caller's RNG state is kept", {
+  cc <- anon_course(nickname = FALSE)
+  maps <- vapply(1:10, function(i) {
+    a <- file.path("semester", paste0("Seeded", i))
+    dir.create(file.path(cc$proj, a), recursive = TRUE)
+    set.seed(730)
+    quiet(anon_key(cc$proj, "gradebook.csv", a))
+    key_mapping(file.path(cc$proj, a, "anon_key.csv"))
+  }, "")
+  expect_gt(length(unique(maps)), 1L)
+
+  dir.create(file.path(cc$proj, "semester", "State"), recursive = TRUE)
+  set.seed(1); before <- .Random.seed
+  quiet(anon_key(cc$proj, "gradebook.csv", "semester/State"))
+  expect_identical(.Random.seed, before)
 })

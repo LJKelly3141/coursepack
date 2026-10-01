@@ -7,7 +7,7 @@
 anonymize(
   proj,
   assignment,
-  key = "semester/anon_key.csv",
+  key = file.path(assignment, "anon_key.csv"),
   anon_dir = NULL,
   dict = default_dict()
 )
@@ -18,7 +18,10 @@ anonymize(
 \item{assignment}{Folder of one assignment's Canvas downloads, usually
 under the course's git-ignored semester folder.}
 
-\item{key}{The anonymization key \code{\link[=anon_key]{anon_key()}} wrote.}
+\item{key}{The anonymization key \code{\link[=anon_key]{anon_key()}} wrote for this assignment.
+The default is \code{anon_key.csv} in \code{assignment}, where \code{\link[=anon_key]{anon_key()}} writes
+it. A key whose \code{run} is not this assignment stops the run before
+anything is written.}
 
 \item{anon_dir}{Where the coded text is written. \code{NULL} means \verb{anon/}
 inside \code{assignment}.}
@@ -46,7 +49,8 @@ through \code{pdfimages}, and \code{.md}, \code{.qmd}, \code{.Rmd}, \code{.R} an
 text.
 Converting is what removes document metadata such as an author field. Any
 other type stops the run, naming the code and file position. Files without
-the Canvas shape are skipped and counted, never named.
+the Canvas shape are skipped and counted, never named; the assignment's own
+\code{anon_key.csv} is neither converted nor counted.
 
 A student may submit any number of files. Each student's files are numbered
 in upload order and written as \verb{anon_dir/<code>/file1.md}, \code{file2.md} and so
@@ -75,7 +79,8 @@ Any hit stops the run and prints the code and the anonymized file path,
 never the value found. Until the check passes, \code{anon_dir/NOT_READY} exists,
 and \code{\link[=relink]{relink()}} refuses a folder carrying it, so a failed run never leaves an
 old folder looking ready. The fix for a leftover is to add the missing form
-to the student's \code{nicknames} in the key and run again.
+to the student's nicknames in the term nicknames file, run \code{\link[=anon_key]{anon_key()}}
+again for this assignment, and run this again.
 
 A re-run replaces the previous output. It refuses when \verb{anon_dir/feedback/}
 or \code{anon_dir/scores.csv} exists, because that is grading work. It also
@@ -92,15 +97,16 @@ writeLines(c(
   "Student,ID,SIS User ID,SIS Login ID,Root Account,Section",
   "\"Quill, Pat\",1001,U1,XQ1001,x,01",
   "\"Rivera, Morgan\",1002,U2,XQ1002,x,01"), file.path(p, "gradebook.csv"))
-anon_key(p, "gradebook.csv")
 a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
+anon_key(p, "gradebook.csv", "semester/Essay1")
 writeLines("Pat Quill wrote this with Morgan Rivera.",
            file.path(a, "quillpat_1001_5001_essay.md"))
 writeLines("By Morgan Rivera.", file.path(a, "riveramorgan_1002_5002_essay.md"))
 anonymize(p, "semester/Essay1", dict = NULL)
-readLines(file.path(a, "anon", "S01", "file1.md"))
+code <- list.files(file.path(a, "anon"), pattern = "^S")[1]
+readLines(file.path(a, "anon", code, "file1.md"))
 unlink(p, recursive = TRUE)
 }
 \seealso{
-\code{\link[=anon_key]{anon_key()}}, \code{\link[=relink]{relink()}}, \code{\link[=canvas_grades]{canvas_grades()}}
+\code{\link[=anon_key]{anon_key()}}, \code{\link[=relink]{relink()}}, \code{\link[=anon_forget]{anon_forget()}}, \code{\link[=canvas_grades]{canvas_grades()}}
 }

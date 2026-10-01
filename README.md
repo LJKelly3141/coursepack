@@ -121,24 +121,33 @@ allows the moment it exists, and a `use_<id>_slides()` of its own.
 
 ## Grading without student identity
 
-Four functions let a grader, a person or an agent, score submissions without
+Five functions let a grader, a person or an agent, score submissions without
 ever seeing a name, a Canvas id or a login. Identity is handled only on the
 instructor's machine, and the upload back to Canvas works as it always has.
 
 ```r
-coursepack::anon_key(".", "semester/gradebook.csv")       # once per term, and again when students join
+coursepack::anon_key(".", "semester/gradebook_export/<export>.csv",  # this run's key, codes shuffled
+                     "semester/CaseStudy03", nicknames = "semester/nicknames.csv")
 coursepack::anonymize(".", "semester/CaseStudy03")        # coded text into semester/CaseStudy03/anon/
 coursepack::relink(".", "semester/CaseStudy03")           # feedback, scores and feedback.zip
-coursepack::canvas_grades(".", "semester/gradebook.csv",  # canvas_import.csv for the Gradebook's Import
-                          folder = "semester/CaseStudy03", column = "Case Study 3")
+coursepack::canvas_grades(".", "semester/gradebook_export/<export>.csv",  # narrow import into
+                          folder = "semester/CaseStudy03",                # semester/gradebook_import/
+                          column = "Case Study 3")
+coursepack::anon_forget(".", "semester/CaseStudy03")      # delete the key once Canvas has it all
 ```
 
 The workflow runs in that order:
 
-1. `anon_key()` reads a Canvas gradebook export and gives every student a code,
-   `S01`, `S02` and so on, that holds for the term. A re-run adds new students
-   and never drops or renumbers a row, and nicknames typed into the key by hand
-   are kept.
+1. `anon_key()` reads the latest Canvas gradebook export and builds the key for
+   one assignment's grading run at `<assignment>/anon_key.csv`, beside the
+   downloads and never inside `anon/`. Codes `S01`, `S02` and so on are handed
+   out in a random order every run, so a key that leaks de-anonymizes one
+   assignment and no other. The key records its run, the assignment folder
+   relative to the project, and every function that reads it refuses a key of
+   another run. A re-run for the same assignment keeps every row and adds only
+   new students. Nicknames live in a term nicknames file the instructor keeps,
+   `canvas_id,nicknames` with nicknames separated by `;`; it holds no codes,
+   and `nicknames =` copies its entries into the key.
 2. `anonymize()` converts one assignment's Canvas downloads to plain text,
    replaces every name form, nickname, file prefix, login and Canvas id of every
    student with that student's code, and then checks its own output for anything
@@ -156,16 +165,34 @@ The workflow runs in that order:
    "spec", or to the latest document when every one is a spec. A script such
    as `.R` is converted for the grader but never answered, and a student with
    no document at all stops the run.
-5. `canvas_grades()` copies a fresh gradebook export byte for byte, filling in
-   only the scored cells, so Canvas accepts it as an import.
+5. `canvas_grades()` writes a narrow gradebook import: the identity columns and
+   the scored assignments' columns only, every row of the export kept, and
+   every kept cell the export's own bytes except the filled scores. Canvas
+   writes back every cell an import carries and reads a blank as a deletion,
+   but leaves alone an assignment column the import does not carry, so other
+   assignments' grades cannot be rolled back. Exports go in
+   `gradebook_export/` and imports go in `gradebook_import/`: the function reads
+   exports and writes only imports, by default to
+   `semester/gradebook_import/<YYYY-MM-DD>_<folder>_import.csv`, or
+   `<YYYY-MM-DD>_<N>-assignments_import.csv` for several assignments. It stops
+   rather than write into the export's own folder, any folder below it, or
+   over the export, and it
+   never overwrites an import unless given `overwrite = TRUE`, for a re-run
+   after a ruling. Several assignments go through a map, a CSV with columns `folder`
+   and `column` and an optional third column `scores` naming a scores file for
+   a folder that holds more than one. Coded scores are placed through the
+   folder's own key.
+6. `anon_forget()` deletes the assignment's key once the feedback upload and
+   the grade import are confirmed. It refuses until `relink()` has written
+   `feedback/` and the scores file into the assignment folder.
 
-The key and every output live in the course's `semester/` folder, which the
-course's `.gitignore` must exclude. The key is the only file that joins a code
-to a name. None of these functions prints a student's name, id or original file
-name; their messages name codes, positions and counts. Converting `.docx` or
-`.odt` needs `pandoc`, `.pdf` needs `pdftotext` and `pdfimages`, Word and
-OpenDocument feedback need `pandoc`, PDF feedback needs `pandoc` and `xelatex`,
-and `relink()` needs `zip`.
+Every key and every output lives in the course's `semester/` folder, which the
+course's `.gitignore` must exclude. A key is the only file that joins a code to
+a name. None of these functions prints a student's name, id or original file
+name; their messages name codes, positions, counts and folder paths. Converting
+`.docx` or `.odt` needs `pandoc`, `.pdf` needs `pdftotext` and `pdfimages`,
+Word and OpenDocument feedback need `pandoc`, PDF feedback needs `pandoc` and
+`xelatex`, and `relink()` needs `zip`.
 
 ## What has been verified
 

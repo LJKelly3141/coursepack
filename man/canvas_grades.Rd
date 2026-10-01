@@ -2,7 +2,7 @@
 % Please edit documentation in R/canvas-grades.R
 \name{canvas_grades}
 \alias{canvas_grades}
-\title{Fill scores into a Canvas gradebook export for re-import}
+\title{Fill scores into a narrow Canvas gradebook import}
 \usage{
 canvas_grades(
   proj,
@@ -12,7 +12,9 @@ canvas_grades(
   column = NULL,
   scores = NULL,
   key = NULL,
-  out = NULL
+  out = NULL,
+  import_dir = "semester/gradebook_import",
+  overwrite = FALSE
 )
 }
 \arguments{
@@ -20,11 +22,14 @@ canvas_grades(
 including the folders and scores files named inside a map.}
 
 \item{gradebook}{The Canvas gradebook export, downloaded fresh, so every
-student scored is in it.}
+student scored is in it. Keep exports in their own folder, such as
+\verb{semester/gradebook_export/}; nothing is written there.}
 
 \item{map}{A CSV with one row per assignment and columns \code{folder} and
-\code{column}, plus an optional \code{scores} naming a scores file when a folder
-holds more than one. Give either \code{map}, or \code{folder} with \code{column}.}
+\code{column}, plus an optional third column \code{scores} naming a scores file for
+that row, for a folder that holds more than one or whose scores are
+elsewhere; a blank \code{scores} cell means the default search. Give either
+\code{map}, or \code{folder} with \code{column}.}
 
 \item{folder}{One assignment's folder, used with \code{column}.}
 
@@ -34,28 +39,58 @@ holds more than one. Give either \code{map}, or \code{folder} with \code{column}
 \item{scores}{A scores file for \code{folder}, when the folder holds more than
 one or its scores are elsewhere.}
 
-\item{key}{The anonymization key \code{\link[=anon_key]{anon_key()}} wrote, needed only when scores
-are keyed by code.}
+\item{key}{Rarely needed. Coded scores are placed through the folder's own
+\code{anon_key.csv}; a key given here is used instead, and only when its \code{run}
+is that folder.}
 
-\item{out}{The file to write. \code{NULL} means \code{canvas_import.csv} beside
-\code{gradebook}. An existing file is never overwritten.}
+\item{out}{The file to write, a full path that overrides \code{import_dir} and
+the default name.}
+
+\item{import_dir}{The folder imports are written to, created when missing.
+The default is \code{semester/gradebook_import} under \code{proj}.}
+
+\item{overwrite}{\code{FALSE} stops when the output file already exists. \code{TRUE}
+replaces it, for a re-run after a ruling.}
 }
 \value{
 The path written, invisibly.
 }
 \description{
-Write \code{canvas_import.csv}, a copy of a freshly downloaded Canvas gradebook
-export with one or more assignments' scores filled in, ready for the
-Gradebook's Import. Canvas accepts only an import that is exactly its own
-export, so the file is edited as bytes rather than parsed and rewritten:
-quoting, line endings, a byte-order mark, the final newline or its absence,
-number formats, read-only columns and letter grades are all kept, and the
-only bytes that change are the target assignments' cells on the rows of
-students who have a score. A filled score is written with two decimals, as
-Canvas writes its own. A student with no score keeps whatever the export
-had, and the input export is never modified.
+Write a gradebook import for the Gradebook's Import that carries the
+identity columns and the scored assignments' columns, and nothing else.
+Canvas writes back every cell an import carries and reads a blank cell as a
+deletion, so a full-width import can roll back grades in other columns. It
+leaves alone any assignment column the import does not carry, so this file
+carries only what is being graded.
 }
 \details{
+The import is cut from a downloaded Canvas gradebook export as text. It
+keeps the identity columns the export has (\code{Student}, \code{ID}, \verb{SIS User ID},
+\verb{SIS Login ID}, \verb{Integration ID}, \verb{Root Account}, \code{Section}) and the
+assignment columns named
+in the map, in the export's order, and drops every other column: other
+assignments and all the read-only group, total and grade columns. It keeps
+the header row, the \verb{Points Possible} row with its leading spaces as Canvas
+writes them, and every data row, including Canvas's Test Student. Every
+kept cell is the export's own bytes except the target cells on the rows of
+students who have a score: quoting, line endings, a byte-order mark and the
+final newline or its absence are all kept. A filled score is written with
+two decimals, as Canvas writes its own. A student with no score keeps
+whatever the export had in the kept columns, and the export is never
+modified.
+
+Exports go in one folder and imports in another: the function reads the
+export and writes only the import, into \code{import_dir}, and never writes into
+the folder the export sits in or into any assignment folder: an \code{out} or
+\code{import_dir} in the export's own folder or any folder below it, or \code{out}
+naming the export itself,
+stops the call, whatever \code{overwrite} says. Only rows whose \code{ID} is a Canvas
+id, all digits, ever take a score, so the \verb{Points Possible} row and any
+other row Canvas writes without a student id are kept as they are. The default
+name is \verb{<YYYY-MM-DD>_<folder>_import.csv} for one assignment, named for its
+folder, or \verb{<YYYY-MM-DD>_<N>-assignments_import.csv} for several. Download
+the export right before importing, so every student scored is in it.
+
 The assignments to fill come from a map, or from one \code{folder} and \code{column}.
 A target column is the single assignment column, one Canvas tags with an id
 in parentheses, whose header contains \code{column} as text, ignoring case.
@@ -63,31 +98,38 @@ Identity and read-only total columns are never targets. Scores come from the
 map's \code{scores} column or \code{scores} when given; otherwise from the one
 \verb{*_scores.csv} in the folder that \code{\link[=relink]{relink()}} wrote, or failing that from
 \code{anon/scores.csv} in it. A scores file needs a \code{total} column and either a
-Canvas id column (\code{canvas_id} or \code{canvas_user_id}) or a \code{code} column, which
-is placed through \code{key}.
+Canvas id column (\code{canvas_id} or \code{canvas_user_id}) or a \code{code} column.
+Codes are placed through the folder's own \code{anon_key.csv}, the key
+\code{\link[=anon_key]{anon_key()}} built for that assignment, so no \code{key} is needed.
 
 Every assignment is resolved and checked before anything is written, so a
-failing one leaves no file. It stops when the output file already exists,
-when a column text matches no column or more than one, when two assignments
-point at the same column, when a score belongs to a student who is not in
-the export, when a total is not a number, when a code is not in the key,
-when a student is listed twice, and when a quoted field spans lines, rather
-than guessing. Messages print counts and column headers, never a student's
-name or id.
+failing one leaves no file. It stops when the output file already exists and
+\code{overwrite} is \code{FALSE}, when a mapped folder does not exist, when a column
+text matches no column or more than one, when two assignments point at the
+same column, when a score belongs to a student who is not in the export,
+when a scores row with a total has a blank student id, when a total is
+not a number, when coded scores have no key or a key of
+another run, when a code is not in the key, when a student is listed twice,
+when a row does not have as many fields as the header, and when a quoted
+field spans lines, rather than guessing. Messages print counts, column
+headers and folder paths, never a student's name or id.
 }
 \examples{
 p <- tempfile("course-"); dir.create(p)
+dir.create(file.path(p, "semester", "gradebook_export"), recursive = TRUE)
 writeLines(c(
-  "Student,ID,SIS User ID,SIS Login ID,Section,Essay 1 (101),Current Score",
-  "    Points Possible,,,,,10.00,(read only)",
-  "\"Quill, Pat\",1001,U1,XQ1001,01,,0.00"), file.path(p, "export.csv"))
-dir.create(file.path(p, "Essay1"))
+  "Student,ID,SIS User ID,SIS Login ID,Section,Essay 1 (101),Quiz 1 (102),Current Score",
+  "    Points Possible,,,,,10.00,5.00,(read only)",
+  "\"Quill, Pat\",1001,U1,XQ1001,01,,4.00,0.00"),
+  file.path(p, "semester", "gradebook_export", "export.csv"))
+dir.create(file.path(p, "semester", "Essay1"))
 write.csv(data.frame(canvas_id = "1001", total = "9"),
-          file.path(p, "Essay1", "essay1_scores.csv"), row.names = FALSE)
-canvas_grades(p, "export.csv", folder = "Essay1", column = "Essay 1")
-readLines(file.path(p, "canvas_import.csv"))
+          file.path(p, "semester", "Essay1", "essay1_scores.csv"), row.names = FALSE)
+out <- canvas_grades(p, "semester/gradebook_export/export.csv",
+                     folder = "semester/Essay1", column = "Essay 1")
+readLines(out)
 unlink(p, recursive = TRUE)
 }
 \seealso{
-\code{\link[=anon_key]{anon_key()}}, \code{\link[=anonymize]{anonymize()}}, \code{\link[=relink]{relink()}}
+\code{\link[=anon_key]{anon_key()}}, \code{\link[=anonymize]{anonymize()}}, \code{\link[=relink]{relink()}}, \code{\link[=anon_forget]{anon_forget()}}
 }

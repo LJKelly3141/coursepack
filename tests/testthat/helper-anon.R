@@ -14,21 +14,44 @@ fake_gradebook <- function(dir) {
   p
 }
 
-# A course root holding the gradebook and a built key. proj and the working
+# A course root holding the gradebook and a fixture key. proj and the working
 # folder are the same temporary directory, removed when the calling test ends.
 # With nickname = TRUE the second student carries the hand-added nickname "Mo",
 # the state every test after the key tests ran against when these were a
 # single script.
+#
+# The fixture key is built with the code shuffle switched off, so S01, S02 and
+# S03 are Quill, Rivera and Stone and the redaction tests can name a code. It
+# records the placeholder run "fixture"; stage_key() copies it into an
+# assignment folder under that assignment's own run. The shuffle itself is
+# tested on its own, against the real anon_key().
 anon_course <- function(nickname = TRUE, env = parent.frame()) {
   td <- withr::local_tempdir("anon_", .local_envir = env)
   td <- normalizePath(td)
   kp <- file.path(td, "anon_key.csv")
-  invisible(capture.output(build_key(fake_gradebook(td), kp)))
+  fixture_key(fake_gradebook(td), kp)
   if (nickname) {
     k <- read_key(kp); k$nicknames[2] <- "Mo"
     utils::write.csv(k, kp, row.names = FALSE)
   }
   list(proj = td, td = td, kp = kp)
+}
+
+# build_key() with codes in Canvas id order, for fixtures that name a code.
+fixture_key <- function(gradebook, key_path, run = "fixture") {
+  testthat::with_mocked_bindings(
+    quiet(build_key(gradebook, key_path, run)),
+    shuffle = function(x) x)
+}
+
+# Copy a fixture key into <a>/anon_key.csv under a's own run, the key
+# anonymize() and relink() read by default.
+stage_key <- function(proj, a, k) {
+  ad <- proj_path(proj, a)
+  key <- read_key(k)
+  key$run <- run_id(proj, ad)
+  utils::write.csv(key, file.path(ad, "anon_key.csv"), row.names = FALSE)
+  file.path(ad, "anon_key.csv")
 }
 
 quiet <- function(expr) { invisible(capture.output(r <- force(expr))); r }
@@ -38,9 +61,16 @@ errors_with <- function(expr) {
 }
 
 # The tests pass dict = NULL unless a test is about the word list, so a run
-# does not depend on which system word list a machine has.
-anon <- function(proj, a, k, ..., dict = NULL) quiet(anonymize(proj, a, k, ..., dict = dict))
-relnk <- function(proj, a, k, ...) quiet(relink(proj, a, k, ..., dict = NULL))
+# does not depend on which system word list a machine has. Both stage the
+# given fixture key as the assignment's own key, then use the default.
+anon <- function(proj, a, k, ..., dict = NULL) {
+  stage_key(proj, a, k)
+  quiet(anonymize(proj, a, ..., dict = dict))
+}
+relnk <- function(proj, a, k, ...) {
+  stage_key(proj, a, k)
+  quiet(relink(proj, a, ..., dict = NULL))
+}
 
 mk_docx <- function(path, lines) {
   s <- tempfile(fileext = ".md"); on.exit(unlink(s))

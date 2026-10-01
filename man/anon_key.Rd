@@ -2,9 +2,9 @@
 % Please edit documentation in R/anon-key.R
 \name{anon_key}
 \alias{anon_key}
-\title{Build or extend the anonymization key}
+\title{Build the anonymization key for one grading run}
 \usage{
-anon_key(proj, gradebook, key = "semester/anon_key.csv")
+anon_key(proj, gradebook, assignment, nicknames = NULL)
 }
 \arguments{
 \item{proj}{Course project root. Relative paths are resolved against it.}
@@ -13,33 +13,49 @@ anon_key(proj, gradebook, key = "semester/anon_key.csv")
 Export menu. Needs the \code{Student}, \code{ID} and \verb{SIS Login ID} columns, and
 \code{Student} in "Last, First" form.}
 
-\item{key}{The key to create or extend.}
+\item{assignment}{Folder of one assignment's Canvas downloads, inside
+\code{proj}. The key is written to \code{anon_key.csv} in it.}
+
+\item{nicknames}{Optional term nicknames file, columns \code{canvas_id} and
+\code{nicknames}. \code{NULL} adds no nicknames.}
 }
 \value{
 The key as a data frame, invisibly.
 }
 \description{
-Read a Canvas gradebook export and give every student in it a code, \code{S01},
-\code{S02} and so on, that stays theirs for the term. The key is the only file
-that joins a code to a name, and it belongs in the course's git-ignored
-semester folder: the grader is never given it.
+Read a Canvas gradebook export and give every student in it a code for one
+assignment's grading run: \code{S01} to \code{Snn}, handed out in a random order, so
+no two runs share a mapping. The key is written to
+\verb{<assignment>/anon_key.csv}, beside the Canvas downloads and never inside
+\verb{anon/}, which is what the grader reads. It is the only file that joins a
+code to a name, and because every assignment has its own, a key that leaks
+de-anonymizes that one assignment and no other. Build it from the latest
+export right before anonymizing, and delete it with \code{\link[=anon_forget]{anon_forget()}} once
+the feedback and grades are in Canvas.
 }
 \details{
-A key that already exists is extended and never rebuilt. Students already
-in it keep their codes and every field exactly as it is, including any
-\code{nicknames} typed in by hand, and no row is ever dropped, so a student who
-left the course keeps their code. New students get the next free codes, in
-Canvas id order. The export's \verb{Points Possible} row and Canvas's
-\verb{Student, Test} row are skipped.
+Every row records the run it belongs to in a \code{run} column: the assignment
+folder's path relative to \code{proj}, the same on every row. Running
+\code{anon_key()} again for the same assignment keeps every row, code and field
+exactly as it is, including \code{nicknames} typed in by hand, and adds only
+students who are new in the export, at the next free codes in a random
+order. A key already in the folder that records a different run stops the
+call before anything is written. The export's \verb{Points Possible} row and
+Canvas's \verb{Student, Test} row are skipped.
 
-Each row carries \code{code}, \code{canvas_id}, \code{name} ("First Last"), \code{name_forms}
-(every spelling redacted from a submission, semicolon separated: the full
-name both ways round, each name part, the joined forms such as
-"patquill", the first-initial-plus-surname form, and accent-stripped copies
-of all of them), \code{file_prefix} (the name prefix Canvas puts on downloaded
-files), \code{login} and \code{nicknames}. To catch a name a student uses that the
-roster does not, add it to \code{nicknames}, semicolon separated, and re-run
-\code{\link[=anonymize]{anonymize()}}.
+Each row carries \code{run}, \code{code}, \code{canvas_id}, \code{name} ("First Last"),
+\code{name_forms} (every spelling redacted from a submission, semicolon
+separated: the full name both ways round, each name part, the joined forms
+such as "patquill", the first-initial-plus-surname form, and
+accent-stripped copies of all of them), \code{file_prefix} (the name prefix
+Canvas puts on downloaded files), \code{login} and \code{nicknames}.
+
+Nicknames belong in a term nicknames file that the instructor keeps, a CSV
+with columns \verb{canvas_id,nicknames} and the nicknames separated by \verb{;}. It
+holds no codes, so it reveals no grading if it leaks. When \code{nicknames} names
+it, each student's nicknames are merged into that student's \code{nicknames} in
+the key. To catch a name a student uses that the roster does not, add it to
+the nicknames file, run \code{anon_key()} again and re-run \code{\link[=anonymize]{anonymize()}}.
 
 Nothing printed names a student. A malformed row is reported by its row
 number in the export.
@@ -51,10 +67,11 @@ writeLines(c(
   "    Points Possible,,,,,",
   "\"Quill, Pat\",1001,U1,XQ1001,x,01",
   "\"Rivera, Morgan\",1002,U2,XQ1002,x,01"), file.path(p, "gradebook.csv"))
-key <- anon_key(p, "gradebook.csv")
-key$code
+dir.create(file.path(p, "semester", "Essay1"), recursive = TRUE)
+key <- anon_key(p, "gradebook.csv", "semester/Essay1")
+key[c("run", "code")]
 unlink(p, recursive = TRUE)
 }
 \seealso{
-\code{\link[=anonymize]{anonymize()}}, \code{\link[=relink]{relink()}}, \code{\link[=canvas_grades]{canvas_grades()}}
+\code{\link[=anonymize]{anonymize()}}, \code{\link[=relink]{relink()}}, \code{\link[=anon_forget]{anon_forget()}}, \code{\link[=canvas_grades]{canvas_grades()}}
 }
