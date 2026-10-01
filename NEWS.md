@@ -1,4 +1,4 @@
-# coursepack 1.1.0.1
+# coursepack 1.2.0
 
 * New skill `anonymized-grading`: the full grading workflow around the grading functions below, from key review and anonymizing, through one grading agent per assignment working only on the coded copies and instructor rulings one at a time, to relinking, the feedback zip and the Canvas gradebook import. Installed into a course with the other shipped skills.
 

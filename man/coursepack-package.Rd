@@ -31,10 +31,10 @@ accomplish.
 \section{Status}{
 
 
-1.1.0. Every entry point the two originating course toolchains had is in
+1.2.0. Every entry point the two originating course toolchains had is in
 the package: checking, building, diffing against a reference export, QTI,
 preview, tile, audit, extraction, conversion, announcements, paper forms,
-the scaffold and the skills. Two courses have been built by this package
+the scaffold, the skills, and grading without student identity. Two courses have been built by this package
 from their own Canvas exports and taken through a full import and export
 round trip; \code{README.md} keeps the table of what a real import has verified.
 }
