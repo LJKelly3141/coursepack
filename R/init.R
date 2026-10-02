@@ -130,6 +130,40 @@ reapply_course_facts <- function(f, code, title, site_url, timezone,
   invisible(cy)
 }
 
+# Every path, relative to the course root, that init_course() would create:
+# the template files under their written names, each shipped skill directory
+# when skills are installed, and what extract_manifest() adds beyond the
+# template when starting from an export (course.yml and modules.yml are
+# template files already).
+scaffold_destinations <- function(rel, skills, from_export) {
+  dest <- unname(vapply(rel, template_dest, ""))
+  if (isTRUE(skills))
+    dest <- c(dest, file.path(".claude", "skills", shipped_skills()))
+  if (!is.null(from_export))
+    dest <- c(dest, "reference.yml", file.path("reference", basename(from_export)))
+  unique(dest)
+}
+
+# A destination collides when it exists, or when a folder it has to be written
+# under exists as a plain file, which would stop the copy part way through.
+check_existing_collisions <- function(path, dest) {
+  hit <- dest[file.exists(file.path(path, dest))]
+  parents <- unique(unlist(lapply(dest, function(d) {
+    parts <- strsplit(dirname(d), "/", fixed = TRUE)[[1]]
+    parts <- parts[parts != "."]
+    if (!length(parts)) return(character())
+    vapply(seq_along(parts), function(i) paste(parts[seq_len(i)], collapse = "/"), "")
+  })))
+  blocked <- parents[file.exists(file.path(path, parents)) &
+                       !dir.exists(file.path(path, parents))]
+  hit <- sort(unique(c(hit, blocked)))
+  if (length(hit))
+    stop("existing = TRUE adds files and never replaces one, and these are ",
+         "already there: ", paste(hit, collapse = ", "), ". Nothing was written.",
+         call. = FALSE)
+  invisible(TRUE)
+}
+
 #' Scaffold a course repository
 #'
 #' Write a new course under `path`: the two manifests, the containment
@@ -150,7 +184,20 @@ reapply_course_facts <- function(f, code, title, site_url, timezone,
 #' its one announcement posts on import, and a term window is required only for
 #' an announcement that posts on a date.
 #'
-#' `path` must not exist or must be empty, and nothing is ever overwritten.
+#' `path` must not exist or must be empty, and nothing is ever overwritten,
+#' unless `existing = TRUE`.
+#'
+#' @section Adding a course to a directory that already holds files:
+#' With `existing = TRUE`, `path` may already hold files, such as an older
+#' version of the course, an archive or an RStudio project. Before any prompt
+#' and before anything is written, every file and skill directory the scaffold
+#' would create is checked, and if any one of them is already there the call
+#' stops, lists them all and writes nothing. Files already in the directory are
+#' never deleted, moved, renamed or overwritten. `git = TRUE` still only runs
+#' `git init`, which leaves an existing repository as it is, and nothing is
+#' committed. Before the first commit, consider adding archive or source folders
+#' to `.gitignore`, because `git add .` would otherwise commit them alongside
+#' the course.
 #'
 #' @section Starting from a Canvas export:
 #' `from_export` names an `.imscc`. The scaffold is written first, then
@@ -167,7 +214,8 @@ reapply_course_facts <- function(f, code, title, site_url, timezone,
 #' dates have to be rewritten to match. The closing summary says so when it
 #' applies.
 #'
-#' @param path Directory to scaffold into. Must not exist, or be empty.
+#' @param path Directory to scaffold into. Must not exist, or be empty, unless
+#'   `existing = TRUE`.
 #' @param code Course code, for example `"ABCD 101"`. The `slug:` is derived
 #'   from it and every derived Canvas identifier from that.
 #' @param title Course title.
@@ -184,6 +232,10 @@ reapply_course_facts <- function(f, code, title, site_url, timezone,
 #' @param from_export Optional path to a Canvas `.imscc` to start from.
 #' @param ask Whether to prompt for a missing required value. Prompts only when
 #'   this is `TRUE` and the session is interactive.
+#' @param existing Whether `path` may already hold files. `FALSE`, the default,
+#'   refuses a directory that is not empty. `TRUE` adds the course beside what
+#'   is there and stops, writing nothing, if any file or skill directory the
+#'   scaffold would create already exists. Existing files are never touched.
 #' @return `path`, invisibly.
 #' @examples
 #' # git and skills default to TRUE, which runs git init in the new directory
@@ -207,15 +259,29 @@ init_course <- function(path, code, title, site_url, timezone,
                         institution = NULL, textbook_url = NULL,
                         textbook_docs = "none", skills = TRUE,
                         claude_md = TRUE, git = TRUE, from_export = NULL,
-                        ask = interactive()) {
+                        ask = interactive(), existing = FALSE) {
   # Refuse before asking anything. Four prompts answered and then a refusal
   # because the directory was never empty is four answers thrown away.
   if (file.exists(path) && !dir.exists(path))
     stop(path, " is a file, not an empty directory. init_course() never ",
          "overwrites anything.", call. = FALSE)
-  if (dir.exists(path) && length(list.files(path, all.files = TRUE, no.. = TRUE)))
+  if (!isTRUE(existing) && dir.exists(path) &&
+      length(list.files(path, all.files = TRUE, no.. = TRUE)))
     stop(path, " is not empty. init_course() never overwrites anything: ",
-         "scaffold into a new directory.", call. = FALSE)
+         "scaffold into a new directory, or pass existing = TRUE to add the ",
+         "course beside what is there.", call. = FALSE)
+
+  root <- system.file("templates", "course", package = "coursepack")
+  if (!nzchar(root)) stop("coursepack templates are not installed", call. = FALSE)
+  rel <- sort(list.files(root, recursive = TRUE, all.files = TRUE, no.. = TRUE))
+  if (!isTRUE(claude_md)) rel <- setdiff(rel, "CLAUDE.md")
+
+  # Into a directory that already holds something, every destination is
+  # checked before the first prompt and before the first byte, so a collision
+  # leaves the directory exactly as it was found rather than half scaffolded.
+  # The per-file check in the copy loop below stays as a second line.
+  if (isTRUE(existing) && dir.exists(path))
+    check_existing_collisions(path, scaffold_destinations(rel, skills, from_export))
 
   asking <- isTRUE(ask) && interactive()
   code <- need_value(if (missing(code)) NULL else code, "code",
@@ -241,9 +307,6 @@ init_course <- function(path, code, title, site_url, timezone,
   if (!is.null(from_export) && !file.exists(from_export))
     stop("from_export names no file: ", from_export, call. = FALSE)
 
-  root <- system.file("templates", "course", package = "coursepack")
-  if (!nzchar(root)) stop("coursepack templates are not installed", call. = FALSE)
-
   values <- list(code = code, title = title,
                  institution = institution %||% "",
                  slug = slugify(code),
@@ -253,9 +316,6 @@ init_course <- function(path, code, title, site_url, timezone,
                  timezone = timezone,
                  canary = LEAK_CANARY,
                  version = coursepack_version())
-
-  rel <- sort(list.files(root, recursive = TRUE, all.files = TRUE, no.. = TRUE))
-  if (!isTRUE(claude_md)) rel <- setdiff(rel, "CLAUDE.md")
 
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   path <- normalizePath(path, mustWork = TRUE)

@@ -82,7 +82,9 @@ worked.
 A course that does not exist yet starts from the scaffold. `init_course()`
 writes about two dozen files, installs the authoring skills under
 `.claude/skills/`, and prints the file list and the next steps. Nothing is ever
-overwritten: the target directory has to be missing or empty. `code`, `title`,
+overwritten: the target directory has to be missing or empty, unless
+`existing = TRUE`, which adds the course beside files already there and stops,
+writing nothing, if any file it would create is already present. `code`, `title`,
 `site_url` and `timezone` have no defaults, and the machine's own zone is
 printed beside the timezone prompt as a suggestion rather than accepted by
 pressing return, because a wrong zone moves every deadline by hours while the

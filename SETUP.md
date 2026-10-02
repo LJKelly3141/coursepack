@@ -39,7 +39,7 @@ coursepack::coursepack_version()
 ```
 
 The last line prints the installed version. For a specific release, name its
-tag: `remotes::install_github("LJKelly3141/coursepack@v1.2.3")`.
+tag: `remotes::install_github("LJKelly3141/coursepack@v1.2.4")`.
 
 To check the installation without touching any course, scaffold a throwaway
 course into a temporary directory and build it:
@@ -77,6 +77,14 @@ stops rather than guess; in an interactive session it prompts for a missing one.
 `https://`. `timezone` is an IANA name, checked against `OlsonNames()`, because a
 wrong zone moves every deadline by hours while the generated XML still reads
 perfectly. The directory must be missing or empty; nothing is ever overwritten.
+
+To add the course to a directory that already holds files, such as an archive of
+an earlier version or an RStudio project, pass `existing = TRUE`. Every file and
+skill directory the scaffold would create is checked first, and if any is
+already there the call lists them and writes nothing. Files already in the
+directory are never deleted, moved, renamed or overwritten. Before the first
+commit, consider adding archive or source folders to `.gitignore` so they are
+not committed with the course.
 
 It writes about two dozen files: the two manifests `course.yml` and
 `modules.yml`, `announcements.yml`, a Quarto site with a render allowlist, the

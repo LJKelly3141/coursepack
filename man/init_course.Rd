@@ -17,11 +17,13 @@ init_course(
   claude_md = TRUE,
   git = TRUE,
   from_export = NULL,
-  ask = interactive()
+  ask = interactive(),
+  existing = FALSE
 )
 }
 \arguments{
-\item{path}{Directory to scaffold into. Must not exist, or be empty.}
+\item{path}{Directory to scaffold into. Must not exist, or be empty, unless
+\code{existing = TRUE}.}
 
 \item{code}{Course code, for example \code{"ABCD 101"}. The \verb{slug:} is derived
 from it and every derived Canvas identifier from that.}
@@ -50,6 +52,11 @@ from it and every derived Canvas identifier from that.}
 
 \item{ask}{Whether to prompt for a missing required value. Prompts only when
 this is \code{TRUE} and the session is interactive.}
+
+\item{existing}{Whether \code{path} may already hold files. \code{FALSE}, the default,
+refuses a directory that is not empty. \code{TRUE} adds the course beside what
+is there and stops, writing nothing, if any file or skill directory the
+scaffold would create already exists. Existing files are never touched.}
 }
 \value{
 \code{path}, invisibly.
@@ -74,8 +81,23 @@ ends up with a deadline on a day it does not meet. The scaffold still builds:
 its one announcement posts on import, and a term window is required only for
 an announcement that posts on a date.
 
-\code{path} must not exist or must be empty, and nothing is ever overwritten.
+\code{path} must not exist or must be empty, and nothing is ever overwritten,
+unless \code{existing = TRUE}.
 }
+\section{Adding a course to a directory that already holds files}{
+
+With \code{existing = TRUE}, \code{path} may already hold files, such as an older
+version of the course, an archive or an RStudio project. Before any prompt
+and before anything is written, every file and skill directory the scaffold
+would create is checked, and if any one of them is already there the call
+stops, lists them all and writes nothing. Files already in the directory are
+never deleted, moved, renamed or overwritten. \code{git = TRUE} still only runs
+\verb{git init}, which leaves an existing repository as it is, and nothing is
+committed. Before the first commit, consider adding archive or source folders
+to \code{.gitignore}, because \verb{git add .} would otherwise commit them alongside
+the course.
+}
+
 \section{Starting from a Canvas export}{
 
 \code{from_export} names an \code{.imscc}. The scaffold is written first, then
