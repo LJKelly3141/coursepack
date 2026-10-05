@@ -400,6 +400,8 @@ anon_forget <- function(proj, assignment) {
          "relink() has run and the Canvas upload is confirmed.", call. = FALSE)
   }
   if (!file.remove(key_path)) stop("could not delete ", key_path, call. = FALSE)
+  append_log(assignment_dir, "anon_forget",
+             "key deleted; this run's codes can no longer be linked to students")
   cat(sprintf("anon_forget: deleted %s; this run's codes can no longer be linked to students\n",
               key_path))
   version_line("anon_forget")

@@ -13,8 +13,9 @@
 list_submissions <- function(assignment_dir) {
   f <- list.files(assignment_dir, all.files = FALSE, no.. = TRUE)
   f <- f[!dir.exists(file.path(assignment_dir, f))]
-  # The run's own key sits beside the downloads; it is not a stray file.
-  f <- setdiff(f, KEY_FILE)
+  # The run's own key, de-identification log and image decisions sit beside
+  # the downloads; they are not stray files.
+  f <- setdiff(f, c(KEY_FILE, basename(log_path(assignment_dir)), "anon_images.csv"))
   parsed <- lapply(f, parse_canvas_filename)
   keep <- !vapply(parsed, is.null, logical(1))
   if (!any(keep)) stop("no Canvas submission files found in ", assignment_dir, call. = FALSE)
@@ -82,7 +83,8 @@ assign_files <- function(subs, key) {
 #' Converting is what removes document metadata such as an author field. Any
 #' other type stops the run, naming the code and file position. Files without
 #' the Canvas shape are skipped and counted, never named; the assignment's own
-#' `anon_key.csv` is neither converted nor counted.
+#' `anon_key.csv`, `deidentification_log.md` and `anon_images.csv` are neither
+#' converted nor counted.
 #'
 #' A student may submit any number of files. Each student's files are numbered
 #' in upload order and written as `anon_dir/<code>/file1.md`, `file2.md` and so
@@ -93,8 +95,8 @@ assign_files <- function(subs, key) {
 #' such as `.R`: the latest-uploaded document that is not a spec, or the
 #' latest document when every document is a spec. A student with no document
 #' at all stops the run, naming only the code. `anon_dir/manifest.csv` records
-#' `code`, `file`, `late`, `ext`, `spec` and `target`, and carries no names, ids
-#' or original filenames.
+#' `code`, `file`, `ext`, `spec` and `target`, and carries no names, ids,
+#' original filenames, lateness or submission times.
 #'
 #' Redaction runs on the text, longest term first, case-insensitive and whole
 #' word, with underscores counted as boundaries. Every name form, nickname,
@@ -198,6 +200,10 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
          "refusing to delete them. Point anon_dir at an empty folder or a ",
          "prior anonymize() output.", call. = FALSE)
   }
+  # Image text cannot be checked without tesseract. Stop before anything is
+  # written, so a missing tool never leaves a half-built anon/.
+  require_tesseract()
+
   # From here on a stop anywhere must not leave an old anon/ looking ready.
   if (dir.exists(anon_dir)) {
     writeLines("anonymize has not finished its leftover check",
@@ -219,8 +225,12 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   unlink(old[!basename(old) %in% c("feedback", "scores.csv")], recursive = TRUE)
   writeLines("anonymize has not finished its leftover check", file.path(anon_dir, "NOT_READY"))
 
+  # Files are processed in a shuffled order, so the order anon/ is built in
+  # says nothing about submission order or the key's row order.
   n <- 0L
-  for (r in seq_len(nrow(subs))) {
+  pattern_counts <- c(SSN = 0L, PHONE = 0L, DOB = 0L, ADDRESS = 0L, PROFILE = 0L, HANDLE = 0L)
+  path_counts <- c(PATH = 0L, EMAIL = 0L)
+  for (r in shuffle(seq_len(nrow(subs)))) {
     s <- subs[r, ]
     out_md <- file.path(anon_dir, s$code, paste0(s$anon_name, ".md"))
     tryCatch(convert_to_text(file.path(assignment_dir, s$file), out_md,
@@ -228,15 +238,38 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
              error = function(e) {
                stop(s$code, " (", s$anon_name, "): ", conditionMessage(e), call. = FALSE)
              })
-    txt <- redact_paths(readLines(out_md, warn = FALSE, encoding = "UTF-8"))
-    red <- redact_text(txt, terms)
+    rp <- redact_paths(readLines(out_md, warn = FALSE, encoding = "UTF-8"), counts = TRUE)
+    path_counts <- path_counts + rp$counts[names(path_counts)]
+    pt <- redact_patterns(rp$text)
+    add <- pt$counts[names(pattern_counts)]
+    add[is.na(add)] <- 0L
+    pattern_counts <- pattern_counts + add
+    red <- redact_text(pt$text, terms)
     writeLines(red$text, out_md, useBytes = TRUE)
     n <- n + red$n
   }
-  utils::write.csv(data.frame(code = subs$code, file = subs$anon_name, late = subs$late,
+  # No lateness and no submission times: a grader must not be able to tell
+  # who was late.
+  utils::write.csv(data.frame(code = subs$code, file = subs$anon_name,
                               ext = tolower(tools::file_ext(subs$file)), spec = subs$spec,
                               target = subs$target),
                    file.path(anon_dir, "manifest.csv"), row.names = FALSE)
+
+  # Every extracted image is stripped of metadata and its text checked. A
+  # flagged image holds anon/ at NOT_READY until anon_images.csv, beside the
+  # key, decides it. Messages name the anon/ path and the reason only.
+  flagged <- scan_images(anon_dir, terms)
+  decided <- apply_image_decisions(anon_dir, flagged, read_image_decisions(assignment_dir))
+  if (nrow(decided$undecided)) {
+    for (i in seq_len(nrow(decided$undecided))) {
+      message("IMAGE: ", decided$undecided$image[i], " (",
+              decided$undecided$reason[i], ") needs a decision")
+    }
+    stop(nrow(decided$undecided), " image(s) need a decision before anon/ is ready. ",
+         "Open each listed image under anon/, then add a row per image to ",
+         "anon_images.csv beside the key: image,decision with keep or remove. ",
+         "Re-run anonymize().", call. = FALSE)
+  }
 
   texts <- list.files(anon_dir, "\\.(md|csv)$", recursive = TRUE, full.names = TRUE)
   left <- find_leftovers(texts, terms)
@@ -248,12 +281,41 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     stop(nrow(left), " leftover(s); anon/ is NOT ready for grading. ",
          "Add the missing form as a nickname in the key and re-run.", call. = FALSE)
   }
+  # One timestamp for everything under anon/, so file times say nothing about
+  # when each student submitted. Removing NOT_READY touches anon/ itself, so
+  # its own time is set once more afterwards.
+  epoch <- as.POSIXct("2000-01-01 00:00:00", tz = "UTC")
+  all_paths <- list.files(anon_dir, recursive = TRUE, full.names = TRUE,
+                          include.dirs = TRUE, all.files = TRUE, no.. = TRUE)
+  invisible(Sys.setFileTime(c(all_paths, anon_dir), epoch))
   unlink(file.path(anon_dir, "NOT_READY"))
+  invisible(Sys.setFileTime(anon_dir, epoch))
+
+  n_students <- length(unique(subs$code))
+  pc <- pattern_counts[pattern_counts > 0]
+  pc_text <- if (length(pc)) paste(names(pc), pc, collapse = ", ") else "none"
+  images <- list(scanned = as.integer(attr(flagged, "scanned")),
+                 stripped = as.integer(attr(flagged, "stripped")),
+                 flagged = nrow(flagged), removed = decided$removed, kept = decided$kept)
+  append_log(assignment_dir, "anonymize", c(
+    sprintf("students: %d; files: %d", n_students, nrow(subs)),
+    sprintf("name and id replacements: %d", n),
+    sprintf("home-folder paths: %d; email addresses: %d",
+            path_counts[["PATH"]], path_counts[["EMAIL"]]),
+    sprintf("fixed patterns: %s", pc_text),
+    sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept by instructor decision)",
+            images$scanned, images$stripped, images$flagged, images$removed, images$kept),
+    "leftover check: 0 leftovers",
+    "manifest: no lateness or submission times; all anon/ timestamps set to one value"))
+
   cat(sprintf("anonymize: %d students, %d files, %d replacements, 0 leftovers. anon/ is ready.\n",
-              length(unique(subs$code)), nrow(subs), n))
+              n_students, nrow(subs), n))
+  cat(sprintf("fixed patterns: %s\n", pc_text))
+  cat(sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept)\n",
+              images$scanned, images$stripped, images$flagged, images$removed, images$kept))
   version_line("anonymize")
-  invisible(list(students = length(unique(subs$code)), files = nrow(subs),
-                 replacements = n))
+  invisible(list(students = n_students, files = nrow(subs), replacements = n,
+                 patterns = pattern_counts, images = images))
 }
 
 # Identity strings that must not appear in one student's finished feedback:
@@ -476,6 +538,10 @@ relink <- function(proj, assignment, key = file.path(assignment, "anon_key.csv")
     stop("feedback.zip entries do not match the rendered feedback files exactly",
          call. = FALSE)
   }
+  append_log(assignment_dir, "relink", c(
+    sprintf("feedback files written: %d", length(finished)),
+    "cross-student check: passed",
+    "zip entries match target submission names exactly"))
 
   missing <- sort(setdiff(unique(targets$code), scores$code))
   if (length(missing)) {

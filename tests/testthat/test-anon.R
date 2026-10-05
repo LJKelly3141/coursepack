@@ -163,7 +163,7 @@ test_that("anonymize writes coded text with no identity left, and refuses to dis
   expect_false(grepl("Quill|Rivera|quillpat|1001|XQ100|pquill|example\\.invalid", all_txt,
                      ignore.case = TRUE))
   man <- utils::read.csv(file.path(an, "manifest.csv"), colClasses = "character")
-  expect_identical(man$late[man$code == "S02"], "TRUE")
+  expect_false("late" %in% names(man))   # lateness stays out of anon/
   expect_false("original" %in% names(man))
   expect_identical(res$students, 2L)
 
@@ -939,4 +939,107 @@ test_that("a session seed does not repeat the shuffle, and the caller's RNG stat
   set.seed(1); before <- .Random.seed
   quiet(anon_key(cc$proj, "gradebook.csv", "semester/State"))
   expect_identical(.Random.seed, before)
+})
+
+# ---- de-identification hardening ---------------------------------------------------
+
+# An assignment folder semester/A1 under proj with the fixture key staged as
+# its own, so S01 is Quill and S02 is Rivera.
+a1_assignment <- function(cc) {
+  a <- file.path(cc$proj, "semester", "A1"); dir.create(a, recursive = TRUE)
+  stage_key(cc$proj, "semester/A1", cc$kp)
+  a
+}
+
+test_that("anonymize stops before writing anything when tesseract is missing", {
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
+  local_mocked_bindings(tesseract_path = function() "")
+  expect_error(quiet(anonymize(cc$proj, "semester/A1", dict = NULL)), "brew install tesseract")
+  expect_false(dir.exists(file.path(a, "anon")))
+  expect_false(file.exists(file.path(a, "deidentification_log.md")))
+})
+
+test_that("the coded folder carries no lateness or timing", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("Pat Quill wrote this late.", file.path(a, "quillpat_LATE_1001_5001_x.md"))
+  writeLines("Morgan Rivera was on time.", file.path(a, "riveramorgan_1002_5002_y.md"))
+  res <- quiet(anonymize(cc$proj, "semester/A1", dict = NULL))
+  man <- utils::read.csv(file.path(a, "anon", "manifest.csv"))
+  expect_false("late" %in% names(man))
+  paths <- c(file.path(a, "anon"),
+             list.files(file.path(a, "anon"), recursive = TRUE, full.names = TRUE,
+                        include.dirs = TRUE, all.files = TRUE))
+  info <- file.info(paths)
+  expect_equal(length(unique(as.numeric(info$mtime))), 1L)
+})
+
+test_that("anonymize redacts fixed patterns and logs counts, with no names in the log", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("Reach me at 715-555-0142. Pat Quill", file.path(a, "quillpat_1001_5001_x.md"))
+  res <- quiet(anonymize(cc$proj, "semester/A1", dict = NULL))
+  txt <- readLines(file.path(a, "anon", "S01", "file1.md"))
+  expect_true(any(grepl("[PHONE]", txt, fixed = TRUE)))
+  expect_identical(res$patterns[["PHONE"]], 1L)
+  expect_identical(res$images$scanned, 0L)
+  log <- readLines(file.path(a, "deidentification_log.md"))
+  expect_true(any(grepl("^## anonymize, ", log)))
+  expect_true(any(grepl("fixed patterns: PHONE 1", log, fixed = TRUE)))
+  expect_false(any(grepl("Quill|715-555|1001|5001|quillpat|XQ1001", log, ignore.case = TRUE)))
+  expect_false(file.exists(file.path(a, "anon", "deidentification_log.md")))
+})
+
+test_that("a flagged image holds anon/ at NOT_READY until decided, then releases", {
+  skip_if_no("tesseract"); skip_if_no("pandoc")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  png_path <- file.path(cc$td, "name.png")
+  img <- magick::image_annotate(magick::image_blank(600, 120, "white"), "Pat Quill",
+                                size = 40, location = "+10+30", color = "black")
+  magick::image_write(img, png_path, format = "png")
+  mk_docx(file.path(a, "quillpat_1001_5001_Essay.docx"),
+          c("Figure below.", "", paste0("![](", png_path, ")")))
+  msgs <- character()
+  err <- withCallingHandlers(
+    errors_with(quiet(anonymize(cc$proj, "semester/A1", dict = NULL))),
+    message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  expect_true(grepl("anon_images.csv", err, fixed = TRUE))
+  expect_true(file.exists(file.path(a, "anon", "NOT_READY")))
+  expect_false(any(grepl("Quill|1001|5001|quillpat|Essay", c(err, msgs), ignore.case = TRUE)))
+  man <- utils::read.csv(file.path(a, "anon", "manifest.csv"), colClasses = "character")
+  an <- normalizePath(file.path(a, "anon"))
+  flagged_rel <- substring(normalizePath(image_files(file.path(an, man$code[1]))),
+                           nchar(an) + 2L)
+  expect_identical(length(flagged_rel), 1L)
+  expect_true(startsWith(flagged_rel, paste0(man$code[1], "/file1_media/media/")))
+  expect_true(any(grepl(flagged_rel, msgs, fixed = TRUE)))   # the message names the anon/ path
+  utils::write.csv(data.frame(image = flagged_rel, decision = "remove"),
+                   file.path(a, "anon_images.csv"), row.names = FALSE)
+  out <- capture.output(res <- anonymize(cc$proj, "semester/A1", dict = NULL))
+  expect_false(any(grepl("ignored", out)))   # the decisions file and log are not strays
+  expect_false(file.exists(file.path(a, "anon", "NOT_READY")))
+  expect_false(file.exists(file.path(a, "anon", flagged_rel)))
+  expect_identical(res$images$removed, 1L)
+  md <- readLines(file.path(a, "anon", man$code[1], "file1.md"))
+  expect_true(any(grepl("[image removed]", md, fixed = TRUE)))
+  expect_false(file.exists(file.path(a, "anon", "anon_images.csv")))
+})
+
+test_that("relink and anon_forget append to the log", {
+  skip_if_no("tesseract"); skip_if_no("zip")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
+  quiet(anonymize(cc$proj, "semester/A1", dict = NULL))
+  dir.create(file.path(a, "anon", "feedback"))
+  writeLines("Good, S01.", file.path(a, "anon", "feedback", "S01.md"))
+  utils::write.csv(data.frame(code = "S01", total = "9"), file.path(a, "anon", "scores.csv"),
+                   row.names = FALSE)
+  quiet(relink(cc$proj, "semester/A1", dict = NULL))
+  quiet(anon_forget(cc$proj, "semester/A1"))
+  log <- readLines(file.path(a, "deidentification_log.md"))
+  expect_true(any(grepl("^## anonymize, ", log)))
+  expect_true(any(grepl("^## relink, ", log)))
+  expect_true(any(grepl("^## anon_forget, ", log)))
+  expect_false(any(grepl("Quill|1001|5001|quillpat|XQ1001|essay", log, ignore.case = TRUE)))
 })
