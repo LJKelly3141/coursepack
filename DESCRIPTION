@@ -36,6 +36,6 @@ Config/testthat/edition: 3
 SystemRequirements: Node.js with npx, for the accessibility audit only. pa11y
     9.1.1 is fetched at run time by npx and is not vendored. pa11y needs a
     Chrome or Chromium binary for its headless browser. None of this is needed
-    to build a cartridge, a QTI package, or a preview. tesseract, for checking
-    text in submitted images, which anonymize() needs.
+    to build a cartridge, a QTI package, or a preview. anonymize() needs
+    tesseract, which it uses to check the text in submitted images.
 Config/roxygen2/version: 8.1.0

@@ -75,11 +75,14 @@ The coded folder shows no lateness and no submission times.
   and then run `anonymize()` again. Never open the file to look.
 - An unsupported file type stops it. Report the code and the type.
 - When it stops on images, it lists image paths: ones whose text held a name,
-  id or other identifier, and files it cannot read. The instructor opens each
+  id or other identifier, every SVG (each one always needs a decision), and
+  files it cannot read. The instructor opens each
   one, on the instructor's machine, and writes `anon_images.csv` beside the
   key with `image,decision` rows, `keep` or `remove`; then run `anonymize()`
   again. You never open the images. You may relay the list of paths. `remove`
-  deletes the image and replaces its links with `[image removed]`. A kept EMF
+  deletes the image and replaces its links with `[image removed]`, and works
+  for any image under `anon/`, listed or not. Give each image one decision; two
+  different decisions for one image stop the run. A kept EMF
   or WMF file is released unaltered, metadata included, so tell the instructor
   that when asking.
 - After the run, the instructor can read `deidentification_log.md` beside the

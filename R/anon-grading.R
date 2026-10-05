@@ -95,8 +95,8 @@ assign_files <- function(subs, key) {
 #' such as `.R`: the latest-uploaded document that is not a spec, or the
 #' latest document when every document is a spec. A student with no document
 #' at all stops the run, naming only the code. `anon_dir/manifest.csv` records
-#' `code`, `file`, `ext`, `spec` and `target`, and carries no names, ids,
-#' original filenames, lateness or submission times.
+#' `code`, `file`, `ext`, `spec` and `target`, sorted by code and file, and
+#' carries no names, ids, original filenames, lateness or submission times.
 #'
 #' Redaction runs on the text, longest term first, case-insensitive and whole
 #' word, with underscores counted as boundaries. Every name form, nickname,
@@ -134,16 +134,20 @@ assign_files <- function(subs, key) {
 #' metadata stripped, and the text tesseract reads from it is checked raw for
 #' every name form, id and login of every student, for home-folder paths,
 #' email addresses and the fixed patterns above. An SVG has its `<metadata>`
-#' and editor attributes removed and its text checked. An EMF or WMF file, any
-#' other file that cannot be read as an image, and a corrupt image is
-#' unscannable. An image with a hit, and an unscannable file, is held for your
-#' decision: the run leaves `anon_dir/NOT_READY` and lists the paths, never
-#' what was found. Open each one yourself, then write `anon_images.csv` beside
-#' the key, with the columns `image` and `decision` and one row per listed
-#' path, the decision being `keep` or `remove`, and run this again. `remove`
-#' deletes the file and replaces its markdown links with `[image removed]`. A
-#' kept EMF or WMF file, or other kept unscannable file that is not an SVG, is
-#' released unaltered, metadata included.
+#' and editor attributes removed, home-folder user names in it replaced by
+#' `USER`, and its text checked. An EMF or WMF file, any other file that cannot
+#' be read as an image, and a corrupt image is unscannable and keeps its
+#' metadata. An image with a hit, every SVG whether or not its text hits, and
+#' an unscannable file is held for your decision: the run leaves
+#' `anon_dir/NOT_READY` and lists the paths, never what was found. Open each
+#' one yourself, then write `anon_images.csv` beside the key, with the columns
+#' `image` and `decision` and one row per listed path, the decision being
+#' `keep` or `remove`, and run this again. `remove` deletes the file and
+#' replaces its markdown links with `[image removed]`, and works for any image
+#' under `anon_dir`, listed or not, such as a photo with no text. One image
+#' given both `keep` and `remove` stops the run; rows that match no image are
+#' counted in a message. A kept EMF or WMF file, or other kept unscannable file
+#' that is not an SVG, is released unaltered, metadata included.
 #'
 #' The coded folder shows nothing about timing: every file under `anon_dir` is
 #' given the same modification time, and students are processed in a shuffled
@@ -281,10 +285,12 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     n <- n + red$n
   }
   # No lateness and no submission times: a grader must not be able to tell
-  # who was late.
-  utils::write.csv(data.frame(code = subs$code, file = subs$anon_name,
-                              ext = tolower(tools::file_ext(subs$file)), spec = subs$spec,
-                              target = subs$target),
+  # who was late. Rows are sorted by code, then file position: subs is in
+  # download order, which is the alphabetical order of the students' names.
+  mo <- order(subs$code, subs$position)
+  utils::write.csv(data.frame(code = subs$code[mo], file = subs$anon_name[mo],
+                              ext = tolower(tools::file_ext(subs$file[mo])),
+                              spec = subs$spec[mo], target = subs$target[mo]),
                    file.path(anon_dir, "manifest.csv"), row.names = FALSE)
 
   # Every extracted image is stripped of metadata and its text checked. A
@@ -320,9 +326,9 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   all_paths <- list.files(anon_dir, recursive = TRUE, full.names = TRUE,
                           include.dirs = TRUE, all.files = TRUE, no.. = TRUE)
   invisible(Sys.setFileTime(c(all_paths, anon_dir), epoch))
-  unlink(file.path(anon_dir, "NOT_READY"))
-  invisible(Sys.setFileTime(anon_dir, epoch))
 
+  # The log is written while NOT_READY still stands: a failed log write leaves
+  # anon/ unreleased.
   n_students <- length(unique(subs$code))
   pc <- pattern_counts[pattern_counts > 0]
   pc_text <- if (length(pc)) paste(names(pc), pc, collapse = ", ") else "none"
@@ -339,6 +345,8 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
             images$scanned, images$stripped, images$flagged, images$removed, images$kept),
     "leftover check: 0 leftovers",
     "manifest: no lateness or submission times; all anon/ timestamps set to one value"))
+  unlink(file.path(anon_dir, "NOT_READY"))
+  invisible(Sys.setFileTime(anon_dir, epoch))
 
   cat(sprintf("anonymize: %d students, %d files, %d replacements, 0 leftovers. anon/ is ready.\n",
               n_students, nrow(subs), n))

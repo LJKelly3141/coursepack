@@ -40,7 +40,7 @@ test_that("decisions remove an image and its link, keep another, and ignore stal
                         code = "S01", reason = "name")
   dec <- data.frame(image = c("S01/file1_media/x.png", "S01/file1_media/y.png", "S09/gone.png"),
                     decision = c("remove", "keep", "remove"))
-  r <- apply_image_decisions(a, flagged, dec)
+  expect_message(r <- apply_image_decisions(a, flagged, dec), "^1 row\\(s\\)")
   expect_equal(c(r$removed, r$kept), c(1L, 1L)); expect_equal(nrow(r$undecided), 0L)
   expect_false(file.exists(file.path(m, "x.png")))
   md <- readLines(file.path(a, "S01", "file1.md"))
@@ -101,4 +101,57 @@ test_that("scan_images stops with the install hint when tesseract is missing", {
   a <- withr::local_tempdir(); m <- file.path(a, "S01", "file1_media"); dir.create(m, recursive = TRUE)
   make_png(file.path(m, "a.png"), "MSRP vs MPG")
   expect_error(scan_images(a, fake_terms()), "brew install tesseract")
+})
+
+test_that("a remove row deletes an unflagged image and counts it; keep for one is a no-op", {
+  a <- withr::local_tempdir(); m <- file.path(a, "S01", "file1_media"); dir.create(m, recursive = TRUE)
+  file.create(file.path(m, c("face.png", "plot.png")))
+  writeLines("Me: ![](file1_media/face.png) and ![](file1_media/plot.png)",
+             file.path(a, "S01", "file1.md"))
+  writeLines("x", file.path(a, "manifest.csv"))
+  flagged <- data.frame(image = character(), code = character(), reason = character())
+  dec <- data.frame(image = c("S01/file1_media/face.png", "S01/file1_media/plot.png",
+                              "S02/gone.png", "manifest.csv", "../escape.png"),
+                    decision = c("remove", "keep", "remove", "remove", "remove"))
+  expect_message(r <- apply_image_decisions(a, flagged, dec), "^3 row\\(s\\) in anon_images.csv")
+  expect_identical(c(r$removed, r$kept), c(1L, 0L))
+  expect_false(file.exists(file.path(m, "face.png")))
+  expect_true(file.exists(file.path(m, "plot.png")))
+  expect_true(file.exists(file.path(a, "manifest.csv")))   # only gated images can be removed
+  expect_identical(readLines(file.path(a, "S01", "file1.md")),
+                   "Me: [image removed] and ![](file1_media/plot.png)")
+})
+
+test_that("conflicting decisions for one image stop; identical duplicates do not", {
+  d <- withr::local_tempdir()
+  writeLines(c("image,decision", "S01/file1_media/a.png,keep", "S01/file1_media/a.png,remove"),
+             file.path(d, "anon_images.csv"))
+  err <- errors_with(read_image_decisions(d))
+  expect_true(grepl("conflicting decisions for S01/file1_media/a.png", err, fixed = TRUE))
+  writeLines(c("image,decision", "S01/file1_media/a.png,remove", "S01/file1_media/a.png,REMOVE"),
+             file.path(d, "anon_images.csv"))
+  r <- read_image_decisions(d)
+  expect_identical(r$image, "S01/file1_media/a.png"); expect_identical(r$decision, "remove")
+})
+
+test_that("anon_images.csv saved by Excel with a byte-order mark is read", {
+  d <- withr::local_tempdir(); p <- file.path(d, "anon_images.csv")
+  con <- file(p, "wb")
+  writeBin(c(as.raw(c(0xEF, 0xBB, 0xBF)),
+             charToRaw("image,decision\r\nS01/file1_media/a.png,keep\r\n")), con)
+  close(con)
+  r <- read_image_decisions(d)
+  expect_identical(r$image, "S01/file1_media/a.png"); expect_identical(r$decision, "keep")
+  writeLines(c("image,decision", "S01/file1_media/b.png,remove"), p)
+  expect_identical(read_image_decisions(d)$image, "S01/file1_media/b.png")
+})
+
+test_that("a home-folder login in a non-rendering svg attribute is redacted on strip", {
+  a <- withr::local_tempdir(); p <- file.path(a, "fig.svg")
+  writeLines(c("<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\">",
+               "<image xlink:href=\"/Users/pquill/Desktop/plot.png\"/></svg>"), p)
+  expect_true(strip_svg(p))
+  txt <- paste(readLines(p), collapse = "\n")
+  expect_false(grepl("pquill", txt, fixed = TRUE))
+  expect_true(grepl("/Users/USER/Desktop/plot.png", txt, fixed = TRUE))
 })

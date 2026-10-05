@@ -1,5 +1,6 @@
-# Images extracted from submissions. Each is stripped of metadata and read
-# with OCR; the OCR text gets the same checks as the document text. Anything
+# Images extracted from submissions. Raster images and SVGs are stripped of
+# metadata (EMF, WMF and unreadable files cannot be) and read with OCR or as
+# text; the OCR text gets the same checks as the document text. Anything
 # that hits, and anything OCR cannot read, waits for an instructor decision in
 # <assignment>/anon_images.csv (image,decision with keep|remove).
 IMAGE_EXTS <- c("png","jpg","jpeg","gif","bmp","tif","tiff","webp","emf","wmf","svg")
@@ -34,6 +35,10 @@ strip_svg <- function(path) {
   txt <- gsub("(?is)<metadata\\b.*?</metadata>", "", txt, perl = TRUE)
   txt <- gsub("(?i)\\s+(sodipodi|inkscape):[A-Za-z0-9_-]+\\s*=\\s*(\"[^\"]*\"|'[^']*')", "",
               txt, perl = TRUE)
+  # A login in a home-folder path survives in attributes that never render
+  # (xlink:href). Every SVG is held for a decision whether or not its text
+  # hits, so redacting here hides nothing from the instructor.
+  txt <- redact_paths(txt)
   writeLines(txt, path, useBytes = TRUE)
   TRUE
 }
@@ -113,27 +118,46 @@ scan_images <- function(anon_dir, terms) {
 read_image_decisions <- function(assignment_dir) {
   p <- file.path(assignment_dir, "anon_images.csv")
   if (!file.exists(p)) return(data.frame(image = character(), decision = character()))
+  # UTF-8-BOM: Excel's "CSV UTF-8" starts the file with a byte-order mark,
+  # which would otherwise become part of the first column's name.
   d <- utils::read.csv(p, colClasses = "character", na.strings = character(),
-                       strip.white = TRUE)
+                       strip.white = TRUE, fileEncoding = "UTF-8-BOM")
   if (!all(c("image", "decision") %in% names(d))) {
     stop("anon_images.csv needs the columns image,decision", call. = FALSE)
   }
   bad <- !tolower(d$decision) %in% c("keep", "remove")
   if (any(bad)) stop("anon_images.csv: decision must be keep or remove", call. = FALSE)
   d$decision <- tolower(d$decision)
-  d
+  # One image, two different decisions: refuse rather than pick one, so an
+  # appended "remove" is never overridden by an earlier "keep".
+  u <- unique(d[, c("image", "decision")])
+  dup <- unique(u$image[duplicated(u$image)])
+  if (length(dup)) {
+    stop("anon_images.csv gives conflicting decisions for ",
+         paste(dup, collapse = ", "), "; keep one row per image", call. = FALSE)
+  }
+  d[!duplicated(d$image), c("image", "decision"), drop = FALSE]
 }
 
+# A remove row deletes any gated image under anon_dir, flagged or not (a photo
+# with no text is never flagged, but the instructor may still want it out). A
+# keep row matters only for a flagged image. Only paths image_files() lists can
+# be removed, so a row such as "../anon_key.csv" or "manifest.csv" deletes
+# nothing. Rows naming no such file are counted, never named.
 apply_image_decisions <- function(anon_dir, flagged, decisions) {
   m <- match(flagged$image, decisions$image)
   undecided <- flagged[is.na(m), , drop = FALSE]
-  dec <- decisions$decision[m]
-  removed <- 0L; kept <- 0L
-  for (i in which(!is.na(m))) {
-    if (dec[i] == "keep") { kept <- kept + 1L; next }
-    rel <- flagged$image[i]
+  kept <- sum(decisions$decision[m[!is.na(m)]] == "keep")
+  present <- substring(image_files(anon_dir), nchar(anon_dir) + 2L)
+  exists <- decisions$image %in% present
+  stale <- sum(!exists)
+  if (stale > 0) {
+    message(stale, " row(s) in anon_images.csv match no file under anon/ and were ignored")
+  }
+  removed <- 0L
+  for (rel in decisions$image[decisions$decision == "remove" & exists]) {
     unlink(file.path(anon_dir, rel))
-    code <- flagged$code[i]
+    code <- strsplit(rel, "/", fixed = TRUE)[[1]][1]
     inside <- sub(paste0("^", rx_escape(code), "/"), "", rel)
     link <- paste0("!\\[[^\\]]*\\]\\(", rx_escape(inside), "\\)(\\{[^}]*\\})?")
     for (md in list.files(file.path(anon_dir, code), "\\.md$", full.names = TRUE)) {
@@ -142,5 +166,5 @@ apply_image_decisions <- function(anon_dir, flagged, decisions) {
     }
     removed <- removed + 1L
   }
-  list(removed = removed, kept = kept, undecided = undecided)
+  list(removed = removed, kept = as.integer(kept), undecided = undecided)
 }

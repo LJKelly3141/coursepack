@@ -64,8 +64,8 @@ word in its original name. Exactly one file per student is the target that
 such as \code{.R}: the latest-uploaded document that is not a spec, or the
 latest document when every document is a spec. A student with no document
 at all stops the run, naming only the code. \code{anon_dir/manifest.csv} records
-\code{code}, \code{file}, \code{ext}, \code{spec} and \code{target}, and carries no names, ids,
-original filenames, lateness or submission times.
+\code{code}, \code{file}, \code{ext}, \code{spec} and \code{target}, sorted by code and file, and
+carries no names, ids, original filenames, lateness or submission times.
 
 Redaction runs on the text, longest term first, case-insensitive and whole
 word, with underscores counted as boundaries. Every name form, nickname,
@@ -103,16 +103,20 @@ anything is written. A raster image has its orientation applied and its
 metadata stripped, and the text tesseract reads from it is checked raw for
 every name form, id and login of every student, for home-folder paths,
 email addresses and the fixed patterns above. An SVG has its \verb{<metadata>}
-and editor attributes removed and its text checked. An EMF or WMF file, any
-other file that cannot be read as an image, and a corrupt image is
-unscannable. An image with a hit, and an unscannable file, is held for your
-decision: the run leaves \code{anon_dir/NOT_READY} and lists the paths, never
-what was found. Open each one yourself, then write \code{anon_images.csv} beside
-the key, with the columns \code{image} and \code{decision} and one row per listed
-path, the decision being \code{keep} or \code{remove}, and run this again. \code{remove}
-deletes the file and replaces its markdown links with \verb{[image removed]}. A
-kept EMF or WMF file, or other kept unscannable file that is not an SVG, is
-released unaltered, metadata included.
+and editor attributes removed, home-folder user names in it replaced by
+\code{USER}, and its text checked. An EMF or WMF file, any other file that cannot
+be read as an image, and a corrupt image is unscannable and keeps its
+metadata. An image with a hit, every SVG whether or not its text hits, and
+an unscannable file is held for your decision: the run leaves
+\code{anon_dir/NOT_READY} and lists the paths, never what was found. Open each
+one yourself, then write \code{anon_images.csv} beside the key, with the columns
+\code{image} and \code{decision} and one row per listed path, the decision being
+\code{keep} or \code{remove}, and run this again. \code{remove} deletes the file and
+replaces its markdown links with \verb{[image removed]}, and works for any image
+under \code{anon_dir}, listed or not, such as a photo with no text. One image
+given both \code{keep} and \code{remove} stops the run; rows that match no image are
+counted in a message. A kept EMF or WMF file, or other kept unscannable file
+that is not an SVG, is released unaltered, metadata included.
 
 The coded folder shows nothing about timing: every file under \code{anon_dir} is
 given the same modification time, and students are processed in a shuffled

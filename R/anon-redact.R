@@ -62,7 +62,11 @@ STREET_TYPES <- c("Street","St","Avenue","Ave","Road","Rd","Drive","Dr","Lane",
 # so the label is captured and written back as \\1\\2.
 PII_PATTERNS <- list(
   SSN   = list(p = "(?<![0-9-])[0-9]{3}-[0-9]{2}-[0-9]{4}(?![0-9-])", r = "[SSN]"),
-  PHONE = list(p = "(?<![0-9.\\-])(?:\\+?1[ .\\-]?)?(?:\\([0-9]{3}\\)\\s?|[0-9]{3}[ .\\-])[0-9]{3}[ .\\-][0-9]{4}(?![0-9\\-]|\\.[0-9])",
+  # A bare space never separates the unparenthesized form, and both of its
+  # separators must be the same: "105 230 1450" in R output is not a phone.
+  PHONE = list(p = paste0("(?<![0-9.\\-])(?:\\+?1[ .\\-]?)?",
+                          "(?:\\([0-9]{3}\\)\\s?[0-9]{3}[ .\\-]|[0-9]{3}([.\\-])[0-9]{3}\\1)",
+                          "[0-9]{4}(?![0-9\\-]|\\.[0-9])"),
                r = "[PHONE]"),
   DOB   = list(p = paste0("(?i)\\b(born(?: on)?|dob|d\\.o\\.b\\.|date of birth|birthday)([:\\s]{1,3})",
                           "(?:[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}|[0-9]{4}-[0-9]{2}-[0-9]{2}|",
@@ -73,7 +77,12 @@ PII_PATTERNS <- list(
                             "facebook\\.com|tiktok\\.com/@?|youtube\\.com/(?:@|c/|channel/|user/))",
                             "/?[A-Za-z0-9_.\\-]+/?"),
                  r = "[PROFILE]"),
-  HANDLE = list(p = "(?<![A-Za-z0-9_@.)\\]])@[A-Za-z0-9_]{2,30}\\b", r = "[HANDLE]"),
+  # Not a handle: an email or slot (word character, "@" or "." before it), a
+  # citation ("[@smith2020; @lee2019]") or a Quarto cross-reference
+  # ("@fig-scatter", a "-" after it). Roxygen lines are skipped in
+  # redact_patterns().
+  HANDLE = list(p = "(?<![A-Za-z0-9_@.)\\]\\[;])(?<!;\\s)@[A-Za-z0-9_]{2,30}\\b(?!-)",
+                r = "[HANDLE]"),
   ADDRESS = list(p = paste0("\\b[0-9]{1,6}\\s+(?:[NSEW]\\.?\\s+)?",
                             "(?:(?!(?:", paste(STREET_TYPES, collapse = "|"), ")\\b)[A-Z][a-z]+\\s+){1,3}",
                             "(?:", paste(STREET_TYPES, collapse = "|"), ")\\b\\.?"),
@@ -84,9 +93,11 @@ redact_patterns <- function(text) {
   counts <- integer(0)
   for (type in names(PII_PATTERNS)) {
     p <- PII_PATTERNS[[type]]$p
-    hits <- gregexpr(p, text, perl = TRUE)
+    # "#' @param" in an R script is roxygen, not a handle.
+    idx <- if (type == "HANDLE") !grepl("^\\s*#'", text) else rep(TRUE, length(text))
+    hits <- gregexpr(p, text[idx], perl = TRUE)
     counts[type] <- sum(vapply(hits, function(h) sum(h > 0, na.rm = TRUE), integer(1)))
-    text <- gsub(p, PII_PATTERNS[[type]]$r, text, perl = TRUE)
+    text[idx] <- gsub(p, PII_PATTERNS[[type]]$r, text[idx], perl = TRUE)
   }
   list(text = text, counts = counts)
 }

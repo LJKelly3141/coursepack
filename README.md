@@ -158,12 +158,16 @@ The workflow runs in that order:
    stays until the check passes. It also replaces phone numbers, Social
    Security numbers, birth dates, street addresses, profile URLs and @handles,
    and reads the text in every image with tesseract, which must be installed;
-   without it the run stops before writing anything. Every image is stripped of
-   its metadata. An image whose text holds a name, id, login, path, email or
-   fixed pattern, and a file that cannot be read, such as an EMF or WMF, is held
-   for you: open each one yourself, then list it in `anon_images.csv` beside the
-   key as `image,decision` with `keep` or `remove`, and run again. A kept EMF or
-   WMF is released unaltered, metadata included. The coded folder shows no
+   without it the run stops before writing anything. A raster image (PNG,
+   JPEG, GIF, BMP, TIFF, WebP) is stripped of its metadata, and an SVG loses its
+   `<metadata>` block and editor attributes; an EMF, a WMF and any file that
+   cannot be read keep theirs. An image whose text holds a name, id, login,
+   path, email or fixed pattern, every SVG, and a file that cannot be read, such
+   as an EMF or WMF, is held for you: open each one yourself, then list it in
+   `anon_images.csv` beside the key as `image,decision` with `keep` or
+   `remove`, and run again. A `remove` row also takes out an image that was not
+   held, such as a photo with no text, and one image given both decisions stops
+   the run. A kept EMF or WMF is released unaltered, metadata included. The coded folder shows no
    lateness or submission times. Each run adds counts to
    `deidentification_log.md` beside the key, the record that submissions were
    de-identified; keep it with the course records, because `anon_forget()` does

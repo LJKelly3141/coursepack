@@ -22,8 +22,32 @@ test_that("statistical output and code are left alone", {
             "Canvas id 10970338 and 114224481 in a table.",
             "Estimate -63.2274 SE 107.0997 t -0.590 p 0.5581",
             "Dates 2026-09-30 and 09/30/2026 with no birth context.",
-            "Route 66 Road Trip is a phrase.")
+            "Route 66 Road Trip is a phrase.",
+            "obs 105 230 1450 rows",
+            "[1] 512 384 2048",
+            "  625 480 1200",
+            "Residuals 100 120 1300",
+            "breaks 500 750 1000",
+            "See @fig-scatter and @tbl-summary, as [@smith2020; @lee2019] show.",
+            "In @sec-intro and @eq-ols we cite [@smith2020].",
+            "#' @param x a vector",
+            "#' @return the fit",
+            "  #' @export")
   expect_identical(redact_patterns(keep)$text, keep)
+})
+
+test_that("phone forms with a parenthesis, one repeated separator or +1 are redacted", {
+  x <- c("(715) 555-0142", "(715)555-0142", "715-555-0142", "715.555.0142",
+         "+1 715-555-0142", "+1 (715) 555-0142", "715-555.0142", "715 555 0142")
+  r <- redact_patterns(x)
+  expect_identical(r$text, c(rep("[PHONE]", 6), "715-555.0142", "715 555 0142"))
+  expect_identical(r$counts[["PHONE"]], 6L)
+})
+
+test_that("a handle is still a handle outside roxygen lines", {
+  r <- redact_patterns(c("Follow @patq_22 for updates.", "#' @param x", "ping @patq_22, thanks"))
+  expect_identical(r$text, c("Follow [HANDLE] for updates.", "#' @param x", "ping [HANDLE], thanks"))
+  expect_identical(r$counts[["HANDLE"]], 2L)
 })
 
 test_that("redact_paths counts only when asked and keeps its replacements", {

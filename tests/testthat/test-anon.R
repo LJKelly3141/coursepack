@@ -1045,3 +1045,30 @@ test_that("relink and anon_forget append to the log", {
   expect_true(any(grepl("^## anon_forget, ", log)))
   expect_false(any(grepl("Quill|1001|5001|quillpat|XQ1001|essay", log, ignore.case = TRUE)))
 })
+
+test_that("the manifest is sorted by code and file, never in download order", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  # Codes that sort differently from the surnames: Quill S03, Rivera S01, Stone S02.
+  kp <- file.path(a, "anon_key.csv"); k <- read_key(kp)
+  k$code <- c(S01 = "S03", S02 = "S01", S03 = "S02")[k$code]
+  utils::write.csv(k, kp, row.names = FALSE)
+  writeLines("one", file.path(a, "quillpat_1001_5001_x.md"))
+  writeLines("two", file.path(a, "quillpat_1001_5004_y.md"))
+  writeLines("three", file.path(a, "riveramorgan_1002_5002_x.md"))
+  writeLines("four", file.path(a, "stonepat_1003_5003_x.md"))
+  quiet(anonymize(cc$proj, "semester/A1", dict = NULL))
+  man <- utils::read.csv(file.path(a, "anon", "manifest.csv"), colClasses = "character")
+  expect_identical(man$code, sort(man$code))
+  expect_identical(man$code, c("S01", "S02", "S03", "S03"))
+  expect_identical(man$file, c("file1", "file1", "file1", "file2"))
+})
+
+test_that("a log write failure leaves anon/ at NOT_READY", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
+  local_mocked_bindings(append_log = function(...) stop("disk full", call. = FALSE))
+  expect_error(quiet(anonymize(cc$proj, "semester/A1", dict = NULL)), "disk full")
+  expect_true(file.exists(file.path(a, "anon", "NOT_READY")))
+})
