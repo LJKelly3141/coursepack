@@ -1123,3 +1123,30 @@ test_that("a bad anon_keep.txt stops the run before anything is written", {
   expect_false(dir.exists(file.path(a, "anon")))
   expect_false(file.exists(file.path(a, "deidentification_log.md")))
 })
+
+test_that("a protected phrase split across two lines of a hard-wrapped file survives whole", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("Morgan J. Ellery", file.path(cc$proj, "anon_keep.txt"))
+  writeLines(c("Pat Quill, written for Dr. Morgan J.", "Ellery. Thanks Morgan", "", "for the data."),
+             file.path(a, "quillpat_1001_5001_x.md"))
+  res <- quiet(anonymize(cc$proj, "semester/A1", dict = NULL))
+  s1 <- readLines(file.path(a, "anon", "S01", "file1.md"))
+  expect_identical(s1, c("[name], written for Dr. Morgan J.", "Ellery. Thanks [name]", "",
+                         "for the data."))
+  expect_equal(res$protected, 1L)
+  expect_equal(res$replacements, 2L)
+})
+
+test_that("an anon_keep.txt phrase holding a student's full name stops with nothing written", {
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines(c("# staff", "Morgan J. Ellery", "TA Morgan Rivera"),
+             file.path(cc$proj, "anon_keep.txt"))
+  writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
+  local_mocked_bindings(tesseract_path = function() "/usr/bin/tesseract")
+  msg <- errors_with(quiet(anonymize(cc$proj, "semester/A1", dict = NULL)))
+  expect_match(msg, "anon_keep.txt line 3 contains a student's name or id")
+  expect_false(grepl("Morgan|Rivera", msg))
+  expect_false(dir.exists(file.path(a, "anon")))
+  expect_false(file.exists(file.path(a, "deidentification_log.md")))
+})

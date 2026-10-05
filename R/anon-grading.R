@@ -242,6 +242,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   # anon_keep.txt is read here for the same reason: a bad line stops the run
   # before anything is written. Its error names the line number only.
   keep <- read_keep_phrases(proj)
+  check_keep_phrases(keep, key)
 
   # From here on a stop anywhere must not leave an old anon/ looking ready.
   if (dir.exists(anon_dir)) {
@@ -286,11 +287,10 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     pattern_counts <- pattern_counts + add
     # Protected phrases are masked for the name redaction only; paths, emails
     # and fixed patterns above saw the full text.
-    mk <- mask_keep(pt$text, keep)
-    red <- redact_text(mk$text, terms)
-    writeLines(unmask_keep(red$text, mk), out_md, useBytes = TRUE)
+    red <- redact_lines(pt$text, terms, keep)
+    writeLines(red$text, out_md, useBytes = TRUE)
     n <- n + red$n
-    kept <- kept + mk$n
+    kept <- kept + red$kept
   }
   # No lateness and no submission times: a grader must not be able to tell
   # who was late. Rows are sorted by code, then file position: subs is in

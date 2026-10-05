@@ -12,14 +12,15 @@
 keep_path <- function(proj) file.path(proj, "anon_keep.txt")
 
 # An error names the line number only, never the line's text: the line may be
-# a name.
+# a name. The result carries each phrase's line number in attr "line", for
+# check_keep_phrases().
 read_keep_phrases <- function(proj) {
   p <- keep_path(proj)
   if (!file.exists(p)) return(character())
   lines <- readLines(p, warn = FALSE, encoding = "UTF-8")
-  if (length(lines)) lines[1] <- sub("^﻿", "", lines[1])
+  if (length(lines)) lines[1] <- sub("^\ufeff", "", lines[1])
   lines <- trimws(lines)
-  out <- character()
+  out <- character(); at <- integer()
   for (i in seq_along(lines)) {
     l <- lines[i]
     if (!nzchar(l) || startsWith(l, "#")) next
@@ -28,15 +29,40 @@ read_keep_phrases <- function(proj) {
                           "two words; a single name is never protected. Fix the line ",
                           "and re-run."), i), call. = FALSE)
     }
-    out <- c(out, l)
+    if (l %in% out) next
+    out <- c(out, l); at <- c(at, i)
   }
-  unique(out)
+  structure(out, line = at)
+}
+
+# A phrase holding a student's multi-word name form (the same filter as
+# foreign_terms()), login or Canvas id would exempt that student from
+# redaction and blind the leftover check. Refused by line number only. A single
+# first or last name is allowed: the instructor may share it with a student,
+# and that student's standalone name is still redacted.
+check_keep_phrases <- function(keep, key) {
+  if (!length(keep)) return(invisible(TRUE))
+  forms <- unlist(lapply(c(key$name_forms, key$nicknames), split_list))
+  forms <- forms[grepl("[ ,]", forms)]
+  bad <- c(forms, key$login, key$canvas_id)
+  bad <- unique(gsub("\\s+", " ", trimws(bad[!is.na(bad) & nchar(trimws(bad)) >= 2])))
+  lines <- attr(keep, "line")
+  if (is.null(lines)) lines <- seq_along(keep)
+  for (i in seq_along(keep)) {
+    ph <- gsub("\\s+", " ", keep[i])
+    for (b in bad) {
+      if (grepl(word_rx(b), ph, perl = TRUE, ignore.case = TRUE)) {
+        stop(sprintf("anon_keep.txt line %d contains a student's name or id; remove it",
+                     lines[i]), call. = FALSE)
+      }
+    }
+  }
+  invisible(TRUE)
 }
 
 # Any whitespace run in the text matches a space in the phrase (a double
-# space, a tab, a line break inside one text element). A phrase split across
-# two lines of a file is not masked and its names are redacted, the safe side.
-# Boundaries follow word_rx(): letters, or letters and digits when the
+# space, a tab, a line break; redact_lines() joins a file's lines so a phrase
+# split across two lines still matches). Boundaries follow word_rx(): letters, or letters and digits when the
 # phrase holds a digit.
 keep_rx <- function(phrase) {
   words <- strsplit(trimws(phrase), "\\s+", perl = TRUE)[[1]]
@@ -103,6 +129,18 @@ unmask_keep <- function(text, masked_from) {
     }, character(1), USE.NAMES = FALSE)
   })
   text
+}
+
+# Name redaction over one file's lines. The lines are joined with "\n" so a
+# protected phrase split across two lines is masked whole, then split back:
+# the file keeps its line structure exactly. No key term holds a line break,
+# so the redaction count is the same as line by line.
+redact_lines <- function(lines, terms, keep) {
+  if (!length(lines)) return(list(text = lines, n = 0L, kept = 0L))
+  mk <- mask_keep(paste(lines, collapse = "\n"), keep)
+  red <- redact_text(mk$text, terms)
+  out <- strsplit(paste0(unmask_keep(red$text, mk), "\n"), "\n", fixed = TRUE)[[1]]
+  list(text = out, n = red$n, kept = mk$n)
 }
 
 # For checks only: each protected occurrence becomes one space, so the name
