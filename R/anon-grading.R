@@ -259,7 +259,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   # anon_keep.txt is read here for the same reason: a bad line stops the run
   # before anything is written. Its error names the line number only.
   keep <- read_keep_phrases(proj)
-  check_keep_phrases(keep, key)
+  check_keep_phrases(keep, key, dict_path = dict_path)
 
   # From here on a stop anywhere must not leave an old anon/ looking ready.
   if (dir.exists(anon_dir)) {

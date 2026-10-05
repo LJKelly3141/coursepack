@@ -24,7 +24,7 @@ read_keep_phrases <- function(proj) {
   for (i in seq_along(lines)) {
     l <- lines[i]
     if (!nzchar(l) || startsWith(l, "#")) next
-    if (!grepl("\\s", l)) {
+    if (!grepl("[^\\s\\x{00A0}][\\s\\x{00A0}]+[^\\s\\x{00A0}]", l, perl = TRUE)) {
       stop(sprintf(paste0("anon_keep.txt line %d: a protected phrase needs at least ",
                           "two words; a single name is never protected. Fix the line ",
                           "and re-run."), i), call. = FALSE)
@@ -35,23 +35,54 @@ read_keep_phrases <- function(proj) {
   structure(out, line = at)
 }
 
-# A phrase holding a student's multi-word name form (the same filter as
-# foreign_terms()), login or Canvas id would exempt that student from
-# redaction and blind the leftover check. Refused by line number only. A single
-# first or last name is allowed: the instructor may share it with a student,
-# and that student's standalone name is still redacted.
-check_keep_phrases <- function(keep, key) {
+# A phrase holding any of a student's key terms (key_terms(): every name form,
+# re-derived, joined and initial forms, nicknames, file prefix, login, Canvas
+# id) would exempt that student from redaction and blind the leftover check.
+# Refused by line number only. One exception: a single bare word equal to a
+# student's first or last name, so an instructor who shares a first or last
+# name with a student can still protect their own multi-word name; that
+# student's standalone name is still redacted. The name in either order, with
+# or without a comma or space, and the first initial with the surname
+# ("M. Rivera", "Rivera, M.") are refused too.
+check_keep_phrases <- function(keep, key, dict_path = NULL) {
   if (!length(keep)) return(invisible(TRUE))
-  forms <- unlist(lapply(c(key$name_forms, key$nicknames), split_list))
-  forms <- forms[grepl("[ ,]", forms)]
-  bad <- c(forms, key$login, key$canvas_id)
-  bad <- unique(gsub("\\s+", " ", trimws(bad[!is.na(bad) & nchar(trimws(bad)) >= 2])))
+  sp <- function(x) gsub("[\\s\\x{00A0}]+", " ", trimws(x), perl = TRUE)
+  terms <- if (nrow(key)) key_terms(key, dict_path = dict_path)$term else character()
+  bare <- character()
+  rxs <- character()
+  parts_rx <- function(x) {
+    paste(rx_escape(strsplit(x, "[ -]+", perl = TRUE)[[1]]), collapse = "[ -]?")
+  }
+  for (i in seq_len(nrow(key))) {
+    for (x in grep(",", split_list(key$name_forms[i]), fixed = TRUE, value = TRUE)) {
+      p <- trimws(strsplit(x, ",", fixed = TRUE)[[1]])
+      if (length(p) != 2 || !all(nzchar(p))) next
+      pairs <- list(p)
+      s <- strip_accents(p)
+      if (length(s) == 2) pairs <- c(pairs, list(s))
+      for (pr in pairs) {
+        last <- pr[1]; first <- pr[2]
+        bare <- c(bare, first, last, unlist(strsplit(c(first, last), "[ -]+", perl = TRUE)))
+        ini <- substr(gsub("[^\\p{L}]", "", first, perl = TRUE), 1, 1)
+        f <- parts_rx(first); l <- parts_rx(last)
+        body <- c(paste0(f, "[ ,]*", l), paste0(l, "[ ,]*", f))
+        if (nzchar(ini)) {
+          body <- c(body, paste0(rx_escape(ini), "\\.? ?", l),
+                    paste0(l, ",? ?", rx_escape(ini), "\\.?"))
+        }
+        rxs <- c(rxs, paste0("(?<![A-Za-z])(?:", body, ")(?![A-Za-z])"))
+      }
+    }
+  }
+  bare <- unique(tolower(bare))
+  single <- grepl("^[\\p{L}'-]+$", terms, perl = TRUE) & tolower(terms) %in% bare
+  rxs <- unique(c(rxs, vapply(sp(terms[!single]), word_rx, character(1), USE.NAMES = FALSE)))
   lines <- attr(keep, "line")
   if (is.null(lines)) lines <- seq_along(keep)
   for (i in seq_along(keep)) {
-    ph <- gsub("\\s+", " ", keep[i])
-    for (b in bad) {
-      if (grepl(word_rx(b), ph, perl = TRUE, ignore.case = TRUE)) {
+    ph <- sp(keep[i])
+    for (r in rxs) {
+      if (grepl(r, ph, perl = TRUE, ignore.case = TRUE)) {
         stop(sprintf("anon_keep.txt line %d contains a student's name or id; remove it",
                      lines[i]), call. = FALSE)
       }
@@ -61,12 +92,15 @@ check_keep_phrases <- function(keep, key) {
 }
 
 # Any whitespace run in the text matches a space in the phrase (a double
-# space, a tab, a line break; redact_lines() joins a file's lines so a phrase
-# split across two lines still matches). Boundaries follow word_rx(): letters, or letters and digits when the
-# phrase holds a digit.
+# space, a tab, a line break, a non-breaking space as Word puts in headings;
+# redact_lines() joins a file's lines so a phrase split across two lines still
+# matches). Boundaries follow word_rx(): letters, or letters and digits when
+# the phrase holds a digit.
+KEEP_SPACE_RX <- "[\\s\\x{00A0}]+"
 keep_rx <- function(phrase) {
-  words <- strsplit(trimws(phrase), "\\s+", perl = TRUE)[[1]]
-  body <- paste(rx_escape(words), collapse = "\\s+")
+  words <- strsplit(trimws(phrase), KEEP_SPACE_RX, perl = TRUE)[[1]]
+  words <- words[nzchar(words)]
+  body <- paste(rx_escape(words), collapse = KEEP_SPACE_RX)
   b <- if (grepl("[0-9]", phrase)) "A-Za-z0-9" else "A-Za-z"
   paste0("(?<![", b, "])", body, "(?![", b, "])")
 }
@@ -132,22 +166,31 @@ unmask_keep <- function(text, masked_from) {
 }
 
 # Name redaction over one file's lines. The lines are joined with "\n" so a
-# protected phrase split across two lines is masked whole, then split back:
-# the file keeps its line structure exactly. No key term holds a line break,
-# so the redaction count is the same as line by line.
+# protected phrase split across two lines is masked whole, then split back
+# into lines for redaction and unmasking (a mask never holds a line break;
+# a line vector is far faster than one long string with many hits), then
+# joined and split again: the file keeps its line structure exactly. No key
+# term holds a line break, so the redaction count is the same as line by
+# line. Any \u0002 already in the text is dropped first, so no sequence in a
+# submission can pass for a mask.
+split_lines <- function(x) strsplit(paste0(x, "\n"), "\n", fixed = TRUE)[[1]]
 redact_lines <- function(lines, terms, keep) {
   if (!length(lines)) return(list(text = lines, n = 0L, kept = 0L))
+  lines <- gsub("\u0002", "", lines, fixed = TRUE)
   mk <- mask_keep(paste(lines, collapse = "\n"), keep)
-  red <- redact_text(mk$text, terms)
-  out <- strsplit(paste0(unmask_keep(red$text, mk), "\n"), "\n", fixed = TRUE)[[1]]
+  red <- redact_text(split_lines(mk$text), terms)
+  # Unmasked line by line too (a phrase restored across a line break joins
+  # back through the paste below).
+  out <- split_lines(paste(unmask_keep(red$text, mk), collapse = "\n"))
   list(text = out, n = red$n, kept = mk$n)
 }
 
-# For checks only: each protected occurrence becomes one space, so the name
-# check never sees it and the words around it stay apart.
+# For checks only: each protected occurrence becomes \u0003, so the name
+# check never sees it, the words around it stay apart, and two phrases can
+# never join through it into a new match.
 drop_keep <- function(text, keep) {
   for (ph in ordered_keep(keep)) {
-    text <- gsub(keep_rx(ph), " ", text, perl = TRUE, ignore.case = TRUE)
+    text <- gsub(keep_rx(ph), "\u0003", text, perl = TRUE, ignore.case = TRUE)
   }
   text
 }

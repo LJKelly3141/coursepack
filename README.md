@@ -161,7 +161,8 @@ The workflow runs in that order:
    line is refused, and so is a phrase holding a student's name or id. List
    exact phrases, because "Dr. Thorn" counts as two words and is kept
    wherever it is written. The same name standing alone is still redacted. The
-   log counts the protected phrases kept, never the phrase. It refuses to release the folder until nothing is: `anon/NOT_READY`
+   log counts the protected phrases kept, never the phrase. `anonymize()`
+   refuses to release the folder until nothing is left: `anon/NOT_READY`
    stays until the check passes. It also replaces phone numbers, Social
    Security numbers, birth dates, street addresses, profile URLs and @handles,
    and reads the text in every image with tesseract, which must be installed;

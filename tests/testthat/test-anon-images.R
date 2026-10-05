@@ -168,3 +168,18 @@ test_that("an image showing only a protected phrase is not flagged; a name besid
   f0 <- scan_images(a, terms)
   expect_setequal(f0$image, c("S01/file1_media/title.png", "S01/file1_media/note.png"))
 })
+
+test_that("a remove decision deletes the link when the alt text holds a token", {
+  a <- withr::local_tempdir(); m <- file.path(a, "S01", "file1_media"); dir.create(m, recursive = TRUE)
+  file.create(file.path(m, c("x.png", "y.png")))
+  writeLines(c("![Figure 1: chart by [name]](file1_media/x.png){width=\"3in\"} here.",
+               "Call [PHONE] ![by [name] at [PHONE]](file1_media/y.png) and [name]."),
+             file.path(a, "S01", "file1.md"))
+  flagged <- data.frame(image = c("S01/file1_media/x.png", "S01/file1_media/y.png"),
+                        code = "S01", reason = "name")
+  dec <- data.frame(image = flagged$image, decision = "remove")
+  r <- apply_image_decisions(a, flagged, dec)
+  expect_equal(r$removed, 2L)
+  md <- readLines(file.path(a, "S01", "file1.md"))
+  expect_identical(md, c("[image removed] here.", "Call [PHONE] [image removed] and [name]."))
+})

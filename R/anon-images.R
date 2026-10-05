@@ -163,7 +163,10 @@ apply_image_decisions <- function(anon_dir, flagged, decisions) {
     unlink(file.path(anon_dir, rel))
     code <- strsplit(rel, "/", fixed = TRUE)[[1]][1]
     inside <- sub(paste0("^", rx_escape(code), "/"), "", rel)
-    link <- paste0("!\\[[^\\]]*\\]\\(", rx_escape(inside), "\\)(\\{[^}]*\\})?")
+    # Alt text may hold bracketed tokens ("chart by [name]", "[PHONE]"), so a
+    # balanced [...] inside it is allowed.
+    link <- paste0("!\\[(?:\\[[^\\]]*\\]|[^\\]])*\\]\\(", rx_escape(inside),
+                   "\\)(\\{[^}]*\\})?")
     for (md in list.files(file.path(anon_dir, code), "\\.md$", full.names = TRUE)) {
       txt <- readLines(md, warn = FALSE, encoding = "UTF-8")
       writeLines(gsub(link, "[image removed]", txt, perl = TRUE), md, useBytes = TRUE)

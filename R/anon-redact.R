@@ -137,6 +137,9 @@ find_leftovers <- function(files, terms, keep = character()) {
   for (f in files) {
     txt <- paste(readLines(f, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
     txt <- drop_keep(txt, keep)
+    # The token itself is not a leftover: a student whose form is literally
+    # "name" would otherwise trip on every [name].
+    txt <- gsub(NAME_TOKEN, "[\u0003]", txt, fixed = TRUE)
     for (i in seq_len(nrow(terms))) {
       if (grepl(word_rx(terms$term[i]), txt, perl = TRUE, ignore.case = TRUE)) {
         out <- rbind(out, data.frame(file = f, code = terms$code[i],
