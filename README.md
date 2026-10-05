@@ -153,8 +153,15 @@ The workflow runs in that order:
    and `nicknames =` copies its entries into the key.
 2. `anonymize()` converts one assignment's Canvas downloads to plain text,
    replaces every name form, nickname, file prefix, login and Canvas id of every
-   student with that student's code, and then checks its own output for anything
-   left. It refuses to release the folder until nothing is: `anon/NOT_READY`
+   student with the neutral token `[name]`, whichever student it belongs to, so
+   no code appears in the text and the grader never learns whose name was
+   redacted, and then checks its own output for anything left. Whole phrases of
+   two or more words listed in `anon_keep.txt` at the course root, such as an
+   instructor's name in a heading ("Dr. Avery Thorn"), are kept; a one-word
+   line is refused, and so is a phrase holding a student's name or id. List
+   exact phrases, because "Dr. Thorn" counts as two words and is kept
+   wherever it is written. The same name standing alone is still redacted. The
+   log counts the protected phrases kept, never the phrase. It refuses to release the folder until nothing is: `anon/NOT_READY`
    stays until the check passes. It also replaces phone numbers, Social
    Security numbers, birth dates, street addresses, profile URLs and @handles,
    and reads the text in every image with tesseract, which must be installed;

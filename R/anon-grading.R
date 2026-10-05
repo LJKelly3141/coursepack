@@ -102,8 +102,25 @@ assign_files <- function(subs, key) {
 #' word, with underscores counted as boundaries. Every name form, nickname,
 #' file prefix, login and Canvas id of every student in the key becomes the
 #' neutral token `[name]`, so a classmate named in a paper is redacted too and
-#' no code appears in the text. Home-folder
-#' user names in file paths become `USER` and email addresses become `EMAIL`.
+#' no code appears in the text and the grader never learns whose name was
+#' redacted. Home-folder user names in file paths become `USER` and email
+#' addresses become `EMAIL`.
+#'
+#' To keep an instructor's or a TA's name readable, list the whole phrase in
+#' `anon_keep.txt` at the course root (`proj`), one phrase per line; blank
+#' lines and lines starting with `#` are ignored, and the file is read
+#' automatically when present. Each phrase must have two or more words, so a
+#' one-word line stops the run, naming only its line number, and a single name
+#' is never protected: a student who shares the instructor's first name is
+#' still redacted. A phrase that contains a student's full name form, a
+#' nickname of two or more words, a login or a Canvas id also stops the run,
+#' naming only the line number. A protected phrase stays whole in the text,
+#' also when a line break splits it, does not flag an image and is not a
+#' leftover, while the same name standing alone is still redacted to `[name]`.
+#' "Dr. Thorn" counts as two words, so "Dr. Thorn" would be kept wherever it is
+#' written: list exact phrases such as "Avery J. Thorn" or "Dr. Avery Thorn".
+#' The log and the console report how many protected-phrase occurrences were
+#' kept, never the phrase.
 #'
 #' Then the leftover check reads every `.md` and `.csv` under `anon_dir` for
 #' every key value: once mirroring the redactor, and once as a bare substring
@@ -171,8 +188,8 @@ assign_files <- function(subs, key) {
 #'   redacted. `NULL` keeps every form. The default is [default_dict()], the
 #'   system word list where one exists.
 #' @return A list with `students`, `files`, `replacements`, `patterns` (the
-#'   fixed-pattern replacements made) and `images` (the images checked) counts,
-#'   invisibly. The run stops instead of returning when a leftover is found or
+#'   fixed-pattern replacements made), `images` (the images checked) and
+#'   `protected` (the protected-phrase occurrences kept) counts, invisibly. The run stops instead of returning when a leftover is found or
 #'   an image needs a decision.
 #' @seealso [anon_key()], [relink()], [anon_forget()], [canvas_grades()]
 #' @examples

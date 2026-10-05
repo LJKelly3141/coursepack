@@ -64,12 +64,26 @@ again for the assignment.
 Run it per assignment folder. It converts every file each student submitted,
 in upload order, to `anon/<code>/file1.md`, `file2.md`, with images beside
 them, and redacts every student's names, ids, logins, home-folder user names
-and emails. It also redacts phone numbers, SSNs, birth dates, street
+and emails. Every redacted name, whoever's it was, becomes the same token,
+`[name]`, so the grader never sees whose name was redacted and never sees a
+student code inside the text; codes only name folders and feedback files. It also redacts phone numbers, SSNs, birth dates, street
 addresses, profile URLs and handles, and reads the text in images. It needs
 tesseract and stops before writing anything without it (`brew install
 tesseract`). It writes `anon/NOT_READY` until its own leftover check passes.
 The coded folder shows no lateness and no submission times.
 
+- To keep an instructor's or TA's name readable (a heading such as "Dr.
+  Avery Thorn"), the instructor creates `anon_keep.txt` at the course root,
+  the `proj` folder, one phrase per line, `#` comments and blank lines
+  ignored. Each phrase must be a whole phrase of two or more words. A single
+  name is refused (the run stops, naming only the line number) because a
+  student may share it, and that student's name must still be redacted. A
+  phrase holding a student's full name, a multi-word nickname, a login or a
+  Canvas id is refused too, by line number. "Dr. Thorn" counts as two words
+  and would be kept wherever it is written, so list exact phrases. A kept
+  phrase stays whole, also across a line break; the same name alone still
+  becomes `[name]`. The run and the log report how many were kept, never the
+  phrase. The file is the instructor's: do not open it.
 - A leftover stop names a code and a file. The instructor adds the missing
   form to the nicknames file, you run `anon_key()` again for the assignment,
   and then run `anonymize()` again. Never open the file to look.

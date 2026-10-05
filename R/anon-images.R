@@ -64,9 +64,10 @@ ocr_image <- function(path) {
   paste(res, collapse = "\n")
 }
 
-# "name", "pattern" or NA for text read from an image. The name check runs on
-# the RAW text: redacting paths first would erase a login before it is seen.
-# Protected phrases are dropped for the name check only; paths, emails and
+# "name", "pattern" or NA for text read from an image. The checks run on the
+# text as read, not on path-redacted text (redacting paths first would erase a
+# login before it is seen); the name check runs after protected phrases are
+# dropped, and paths, emails and
 # fixed patterns are checked on the full text.
 text_reason <- function(txt, terms, loose, keep = character()) {
   named <- drop_keep(txt, keep)
