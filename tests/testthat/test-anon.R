@@ -222,6 +222,7 @@ test_that("a student's several files are numbered in upload order with one targe
 })
 
 test_that("anonymize() resolves relative paths against proj and defaults anon_dir", {
+  skip_if_no("tesseract")
   cc <- anon_course()
   ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
   writeLines("Pat Quill wrote this.", file.path(ad, "quillpat_1001_5001_essay.md"))
@@ -422,7 +423,7 @@ test_that("Windows and Unix home folders are redacted in every spelling", {
 })
 
 test_that("ignored files are counted, never named, and unfed submissions reported by code", {
-  skip_if_no("pandoc"); skip_if_no("zip")
+  skip_if_no("pandoc"); skip_if_no("zip"); skip_if_no("tesseract")
   cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
   ig <- file.path(td, "Ignored"); dir.create(ig)
   mk_docx(file.path(ig, "quillpat_1001_9901_q.docx"), "a")
@@ -881,6 +882,7 @@ test_that("a same-run rebuild keeps every row and code and adds new students at 
 })
 
 test_that("nicknames from the term nicknames file reach the key and are redacted", {
+  skip_if_no("tesseract")
   cc <- anon_course(nickname = FALSE)
   ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
   writeLines(c("canvas_id,nicknames", "1002,Mo; Morgs", "4242,Ghost"),

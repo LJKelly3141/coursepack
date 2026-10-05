@@ -63,7 +63,9 @@ errors_with <- function(expr) {
 # The tests pass dict = NULL unless a test is about the word list, so a run
 # does not depend on which system word list a machine has. Both stage the
 # given fixture key as the assignment's own key, then use the default.
+# anonymize() needs tesseract to check image text, so anon() skips without it.
 anon <- function(proj, a, k, ..., dict = NULL) {
+  skip_if_no("tesseract")
   stage_key(proj, a, k)
   quiet(anonymize(proj, a, ..., dict = dict))
 }
