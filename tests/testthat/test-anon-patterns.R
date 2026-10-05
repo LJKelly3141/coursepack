@@ -33,3 +33,17 @@ test_that("redact_paths counts only when asked and keeps its replacements", {
   expect_equal(r$text, "See /Users/USER/work and EMAIL")
   expect_equal(r$counts, c(PATH = 1L, EMAIL = 1L))
 })
+
+test_that("profile pattern does not match inside other domains", {
+  keep <- c("Get it at dropbox.com/abc today.",
+            "Try linux.com/x for docs.",
+            "Visit mytwitter.com/foo now.")
+  expect_identical(redact_patterns(keep)$text, keep)
+})
+
+test_that("NA input yields non-NA integer counts", {
+  r <- redact_patterns(c("a", NA))
+  expect_false(anyNA(r$counts))
+  expect_type(r$counts, "integer")
+  expect_false(anyNA(redact_paths(c("a", NA), counts = TRUE)$counts))
+})

@@ -21,7 +21,7 @@ redact_text <- function(text, terms) {
   for (i in seq_len(nrow(terms))) {
     p <- word_rx(terms$term[i])
     hits <- gregexpr(p, text, perl = TRUE, ignore.case = TRUE)
-    n <- n + sum(vapply(hits, function(h) sum(h > 0), integer(1)))
+    n <- n + sum(vapply(hits, function(h) sum(h > 0, na.rm = TRUE), integer(1)))
     text <- gsub(p, terms$code[i], text, perl = TRUE, ignore.case = TRUE)
   }
   list(text = text, n = n)
@@ -37,7 +37,7 @@ redact_paths <- function(text, counts = FALSE) {
   p2 <- "(?i)([A-Za-z]:(?:\\\\)+Users(?:\\\\)+)[^\\\\\\s]+"
   p3 <- "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
   cnt <- function(p) sum(vapply(gregexpr(p, text, perl = TRUE),
-                                function(h) sum(h > 0), integer(1)))
+                                function(h) sum(h > 0, na.rm = TRUE), integer(1)))
   n_path <- cnt(p1) + cnt(p2)
   n_email <- cnt(p3)
   text <- gsub(p1, "\\1USER", text, perl = TRUE)
@@ -68,7 +68,7 @@ PII_PATTERNS <- list(
                           "(?:[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}|[0-9]{4}-[0-9]{2}-[0-9]{2}|",
                           "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+[0-9]{1,2},?\\s+[0-9]{4})"),
                r = "\\1\\2[DOB]"),
-  PROFILE = list(p = paste0("(?i)(?:https?://)?(?:www\\.)?",
+  PROFILE = list(p = paste0("(?i)(?<![A-Za-z0-9.\\-])(?:https?://)?(?:www\\.)?",
                             "(?:github\\.com|linkedin\\.com/in|twitter\\.com|x\\.com|instagram\\.com|",
                             "facebook\\.com|tiktok\\.com/@?|youtube\\.com/(?:@|c/|channel/|user/))",
                             "/?[A-Za-z0-9_.\\-]+/?"),
@@ -85,7 +85,7 @@ redact_patterns <- function(text) {
   for (type in names(PII_PATTERNS)) {
     p <- PII_PATTERNS[[type]]$p
     hits <- gregexpr(p, text, perl = TRUE)
-    counts[type] <- sum(vapply(hits, function(h) sum(h > 0), integer(1)))
+    counts[type] <- sum(vapply(hits, function(h) sum(h > 0, na.rm = TRUE), integer(1)))
     text <- gsub(p, PII_PATTERNS[[type]]$r, text, perl = TRUE)
   }
   list(text = text, counts = counts)
