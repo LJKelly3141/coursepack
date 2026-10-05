@@ -1,0 +1,11 @@
+test_that("append_log appends, never rewrites, and carries the version", {
+  d <- withr::local_tempdir()
+  append_log(d, "anonymize", c("students: 3", "files: 4"))
+  append_log(d, "relink", "feedback files: 3")
+  txt <- readLines(log_path(d))
+  expect_equal(txt[1], "# De-identification log")
+  expect_true(any(grepl("^## anonymize, .*coursepack ", txt)))
+  expect_true(any(grepl("^## relink, ", txt)))
+  expect_true(which(grepl("^## anonymize", txt)) < which(grepl("^## relink", txt)))
+  expect_true("- students: 3" %in% txt)
+})
