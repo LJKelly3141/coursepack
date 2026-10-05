@@ -223,9 +223,11 @@ read_word_list <- function(dict_path) {
   unique(tolower(trimws(readLines(dict_path, warn = FALSE, encoding = "UTF-8"))))
 }
 
-# Every string that identifies a student, with the code that replaces it.
-# A term shared by two students (a common first name) becomes SXX, so it can
-# never be relinked to the wrong person.
+# Every string that identifies a student, with that student's code. The code
+# is not written into text (redact_text() writes [name]); it names the student
+# in find_leftovers() messages and in relink()'s foreign-student guard. A term
+# shared by two students (a common first name) carries SXX, so it can never
+# be attributed to the wrong person.
 key_terms <- function(key, extra = NULL, dict_path = NULL) {
   words <- read_word_list(dict_path)
   rows <- lapply(seq_len(nrow(key)), function(i) {

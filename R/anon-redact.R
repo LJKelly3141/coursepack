@@ -1,4 +1,5 @@
 # Redaction on plain text. Whole-word, case-insensitive, longest term first.
+# Each match becomes the neutral token [name], never a student code.
 # "Whole word" treats underscores as boundaries on purpose: Canvas filenames
 # glue the name prefix to ids with underscores.
 
@@ -16,15 +17,20 @@ word_rx <- function(term) {
   }
 }
 
+# Every match becomes [name], whichever student the term belongs to: a code
+# in one student's paper would say whose name it was. A sentinel holds the
+# place during the loop so a later term can never match inside the token.
+NAME_TOKEN <- "[name]"
 redact_text <- function(text, terms) {
   n <- 0L
+  s <- "\u0001"
   for (i in seq_len(nrow(terms))) {
     p <- word_rx(terms$term[i])
     hits <- gregexpr(p, text, perl = TRUE, ignore.case = TRUE)
     n <- n + sum(vapply(hits, function(h) sum(h > 0, na.rm = TRUE), integer(1)))
-    text <- gsub(p, terms$code[i], text, perl = TRUE, ignore.case = TRUE)
+    text <- gsub(p, s, text, perl = TRUE, ignore.case = TRUE)
   }
-  list(text = text, n = n)
+  list(text = gsub(s, NAME_TOKEN, text, fixed = TRUE), n = n)
 }
 
 # The user folder in a home-directory path becomes USER, in the macOS, Linux

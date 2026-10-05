@@ -64,14 +64,14 @@ test_that("redaction replaces every name form whole-word with the right code", {
   cc <- anon_course()
   terms <- key_terms(read_key(cc$kp))
   r <- redact_text("Written by Pat Quill. Quill's plot; QUILL again.", terms)
-  expect_true(grepl("S01\\.", r$text))                          # full name becomes one code
+  expect_true(grepl("\\[name\\]\\.", r$text))                    # full name becomes one token
   expect_false(grepl("quill", r$text, ignore.case = TRUE))      # possessive and upper case
-  expect_identical(redact_text("Thanks, Pat.", terms)$text, "Thanks, SXX.")
+  expect_identical(redact_text("Thanks, Pat.", terms)$text, "Thanks, [name].")
   expect_true(r$n >= 3L)                                        # counts replacements
   expect_identical(redact_text("file quillpat_1001_5001.docx", terms)$text,
-                   "file S01_S01_5001.docx")                    # underscore-glued prefix
+                   "file [name]_[name]_5001.docx")              # underscore-glued prefix
   expect_identical(redact_text("I worked with Morgan Rivera.", terms)$text,
-                   "I worked with S02.")                        # classmate gets their code
+                   "I worked with [name].")                     # classmate gets the same token
   expect_identical(redact_text("Quillon", terms)$text, "Quillon")  # inside a longer word
 })
 
@@ -228,9 +228,23 @@ test_that("anonymize() resolves relative paths against proj and defaults anon_di
   writeLines("Pat Quill wrote this.", file.path(ad, "quillpat_1001_5001_essay.md"))
   stage_key(cc$proj, "semester/Essay", cc$kp)
   out <- capture.output(anonymize(cc$proj, "semester/Essay", dict = NULL))
-  expect_identical(readLines(file.path(ad, "anon", "S01", "file1.md")), "S01 wrote this.")
+  expect_identical(readLines(file.path(ad, "anon", "S01", "file1.md")), "[name] wrote this.")
   expect_true(any(grepl("coursepack", out)))
   expect_false(any(grepl("Quill|1001|5001|essay", out)))
+})
+
+test_that("a classmate's name in one paper becomes [name], never that student's code", {
+  skip_if_no("tesseract")
+  cc <- anon_course()
+  ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
+  writeLines("Pat Quill thanks Morgan for the data.", file.path(ad, "quillpat_1001_5001_essay.md"))
+  writeLines("Rivera Morgan wrote this alone.", file.path(ad, "riveramorgan_1002_5002_essay.md"))
+  stage_key(cc$proj, "semester/Essay", cc$kp)
+  res <- quiet(anonymize(cc$proj, "semester/Essay", dict = NULL))
+  txt <- readLines(file.path(ad, "anon", "S01", "file1.md"))
+  expect_identical(txt, "[name] thanks [name] for the data.")
+  expect_false(any(grepl("S[0-9][0-9]|SXX", txt)))
+  expect_gte(res$replacements, 2L)
 })
 
 # ---- relink --------------------------------------------------------------------
@@ -390,15 +404,15 @@ test_that("joined, initial and accent-stripped forms redact, with letter-only na
   fixture_key(gb1, kp1)
   terms1 <- key_terms(read_key(kp1))
   f1 <- function(s) redact_text(s, terms1)$text
-  expect_identical(f1("by AshleyUmlauf today"), "by S01 today")
-  expect_identical(f1("umlaufashley.R"), "S01.R")
-  expect_identical(f1("user aumlauf here"), "user S01 here")
-  expect_identical(f1("Umlauf2 draft"), "S012 draft")
-  expect_identical(f1("x_umlauf_y"), "x_S01_y")
-  expect_identical(f1("Jos\u00e9 N\u00fa\u00f1ez wrote this"), "S02 wrote this")
-  expect_identical(f1("Jose Nunez wrote this"), "S02 wrote this")
-  expect_identical(f1("josenunez"), "S02")
-  expect_identical(f1("XQ2001"), "S01")         # login still redacted
+  expect_identical(f1("by AshleyUmlauf today"), "by [name] today")
+  expect_identical(f1("umlaufashley.R"), "[name].R")
+  expect_identical(f1("user aumlauf here"), "user [name] here")
+  expect_identical(f1("Umlauf2 draft"), "[name]2 draft")
+  expect_identical(f1("x_umlauf_y"), "x_[name]_y")
+  expect_identical(f1("Jos\u00e9 N\u00fa\u00f1ez wrote this"), "[name] wrote this")
+  expect_identical(f1("Jose Nunez wrote this"), "[name] wrote this")
+  expect_identical(f1("josenunez"), "[name]")
+  expect_identical(f1("XQ2001"), "[name]")         # login still redacted
   expect_identical(f1("x2001y"), "x2001y")       # id glued to letters keeps the alnum rule
   expect_identical(f1("Umlaufen"), "Umlaufen")   # a name inside a longer word left alone
 
@@ -580,7 +594,7 @@ test_that("a first-initial+last form that is a word in the word list is not a na
   tdict <- key_terms(kf, dict_path = dict)
   expect_false("shall" %in% tolower(tdict$term))
   expect_true("pquill" %in% tolower(tdict$term))
-  expect_identical(redact_text("Sam Hall wrote", tdict)$text, "S01 wrote")
+  expect_identical(redact_text("Sam Hall wrote", tdict)$text, "[name] wrote")
   expect_identical(redact_text("We shall ask Marshall.", tdict)$text, "We shall ask Marshall.")
   lff <- file.path(tdf, "t.md"); writeLines("We shall ask Marshall.", lff)
   expect_identical(nrow(find_leftovers(lff, tdict)), 0L)
@@ -594,7 +608,7 @@ test_that("a first-initial+last form that is a word in the word list is not a na
   writeLines("Sam Hall: we shall see, said Marshall.", file.path(fd, "hallsam_3001_1_q.md"))
   anon(proj, fd, kpf, dict = dict)
   expect_identical(readLines(file.path(fd, "anon", "S01", "file1.md"))[1],
-                   "S01: we shall see, said Marshall.")
+                   "[name]: we shall see, said Marshall.")
   expect_true("dict" %in% names(formals(relink)))
 })
 
@@ -621,9 +635,9 @@ test_that("initial forms and one-word nicknames stay out of the substring pass",
 test_that("two-letter names keep the alphanumeric boundary", {
   te <- data.frame(term = "Ed", code = "S09", stringsAsFactors = FALSE)
   expect_identical(redact_text("commit 3f9ed41", te)$text, "commit 3f9ed41")
-  expect_identical(redact_text("Thanks Ed.", te)$text, "Thanks S09.")
+  expect_identical(redact_text("Thanks Ed.", te)$text, "Thanks [name].")
   expect_identical(redact_text("Umlauf2", data.frame(term = "Umlauf", code = "S01"))$text,
-                   "S012")
+                   "[name]2")
 })
 
 # ---- multi-file submissions --------------------------------------------------------
@@ -707,7 +721,7 @@ test_that("an .odt submission converts like a .docx, images extracted and links 
   anon(proj, od, kp)
   md <- file.path(od, "anon", "S01", "file1.md")
   txt <- readLines(md, warn = FALSE)
-  expect_true(any(grepl("Figure by S01 below.", txt, fixed = TRUE)))   # text survives, redacted
+  expect_true(any(grepl("Figure by [name] below.", txt, fixed = TRUE)))   # text survives, redacted
   expect_false(any(grepl("Quill", txt)))
   link <- md_image_links(md)
   expect_identical(length(link), 1L)
@@ -804,7 +818,7 @@ test_that("a .R file is still anonymized as text, and feedback goes to the docum
   writeLines("Analysis by Pat Quill.", file.path(rd, "quillpat_1001_9571_analysis.md"))
   writeLines("# Pat Quill\nx <- 1", file.path(rd, "quillpat_1001_9572_script.R"))
   anon(proj, rd, kp)
-  expect_identical(readLines(file.path(rd, "anon", "S01", "file2.md")), c("# S01", "x <- 1"))
+  expect_identical(readLines(file.path(rd, "anon", "S01", "file2.md")), c("# [name]", "x <- 1"))
   man <- utils::read.csv(file.path(rd, "anon", "manifest.csv"), colClasses = "character")
   expect_identical(man$file[man$target == "TRUE"], "file1")
   dir.create(file.path(rd, "anon", "feedback"))
@@ -896,7 +910,7 @@ test_that("nicknames from the term nicknames file reach the key and are redacted
   code <- k$code[k$canvas_id == "1002"]
   quiet(anonymize(cc$proj, "semester/Essay", dict = NULL))
   expect_identical(readLines(file.path(ad, "anon", code, "file1.md")),
-                   paste(code, "and", code, "wrote this."))
+                   "[name] and [name] wrote this.")
 
   writeLines("id,nick\n1002,x", file.path(cc$proj, "semester", "bad.csv"))
   expect_true(grepl("canvas_id", errors_with(quiet(anon_key(

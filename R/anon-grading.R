@@ -100,9 +100,9 @@ assign_files <- function(subs, key) {
 #'
 #' Redaction runs on the text, longest term first, case-insensitive and whole
 #' word, with underscores counted as boundaries. Every name form, nickname,
-#' file prefix, login and Canvas id of every student in the key becomes that
-#' student's code, so a classmate named in a paper is coded too. A term two
-#' students share, such as a common first name, becomes `SXX`. Home-folder
+#' file prefix, login and Canvas id of every student in the key becomes the
+#' neutral token `[name]`, so a classmate named in a paper is redacted too and
+#' no code appears in the text. Home-folder
 #' user names in file paths become `USER` and email addresses become `EMAIL`.
 #'
 #' Then the leftover check reads every `.md` and `.csv` under `anon_dir` for
