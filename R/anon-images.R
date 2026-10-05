@@ -40,11 +40,16 @@ strip_svg <- function(path) {
 
 tesseract_path <- function() Sys.which("tesseract")[[1]]
 
-ocr_image <- function(path) {
+require_tesseract <- function() {
   if (!nzchar(tesseract_path())) {
     stop("tesseract is not installed; image text cannot be checked. ",
          "Install it (brew install tesseract) and re-run.", call. = FALSE)
   }
+  invisible(TRUE)
+}
+
+ocr_image <- function(path) {
+  require_tesseract()
   # stdout only: tesseract prints diagnostics ("Estimating resolution...") to
   # stderr, which must not end up in the OCR text.
   res <- suppressWarnings(system2("tesseract", c(shQuote(path), "stdout", "--psm", "11"),
@@ -69,6 +74,9 @@ text_reason <- function(txt, terms, loose) {
 
 scan_images <- function(anon_dir, terms) {
   imgs <- image_files(anon_dir)
+  # Fail here, not per image: the per-image tryCatch would otherwise turn a
+  # missing tesseract into "unscannable" for every raster image.
+  if (any(tolower(tools::file_ext(imgs)) %in% OCR_EXTS)) require_tesseract()
   loose <- loose_terms(terms)
   out <- data.frame(image = character(), code = character(), reason = character(),
                     stringsAsFactors = FALSE)

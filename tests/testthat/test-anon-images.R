@@ -95,3 +95,10 @@ test_that("any file inside a _media folder is gated, whatever its extension", {
   f <- scan_images(a, fake_terms())
   expect_equal(f$image, "S01/file1_media/media/x.wdp"); expect_equal(f$reason, "unscannable")
 })
+
+test_that("scan_images stops with the install hint when tesseract is missing", {
+  local_mocked_bindings(tesseract_path = function() "")
+  a <- withr::local_tempdir(); m <- file.path(a, "S01", "file1_media"); dir.create(m, recursive = TRUE)
+  make_png(file.path(m, "a.png"), "MSRP vs MPG")
+  expect_error(scan_images(a, fake_terms()), "brew install tesseract")
+})
