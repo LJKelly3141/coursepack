@@ -239,6 +239,9 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   # Image text cannot be checked without tesseract. Stop before anything is
   # written, so a missing tool never leaves a half-built anon/.
   require_tesseract()
+  # anon_keep.txt is read here for the same reason: a bad line stops the run
+  # before anything is written. Its error names the line number only.
+  keep <- read_keep_phrases(proj)
 
   # From here on a stop anywhere must not leave an old anon/ looking ready.
   if (dir.exists(anon_dir)) {
@@ -266,6 +269,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   n <- 0L
   pattern_counts <- c(SSN = 0L, PHONE = 0L, DOB = 0L, ADDRESS = 0L, PROFILE = 0L, HANDLE = 0L)
   path_counts <- c(PATH = 0L, EMAIL = 0L)
+  kept <- 0L
   for (r in shuffle(seq_len(nrow(subs)))) {
     s <- subs[r, ]
     out_md <- file.path(anon_dir, s$code, paste0(s$anon_name, ".md"))
@@ -280,9 +284,13 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     add <- pt$counts[names(pattern_counts)]
     add[is.na(add)] <- 0L
     pattern_counts <- pattern_counts + add
-    red <- redact_text(pt$text, terms)
-    writeLines(red$text, out_md, useBytes = TRUE)
+    # Protected phrases are masked for the name redaction only; paths, emails
+    # and fixed patterns above saw the full text.
+    mk <- mask_keep(pt$text, keep)
+    red <- redact_text(mk$text, terms)
+    writeLines(unmask_keep(red$text, mk), out_md, useBytes = TRUE)
     n <- n + red$n
+    kept <- kept + mk$n
   }
   # No lateness and no submission times: a grader must not be able to tell
   # who was late. Rows are sorted by code, then file position: subs is in
@@ -296,7 +304,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   # Every extracted image is stripped of metadata and its text checked. A
   # flagged image holds anon/ at NOT_READY until anon_images.csv, beside the
   # key, decides it. Messages name the anon/ path and the reason only.
-  flagged <- scan_images(anon_dir, terms)
+  flagged <- scan_images(anon_dir, terms, keep)
   decided <- apply_image_decisions(anon_dir, flagged, read_image_decisions(assignment_dir))
   if (nrow(decided$undecided)) {
     for (i in seq_len(nrow(decided$undecided))) {
@@ -310,7 +318,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   }
 
   texts <- list.files(anon_dir, "\\.(md|csv)$", recursive = TRUE, full.names = TRUE)
-  left <- find_leftovers(texts, terms)
+  left <- find_leftovers(texts, terms, keep)
   if (nrow(left)) {
     for (i in seq_len(nrow(left))) {
       message("LEFTOVER: a value for ", left$code[i], " remains in ",
@@ -338,6 +346,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   append_log(assignment_dir, "anonymize", c(
     sprintf("students: %d; files: %d", n_students, nrow(subs)),
     sprintf("name and id replacements: %d", n),
+    sprintf("protected phrases kept: %d", kept),
     sprintf("home-folder paths: %d; email addresses: %d",
             path_counts[["PATH"]], path_counts[["EMAIL"]]),
     sprintf("fixed patterns: %s", pc_text),
@@ -351,11 +360,12 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   cat(sprintf("anonymize: %d students, %d files, %d replacements, 0 leftovers. anon/ is ready.\n",
               n_students, nrow(subs), n))
   cat(sprintf("fixed patterns: %s\n", pc_text))
+  cat(sprintf("protected phrases kept: %d\n", kept))
   cat(sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept)\n",
               images$scanned, images$stripped, images$flagged, images$removed, images$kept))
   version_line("anonymize")
   invisible(list(students = n_students, files = nrow(subs), replacements = n,
-                 patterns = pattern_counts, images = images))
+                 patterns = pattern_counts, images = images, protected = kept))
 }
 
 # Identity strings that must not appear in one student's finished feedback:

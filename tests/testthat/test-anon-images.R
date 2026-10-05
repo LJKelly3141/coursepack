@@ -155,3 +155,16 @@ test_that("a home-folder login in a non-rendering svg attribute is redacted on s
   expect_false(grepl("pquill", txt, fixed = TRUE))
   expect_true(grepl("/Users/USER/Desktop/plot.png", txt, fixed = TRUE))
 })
+
+test_that("an image showing only a protected phrase is not flagged; a name beside it is", {
+  skip_if_no("tesseract")
+  a <- withr::local_tempdir(); dir.create(file.path(a, "S01", "file1_media"), recursive = TRUE)
+  make_png(file.path(a, "S01", "file1_media", "title.png"), "Prof. Avery J. Thorn")
+  make_png(file.path(a, "S01", "file1_media", "note.png"), "Thanks Avery")
+  terms <- data.frame(term = "Avery", code = "S01", loose = FALSE, stringsAsFactors = FALSE)
+  f <- scan_images(a, terms, keep = "Avery J. Thorn")
+  expect_equal(f$image, "S01/file1_media/note.png")
+  expect_equal(f$reason, "name")
+  f0 <- scan_images(a, terms)
+  expect_setequal(f0$image, c("S01/file1_media/title.png", "S01/file1_media/note.png"))
+})

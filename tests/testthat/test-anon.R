@@ -1086,3 +1086,40 @@ test_that("a log write failure leaves anon/ at NOT_READY", {
   expect_error(quiet(anonymize(cc$proj, "semester/A1", dict = NULL)), "disk full")
   expect_true(file.exists(file.path(a, "anon", "NOT_READY")))
 })
+
+# ---- protected phrases (anon_keep.txt) -----------------------------------------
+
+test_that("anon_keep.txt protects the instructor's phrase, not a student's same first name", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  # The invented instructor shares the first name of the student Morgan Rivera.
+  writeLines(c("# instructor", "Morgan J. Ellery"), file.path(cc$proj, "anon_keep.txt"))
+  writeLines("Pat Quill, for Dr. Morgan J. Ellery. Thanks Morgan for the data.",
+             file.path(a, "quillpat_1001_5001_x.md"))
+  writeLines("Morgan Rivera wrote this for morgan j.  Ellery. Signed, Morgan.",
+             file.path(a, "riveramorgan_1002_5002_x.md"))
+  out <- capture.output(res <- anonymize(cc$proj, "semester/A1", dict = NULL))
+  s1 <- readLines(file.path(a, "anon", "S01", "file1.md"))
+  s2 <- readLines(file.path(a, "anon", "S02", "file1.md"))
+  expect_identical(s1, "[name], for Dr. Morgan J. Ellery. Thanks [name] for the data.")
+  expect_identical(s2, "[name] wrote this for morgan j.  Ellery. Signed, [name].")
+  expect_equal(res$protected, 2L)
+  log <- readLines(file.path(a, "deidentification_log.md"))
+  expect_true(any(grepl("protected phrases kept: 2", log, fixed = TRUE)))
+  expect_false(any(grepl("Ellery", log, ignore.case = TRUE)))
+  expect_false(any(grepl("Ellery", out, ignore.case = TRUE)))
+  expect_true(any(grepl("protected phrases kept: 2", out, fixed = TRUE)))
+  expect_false(file.exists(file.path(a, "anon", "NOT_READY")))
+})
+
+test_that("a bad anon_keep.txt stops the run before anything is written", {
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines(c("Morgan J. Ellery", "Morgan"), file.path(cc$proj, "anon_keep.txt"))
+  writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
+  local_mocked_bindings(tesseract_path = function() "/usr/bin/tesseract")
+  msg <- errors_with(quiet(anonymize(cc$proj, "semester/A1", dict = NULL)))
+  expect_match(msg, "line 2")
+  expect_false(grepl("Morgan", msg))
+  expect_false(dir.exists(file.path(a, "anon")))
+  expect_false(file.exists(file.path(a, "deidentification_log.md")))
+})

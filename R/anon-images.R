@@ -66,9 +66,12 @@ ocr_image <- function(path) {
 
 # "name", "pattern" or NA for text read from an image. The name check runs on
 # the RAW text: redacting paths first would erase a login before it is seen.
-text_reason <- function(txt, terms, loose) {
-  low <- tolower(txt)
-  name_hit <- any(vapply(terms$term, function(t) grepl(word_rx(t), txt, perl = TRUE,
+# Protected phrases are dropped for the name check only; paths, emails and
+# fixed patterns are checked on the full text.
+text_reason <- function(txt, terms, loose, keep = character()) {
+  named <- drop_keep(txt, keep)
+  low <- tolower(named)
+  name_hit <- any(vapply(terms$term, function(t) grepl(word_rx(t), named, perl = TRUE,
                                                        ignore.case = TRUE), TRUE)) ||
     any(vapply(loose$term, function(t) grepl(t, low, fixed = TRUE), TRUE))
   if (name_hit) return("name")
@@ -77,7 +80,7 @@ text_reason <- function(txt, terms, loose) {
   if (pat_hit) "pattern" else NA_character_
 }
 
-scan_images <- function(anon_dir, terms) {
+scan_images <- function(anon_dir, terms, keep = character()) {
   imgs <- image_files(anon_dir)
   # Fail here, not per image: the per-image tryCatch would otherwise turn a
   # missing tesseract into "unscannable" for every raster image.
@@ -96,11 +99,11 @@ scan_images <- function(anon_dir, terms) {
       if (ext == "svg") {
         if (strip_image_metadata(p)) stripped <- stripped + 1L
         r <- text_reason(paste(readLines(p, warn = FALSE, encoding = "UTF-8"),
-                               collapse = "\n"), terms, loose)
+                               collapse = "\n"), terms, loose, keep)
         if (is.na(r)) "unscannable" else r
       } else if (ext %in% OCR_EXTS) {
         if (strip_image_metadata(p)) stripped <- stripped + 1L
-        text_reason(ocr_image(p), terms, loose)
+        text_reason(ocr_image(p), terms, loose, keep)
       } else {
         "unscannable"
       }

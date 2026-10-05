@@ -129,11 +129,14 @@ loose_terms <- function(terms) {
                     stringsAsFactors = FALSE))
 }
 
-find_leftovers <- function(files, terms) {
+# Protected phrases (anon_keep.txt) are dropped from the text before both
+# passes; everything else is checked as written.
+find_leftovers <- function(files, terms, keep = character()) {
   out <- data.frame(file = character(), code = character(), stringsAsFactors = FALSE)
   loose <- loose_terms(terms)
   for (f in files) {
     txt <- paste(readLines(f, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+    txt <- drop_keep(txt, keep)
     for (i in seq_len(nrow(terms))) {
       if (grepl(word_rx(terms$term[i]), txt, perl = TRUE, ignore.case = TRUE)) {
         out <- rbind(out, data.frame(file = f, code = terms$code[i],
