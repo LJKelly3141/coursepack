@@ -353,7 +353,8 @@ anon_key <- function(proj, gradebook, assignment, nicknames = NULL) {
 #' folder, which is where [relink()] writes them by default. Run it once the
 #' Canvas feedback upload and the grade import are confirmed. It prints one
 #' line naming the file deleted, then the version line every entry point
-#' prints.
+#' prints. It appends a line to `deidentification_log.md` beside the key and
+#' does not delete that log, which is the record of de-identification.
 #'
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of the assignment's Canvas downloads, the one
@@ -368,13 +369,13 @@ anon_key <- function(proj, gradebook, assignment, nicknames = NULL) {
 #' a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
 #' anon_key(p, "gradebook.csv", "semester/Essay1")
 #' writeLines("Pat Quill's essay.", file.path(a, "quillpat_1001_5001_essay.md"))
-#' anonymize(p, "semester/Essay1", dict = NULL)
-#' code <- list.files(file.path(a, "anon"), pattern = "^S")
-#' dir.create(file.path(a, "anon", "feedback"))
-#' writeLines("Good work.", file.path(a, "anon", "feedback", paste0(code, ".md")))
-#' write.csv(data.frame(code = code, total = "9"),
-#'           file.path(a, "anon", "scores.csv"), row.names = FALSE)
-#' if (nzchar(Sys.which("zip"))) {
+#' if (nzchar(Sys.which("tesseract")) && nzchar(Sys.which("zip"))) {
+#'   anonymize(p, "semester/Essay1", dict = NULL)
+#'   code <- list.files(file.path(a, "anon"), pattern = "^S")
+#'   dir.create(file.path(a, "anon", "feedback"))
+#'   writeLines("Good work.", file.path(a, "anon", "feedback", paste0(code, ".md")))
+#'   write.csv(data.frame(code = code, total = "9"),
+#'             file.path(a, "anon", "scores.csv"), row.names = FALSE)
 #'   relink(p, "semester/Essay1", dict = NULL)
 #'   anon_forget(p, "semester/Essay1")
 #' }

@@ -32,8 +32,10 @@ redacted. \code{NULL} keeps every form. The default is \code{\link[=default_dict
 system word list where one exists.}
 }
 \value{
-A list with \code{students}, \code{files} and \code{replacements} counts,
-invisibly. The run stops instead of returning when a leftover is found.
+A list with \code{students}, \code{files}, \code{replacements}, \code{patterns} (the
+fixed-pattern replacements made) and \code{images} (the images checked) counts,
+invisibly. The run stops instead of returning when a leftover is found or
+an image needs a decision.
 }
 \description{
 Turn a folder of Canvas submission downloads into coded plain text that a
@@ -50,7 +52,8 @@ text.
 Converting is what removes document metadata such as an author field. Any
 other type stops the run, naming the code and file position. Files without
 the Canvas shape are skipped and counted, never named; the assignment's own
-\code{anon_key.csv} is neither converted nor counted.
+\code{anon_key.csv}, \code{deidentification_log.md} and \code{anon_images.csv} are neither
+converted nor counted.
 
 A student may submit any number of files. Each student's files are numbered
 in upload order and written as \verb{anon_dir/<code>/file1.md}, \code{file2.md} and so
@@ -61,8 +64,8 @@ word in its original name. Exactly one file per student is the target that
 such as \code{.R}: the latest-uploaded document that is not a spec, or the
 latest document when every document is a spec. A student with no document
 at all stops the run, naming only the code. \code{anon_dir/manifest.csv} records
-\code{code}, \code{file}, \code{late}, \code{ext}, \code{spec} and \code{target}, and carries no names, ids
-or original filenames.
+\code{code}, \code{file}, \code{ext}, \code{spec} and \code{target}, and carries no names, ids,
+original filenames, lateness or submission times.
 
 Redaction runs on the text, longest term first, case-insensitive and whole
 word, with underscores counted as boundaries. Every name form, nickname,
@@ -88,8 +91,36 @@ refuses, before deleting anything, when \code{anon_dir} is the assignment folder
 or one of its parents, or when it already holds files that no earlier run of
 this function wrote (no \code{manifest.csv} and no \code{NOT_READY}).
 
-Images are not searched. A screenshot can show a name, and that risk is
-accepted because plots are needed for grading.
+Before names are redacted, fixed patterns are replaced by bracketed
+tokens: Social Security numbers, phone numbers, birth dates written after
+"born", "DOB", "date of birth" or "birthday", street addresses, profile
+URLs (GitHub, LinkedIn, X or Twitter, Instagram, Facebook, TikTok, YouTube)
+and @handles.
+
+Every image under \code{anon_dir}, and every file inside a \verb{*_media} folder, is
+checked, and tesseract must be installed: without it the run stops before
+anything is written. A raster image has its orientation applied and its
+metadata stripped, and the text tesseract reads from it is checked raw for
+every name form, id and login of every student, for home-folder paths,
+email addresses and the fixed patterns above. An SVG has its \verb{<metadata>}
+and editor attributes removed and its text checked. An EMF or WMF file, any
+other file that cannot be read as an image, and a corrupt image is
+unscannable. An image with a hit, and an unscannable file, is held for your
+decision: the run leaves \code{anon_dir/NOT_READY} and lists the paths, never
+what was found. Open each one yourself, then write \code{anon_images.csv} beside
+the key, with the columns \code{image} and \code{decision} and one row per listed
+path, the decision being \code{keep} or \code{remove}, and run this again. \code{remove}
+deletes the file and replaces its markdown links with \verb{[image removed]}. A
+kept EMF or WMF file, or other kept unscannable file that is not an SVG, is
+released unaltered, metadata included.
+
+The coded folder shows nothing about timing: every file under \code{anon_dir} is
+given the same modification time, and students are processed in a shuffled
+order. Each successful run appends a record of counts to
+\code{deidentification_log.md} beside the key, and \code{\link[=relink]{relink()}} and \code{\link[=anon_forget]{anon_forget()}}
+append to it too. The log holds counts, types and codes only, and
+\code{\link[=anon_forget]{anon_forget()}} does not delete it. Keep it with the course records as the
+record that submissions were de-identified before grading.
 }
 \examples{
 p <- tempfile("course-"); dir.create(p)
@@ -102,9 +133,11 @@ anon_key(p, "gradebook.csv", "semester/Essay1")
 writeLines("Pat Quill wrote this with Morgan Rivera.",
            file.path(a, "quillpat_1001_5001_essay.md"))
 writeLines("By Morgan Rivera.", file.path(a, "riveramorgan_1002_5002_essay.md"))
-anonymize(p, "semester/Essay1", dict = NULL)
-code <- list.files(file.path(a, "anon"), pattern = "^S")[1]
-readLines(file.path(a, "anon", code, "file1.md"))
+if (nzchar(Sys.which("tesseract"))) {
+  anonymize(p, "semester/Essay1", dict = NULL)
+  code <- list.files(file.path(a, "anon"), pattern = "^S")[1]
+  readLines(file.path(a, "anon", code, "file1.md"))
+}
 unlink(p, recursive = TRUE)
 }
 \seealso{

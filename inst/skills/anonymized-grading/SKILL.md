@@ -64,12 +64,27 @@ again for the assignment.
 Run it per assignment folder. It converts every file each student submitted,
 in upload order, to `anon/<code>/file1.md`, `file2.md`, with images beside
 them, and redacts every student's names, ids, logins, home-folder user names
-and emails. It writes `anon/NOT_READY` until its own leftover check passes.
+and emails. It also redacts phone numbers, SSNs, birth dates, street
+addresses, profile URLs and handles, and reads the text in images. It needs
+tesseract and stops before writing anything without it (`brew install
+tesseract`). It writes `anon/NOT_READY` until its own leftover check passes.
+The coded folder shows no lateness and no submission times.
 
 - A leftover stop names a code and a file. The instructor adds the missing
   form to the nicknames file, you run `anon_key()` again for the assignment,
   and then run `anonymize()` again. Never open the file to look.
 - An unsupported file type stops it. Report the code and the type.
+- When it stops on images, it lists image paths: ones whose text held a name,
+  id or other identifier, and files it cannot read. The instructor opens each
+  one, on the instructor's machine, and writes `anon_images.csv` beside the
+  key with `image,decision` rows, `keep` or `remove`; then run `anonymize()`
+  again. You never open the images. You may relay the list of paths. `remove`
+  deletes the image and replaces its links with `[image removed]`. A kept EMF
+  or WMF file is released unaltered, metadata included, so tell the instructor
+  that when asking.
+- After the run, the instructor can read `deidentification_log.md` beside the
+  key. It holds counts only and is the record of de-identification. Keep it
+  with the course records; `anon_forget()` does not delete it.
 - It refuses to run while `anon/feedback/` or `anon/scores.csv` exists, so it
   can never wipe grading work.
 

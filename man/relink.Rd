@@ -74,7 +74,9 @@ so a failure partway through leaves no partial \verb{feedback/}. Submissions
 with no feedback are reported by code at the end.
 
 Once the feedback upload and the grade import are confirmed in Canvas,
-\code{\link[=anon_forget]{anon_forget()}} deletes this assignment's key.
+\code{\link[=anon_forget]{anon_forget()}} deletes this assignment's key. A successful run appends a
+record of counts to \code{deidentification_log.md} beside the key, the log that
+\code{\link[=anonymize]{anonymize()}} began.
 }
 \examples{
 p <- tempfile("course-"); dir.create(p)
@@ -84,12 +86,12 @@ writeLines(c(
 a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
 anon_key(p, "gradebook.csv", "semester/Essay1")
 writeLines("Pat Quill's essay.", file.path(a, "quillpat_1001_5001_essay.md"))
-anonymize(p, "semester/Essay1", dict = NULL)
-dir.create(file.path(a, "anon", "feedback"))
+if (nzchar(Sys.which("tesseract"))) anonymize(p, "semester/Essay1", dict = NULL)
+dir.create(file.path(a, "anon", "feedback"), recursive = TRUE)
 writeLines("Good work, S01.", file.path(a, "anon", "feedback", "S01.md"))
 write.csv(data.frame(code = "S01", total = "9"),
           file.path(a, "anon", "scores.csv"), row.names = FALSE)
-if (nzchar(Sys.which("zip"))) {
+if (nzchar(Sys.which("zip")) && nzchar(Sys.which("tesseract"))) {
   relink(p, "semester/Essay1")
   readLines(file.path(a, "feedback", "quillpat_1001_5001_essay.md"))
 }

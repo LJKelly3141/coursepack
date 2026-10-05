@@ -155,7 +155,19 @@ The workflow runs in that order:
    replaces every name form, nickname, file prefix, login and Canvas id of every
    student with that student's code, and then checks its own output for anything
    left. It refuses to release the folder until nothing is: `anon/NOT_READY`
-   stays until the check passes.
+   stays until the check passes. It also replaces phone numbers, Social
+   Security numbers, birth dates, street addresses, profile URLs and @handles,
+   and reads the text in every image with tesseract, which must be installed;
+   without it the run stops before writing anything. Every image is stripped of
+   its metadata. An image whose text holds a name, id, login, path, email or
+   fixed pattern, and a file that cannot be read, such as an EMF or WMF, is held
+   for you: open each one yourself, then list it in `anon_images.csv` beside the
+   key as `image,decision` with `keep` or `remove`, and run again. A kept EMF or
+   WMF is released unaltered, metadata included. The coded folder shows no
+   lateness or submission times. Each run adds counts to
+   `deidentification_log.md` beside the key, the record that submissions were
+   de-identified; keep it with the course records, because `anon_forget()` does
+   not delete it.
 3. The grader is given only `anon/` and the rubric, and writes
    `anon/feedback/<code>.md` and `anon/scores.csv`, keyed by code.
 4. `relink()` puts the names back, refuses feedback that mentions another

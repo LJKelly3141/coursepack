@@ -122,8 +122,36 @@ assign_files <- function(subs, key) {
 #' or one of its parents, or when it already holds files that no earlier run of
 #' this function wrote (no `manifest.csv` and no `NOT_READY`).
 #'
-#' Images are not searched. A screenshot can show a name, and that risk is
-#' accepted because plots are needed for grading.
+#' Before names are redacted, fixed patterns are replaced by bracketed
+#' tokens: Social Security numbers, phone numbers, birth dates written after
+#' "born", "DOB", "date of birth" or "birthday", street addresses, profile
+#' URLs (GitHub, LinkedIn, X or Twitter, Instagram, Facebook, TikTok, YouTube)
+#' and @handles.
+#'
+#' Every image under `anon_dir`, and every file inside a `*_media` folder, is
+#' checked, and tesseract must be installed: without it the run stops before
+#' anything is written. A raster image has its orientation applied and its
+#' metadata stripped, and the text tesseract reads from it is checked raw for
+#' every name form, id and login of every student, for home-folder paths,
+#' email addresses and the fixed patterns above. An SVG has its `<metadata>`
+#' and editor attributes removed and its text checked. An EMF or WMF file, any
+#' other file that cannot be read as an image, and a corrupt image is
+#' unscannable. An image with a hit, and an unscannable file, is held for your
+#' decision: the run leaves `anon_dir/NOT_READY` and lists the paths, never
+#' what was found. Open each one yourself, then write `anon_images.csv` beside
+#' the key, with the columns `image` and `decision` and one row per listed
+#' path, the decision being `keep` or `remove`, and run this again. `remove`
+#' deletes the file and replaces its markdown links with `[image removed]`. A
+#' kept EMF or WMF file, or other kept unscannable file that is not an SVG, is
+#' released unaltered, metadata included.
+#'
+#' The coded folder shows nothing about timing: every file under `anon_dir` is
+#' given the same modification time, and students are processed in a shuffled
+#' order. Each successful run appends a record of counts to
+#' `deidentification_log.md` beside the key, and [relink()] and [anon_forget()]
+#' append to it too. The log holds counts, types and codes only, and
+#' [anon_forget()] does not delete it. Keep it with the course records as the
+#' record that submissions were de-identified before grading.
 #'
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of one assignment's Canvas downloads, usually
@@ -138,8 +166,10 @@ assign_files <- function(subs, key) {
 #'   found in it ("Hall, Sam" gives "shall") is an ordinary word and is not
 #'   redacted. `NULL` keeps every form. The default is [default_dict()], the
 #'   system word list where one exists.
-#' @return A list with `students`, `files` and `replacements` counts,
-#'   invisibly. The run stops instead of returning when a leftover is found.
+#' @return A list with `students`, `files`, `replacements`, `patterns` (the
+#'   fixed-pattern replacements made) and `images` (the images checked) counts,
+#'   invisibly. The run stops instead of returning when a leftover is found or
+#'   an image needs a decision.
 #' @seealso [anon_key()], [relink()], [anon_forget()], [canvas_grades()]
 #' @examples
 #' p <- tempfile("course-"); dir.create(p)
@@ -152,9 +182,11 @@ assign_files <- function(subs, key) {
 #' writeLines("Pat Quill wrote this with Morgan Rivera.",
 #'            file.path(a, "quillpat_1001_5001_essay.md"))
 #' writeLines("By Morgan Rivera.", file.path(a, "riveramorgan_1002_5002_essay.md"))
-#' anonymize(p, "semester/Essay1", dict = NULL)
-#' code <- list.files(file.path(a, "anon"), pattern = "^S")[1]
-#' readLines(file.path(a, "anon", code, "file1.md"))
+#' if (nzchar(Sys.which("tesseract"))) {
+#'   anonymize(p, "semester/Essay1", dict = NULL)
+#'   code <- list.files(file.path(a, "anon"), pattern = "^S")[1]
+#'   readLines(file.path(a, "anon", code, "file1.md"))
+#' }
 #' unlink(p, recursive = TRUE)
 #' @export
 anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.csv"),
@@ -397,7 +429,9 @@ render_feedback <- function(md_lines, target, code) {
 #' with no feedback are reported by code at the end.
 #'
 #' Once the feedback upload and the grade import are confirmed in Canvas,
-#' [anon_forget()] deletes this assignment's key.
+#' [anon_forget()] deletes this assignment's key. A successful run appends a
+#' record of counts to `deidentification_log.md` beside the key, the log that
+#' [anonymize()] began.
 #'
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of the assignment's Canvas downloads, the one
@@ -423,12 +457,12 @@ render_feedback <- function(md_lines, target, code) {
 #' a <- file.path(p, "semester", "Essay1"); dir.create(a, recursive = TRUE)
 #' anon_key(p, "gradebook.csv", "semester/Essay1")
 #' writeLines("Pat Quill's essay.", file.path(a, "quillpat_1001_5001_essay.md"))
-#' anonymize(p, "semester/Essay1", dict = NULL)
-#' dir.create(file.path(a, "anon", "feedback"))
+#' if (nzchar(Sys.which("tesseract"))) anonymize(p, "semester/Essay1", dict = NULL)
+#' dir.create(file.path(a, "anon", "feedback"), recursive = TRUE)
 #' writeLines("Good work, S01.", file.path(a, "anon", "feedback", "S01.md"))
 #' write.csv(data.frame(code = "S01", total = "9"),
 #'           file.path(a, "anon", "scores.csv"), row.names = FALSE)
-#' if (nzchar(Sys.which("zip"))) {
+#' if (nzchar(Sys.which("zip")) && nzchar(Sys.which("tesseract"))) {
 #'   relink(p, "semester/Essay1")
 #'   readLines(file.path(a, "feedback", "quillpat_1001_5001_essay.md"))
 #' }

@@ -15,6 +15,7 @@ walk-through.
 | preview the module tree (`make mockup`) | `python3`, for the local server |
 | audit for accessibility (`make a11y`) | `python3`, Node with `npx`, and a Chrome or Chromium binary |
 | the scaffold's `git init` | `git` |
+| grade without student identity (`anonymize()`) | `tesseract`, to check text in submitted images |
 
 The audit is the only reason Node appears anywhere. It drives pa11y, which
 `npx` fetches at run time and which needs a browser. None of that is needed to
@@ -22,12 +23,12 @@ build a cartridge, a quiz package, or a preview.
 
 By platform:
 
-- **macOS**, with Homebrew: `brew install pandoc imagemagick quarto node`.
+- **macOS**, with Homebrew: `brew install pandoc imagemagick quarto node tesseract`.
   `zip`, `python3`, `git` and `make` are already there.
-- **Ubuntu or Debian**: `sudo apt-get install zip pandoc libmagick++-dev python3
+- **Ubuntu or Debian**: `sudo apt-get install zip pandoc libmagick++-dev tesseract-ocr python3
   make`, then Quarto and Node from their own installers.
 - **Windows**: install Rtools, which provides `zip` and `make`, then Pandoc,
-  Quarto, and Node from their installers. ImageMagick comes bundled with the
+  Quarto, Node and Tesseract from their installers. ImageMagick comes bundled with the
   `magick` package's CRAN binary.
 
 ## Install the package
@@ -39,7 +40,7 @@ coursepack::coursepack_version()
 ```
 
 The last line prints the installed version. For a specific release, name its
-tag: `remotes::install_github("LJKelly3141/coursepack@v1.2.4")`.
+tag: `remotes::install_github("LJKelly3141/coursepack@v1.2.5")`.
 
 To check the installation without touching any course, scaffold a throwaway
 course into a temporary directory and build it:
