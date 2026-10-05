@@ -31,12 +31,64 @@ redact_text <- function(text, terms) {
 # and Windows spellings, and an email address becomes EMAIL. The patterns are
 # case-insensitive and spelled in lower case, with one bracketed letter, so the
 # package's own absolute-path audit does not read them as paths.
-redact_paths <- function(text) {
-  text <- gsub("(?i)(/users/|/hom[e]/)[^/\\\\\\s]+", "\\1USER", text, perl = TRUE)
+redact_paths <- function(text, counts = FALSE) {
+  p1 <- "(?i)(/users/|/hom[e]/)[^/\\\\\\s]+"
   # One or more backslashes between parts: pandoc doubles them in .docx prose.
-  text <- gsub("(?i)([A-Za-z]:(?:\\\\)+Users(?:\\\\)+)[^\\\\\\s]+", "\\1USER",
-               text, perl = TRUE)
-  gsub("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "EMAIL", text, perl = TRUE)
+  p2 <- "(?i)([A-Za-z]:(?:\\\\)+Users(?:\\\\)+)[^\\\\\\s]+"
+  p3 <- "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+  cnt <- function(p) sum(vapply(gregexpr(p, text, perl = TRUE),
+                                function(h) sum(h > 0), integer(1)))
+  n_path <- cnt(p1) + cnt(p2)
+  n_email <- cnt(p3)
+  text <- gsub(p1, "\\1USER", text, perl = TRUE)
+  text <- gsub(p2, "\\1USER", text, perl = TRUE)
+  text <- gsub(p3, "EMAIL", text, perl = TRUE)
+  if (isTRUE(counts)) {
+    list(text = text, counts = c(PATH = n_path, EMAIL = n_email))
+  } else {
+    text
+  }
+}
+
+# Fixed patterns that identify a person without naming them. Applied before
+# the name redaction, to document text and to OCR text. Each match becomes a
+# bracketed type token; counts are reported by type, never the value.
+STREET_TYPES <- c("Street","St","Avenue","Ave","Road","Rd","Drive","Dr","Lane",
+                  "Ln","Boulevard","Blvd","Court","Ct","Way","Place","Pl",
+                  "Circle","Cir","Trail","Trl","Parkway","Pkwy","Highway","Hwy")
+
+# Each entry: the pattern and its replacement. DOB keeps its label ("born on",
+# "DOB:") and replaces only the date; PCRE has no variable-length lookbehind,
+# so the label is captured and written back as \\1\\2.
+PII_PATTERNS <- list(
+  SSN   = list(p = "(?<![0-9-])[0-9]{3}-[0-9]{2}-[0-9]{4}(?![0-9-])", r = "[SSN]"),
+  PHONE = list(p = "(?<![0-9.\\-])(?:\\+?1[ .\\-]?)?(?:\\([0-9]{3}\\)\\s?|[0-9]{3}[ .\\-])[0-9]{3}[ .\\-][0-9]{4}(?![0-9\\-]|\\.[0-9])",
+               r = "[PHONE]"),
+  DOB   = list(p = paste0("(?i)\\b(born(?: on)?|dob|d\\.o\\.b\\.|date of birth|birthday)([:\\s]{1,3})",
+                          "(?:[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}|[0-9]{4}-[0-9]{2}-[0-9]{2}|",
+                          "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+[0-9]{1,2},?\\s+[0-9]{4})"),
+               r = "\\1\\2[DOB]"),
+  PROFILE = list(p = paste0("(?i)(?:https?://)?(?:www\\.)?",
+                            "(?:github\\.com|linkedin\\.com/in|twitter\\.com|x\\.com|instagram\\.com|",
+                            "facebook\\.com|tiktok\\.com/@?|youtube\\.com/(?:@|c/|channel/|user/))",
+                            "/?[A-Za-z0-9_.\\-]+/?"),
+                 r = "[PROFILE]"),
+  HANDLE = list(p = "(?<![A-Za-z0-9_@.)\\]])@[A-Za-z0-9_]{2,30}\\b", r = "[HANDLE]"),
+  ADDRESS = list(p = paste0("\\b[0-9]{1,6}\\s+(?:[NSEW]\\.?\\s+)?",
+                            "(?:(?!(?:", paste(STREET_TYPES, collapse = "|"), ")\\b)[A-Z][a-z]+\\s+){1,3}",
+                            "(?:", paste(STREET_TYPES, collapse = "|"), ")\\b\\.?"),
+                 r = "[ADDRESS]")
+)
+
+redact_patterns <- function(text) {
+  counts <- integer(0)
+  for (type in names(PII_PATTERNS)) {
+    p <- PII_PATTERNS[[type]]$p
+    hits <- gregexpr(p, text, perl = TRUE)
+    counts[type] <- sum(vapply(hits, function(h) sum(h > 0), integer(1)))
+    text <- gsub(p, PII_PATTERNS[[type]]$r, text, perl = TRUE)
+  }
+  list(text = text, counts = counts)
 }
 
 # Which files still contain a key value. Reports the code, never the value.
