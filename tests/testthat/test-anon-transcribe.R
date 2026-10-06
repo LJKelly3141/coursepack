@@ -24,16 +24,20 @@ test_that("an image-only student stops without transcribe_images, naming the opt
   expect_false(dir.exists(s$an))
 })
 
-test_that("the transcription becomes the coded document, redacted, with the image beside it", {
+test_that("the transcription becomes the coded document, redacted, and the photo stays out of anon/", {
   s <- photo_course(); transcriber_up()
   out <- capture.output(res <- anonymize(s$cc$proj, "semester/A1", dict = NULL,
                                          transcribe_images = TRUE))
+  expect_identical(res$images$scanned, 0L)          # the photo was never swept
   md <- readLines(file.path(s$an, "S01", "file1.md"))
   expect_true(any(grepl("The multiplier is 2.", md, fixed = TRUE)))
   expect_false(any(grepl("Quill", md)))
   expect_true(any(grepl("[name]", md, fixed = TRUE)))
   expect_true(any(grepl("Transcribed from an image", md, fixed = TRUE)))
-  expect_true(file.exists(file.path(s$an, "S01", "file1_media", "image1.png")))
+  # Only the transcript goes into anon/: no photo, no media folder, no image link.
+  expect_false(dir.exists(file.path(s$an, "S01", "file1_media")))
+  expect_equal(length(list.files(s$an, "\\.(png|jpe?g)$", recursive = TRUE, ignore.case = TRUE)), 0L)
+  expect_false(any(grepl("![](", md, fixed = TRUE)))
   expect_identical(res$transcribed, "S01")
   expect_true(any(grepl("TRANSCRIBED from images.*S01", out)))
   log <- readLines(file.path(s$a, "deidentification_log.md"))

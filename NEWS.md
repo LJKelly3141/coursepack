@@ -1,3 +1,7 @@
+# coursepack 1.2.8.1
+
+* Fix: with `transcribe_images = TRUE` the photo is no longer copied into `anon/`. The local model transcribes it from a temporary copy that is then deleted, so the redacted transcript is the student's only file, the photo is never swept, and the run no longer stops for a decision on it. The student is still listed as transcribed, to be checked against the original submission.
+
 # coursepack 1.2.8
 
 * `anonymize(..., transcribe_images = TRUE)` handles a student whose upload is an image (a photo of handwritten work, a screenshot). The local model transcribes each image into that student's coded document, leaving out the header block (name, date, page number), and the transcription then goes through the same redaction and privacy sweep; the image is kept beside it. Transcribed students are listed by code on the console and in the log, to be checked against the image before grades go out: handwriting can be misread. Without the option, an image upload stops the run and the message names it.

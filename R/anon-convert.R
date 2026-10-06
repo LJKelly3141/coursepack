@@ -48,16 +48,16 @@ convert_to_text <- function(path, out_md, media_dir, transcribe = NULL) {
       stop("image submission (.", ext, "); anonymize(..., transcribe_images = TRUE) has the ",
            "local model transcribe it", call. = FALSE)
     }
-    # The image is kept beside the transcription as a PNG (any format, HEIC
-    # included, becomes one readable file); its metadata is stripped later
-    # with every other image.
-    dir.create(media_dir, recursive = TRUE, showWarnings = FALSE)
-    png <- file.path(media_dir, "image1.png")
+    # The image is transcribed from a temporary PNG copy (any format, HEIC
+    # included) and is never written to the coded folder: the redacted
+    # transcript is the student's only file, so the photo is never swept or
+    # shown to a grader.
+    png <- tempfile(fileext = ".png")
+    on.exit(unlink(png), add = TRUE)
     magick::image_write(magick::image_read(path), png, format = "png")
     text <- transcribe(png)
-    writeLines(c("*Transcribed from an image by the local model. Check it against the image below.*",
-                 "", text, "", paste0("![](", basename(media_dir), "/image1.png)")),
-               out_md, useBytes = TRUE)
+    writeLines(c("*Transcribed from an image by the local model. Check it against the original submission.*",
+                 "", text), out_md, useBytes = TRUE)
   } else {
     stop("unsupported submission type: .", ext, call. = FALSE)
   }
