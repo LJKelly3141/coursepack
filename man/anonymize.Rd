@@ -13,7 +13,8 @@ anonymize(
   sweep = getOption("coursepack.sweep", TRUE),
   sweep_model = "gemma-4-31b-it-mlx",
   sweep_url = "http://localhost:1234",
-  sweep_context = NULL
+  sweep_context = NULL,
+  transcribe_images = FALSE
 )
 }
 \arguments{
@@ -52,6 +53,16 @@ anything. \code{FALSE} skips the sweep, and the log records the bypass.}
 
 \item{sweep_context}{Course and data terms the model must not flag, one
 per line; defaults to \code{review_context.txt} beside the key when present.}
+
+\item{transcribe_images}{A student whose upload is an image (a photo of
+handwritten work, a screenshot) stops the run unless this is \code{TRUE}. With
+\code{TRUE}, the local model (\code{sweep_model} at \code{sweep_url}) transcribes each
+image into that student's coded document, which then goes through the
+same redaction and privacy sweep; the image is kept beside it as a PNG.
+Transcribed students are listed by code on the console and in the log, to
+be checked against the image before grades go out. A student with no
+document has the latest image as the file feedback attaches to, and
+\code{\link[=relink]{relink()}} answers it with an image of the same name and type.}
 }
 \value{
 A list with \code{students}, \code{files}, \code{replacements}, \code{patterns} (the

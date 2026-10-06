@@ -52,8 +52,10 @@ rendered under the exact file name of that student's target submission (see
 \code{\link[=anonymize]{anonymize()}}, which picks it by the same rule), and the file is a valid
 file of that type: a \code{.pdf} submission gets a PDF through pandoc and
 xelatex, a \code{.docx} submission a Word file and an \code{.odt} submission an
-OpenDocument text file, both through pandoc, and a \code{.md}, \code{.qmd}, \code{.Rmd} or
-\code{.txt} submission gets the feedback text. Any other type stops the run,
+OpenDocument text file, both through pandoc, a \code{.md}, \code{.qmd}, \code{.Rmd} or
+\code{.txt} submission gets the feedback text, and an image submission (a
+student who uploaded only a photo) gets the feedback rendered to PDF and
+then to an image of the same type and name. Any other type stops the run,
 naming the code and the extension, before that file is written.
 
 Three files are written to \code{out_dir}: \verb{feedback/}, holding one file per

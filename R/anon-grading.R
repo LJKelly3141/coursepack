@@ -50,6 +50,7 @@ assign_files <- function(subs, key) {
   subs$code <- key$code[match(subs$canvas_id, key$canvas_id)]
   subs$spec <- grepl("(^|[^a-z])spec", subs$original, ignore.case = TRUE, perl = TRUE)
   doc <- tolower(tools::file_ext(subs$original)) %in% DOCUMENT_EXTS
+  img <- tolower(tools::file_ext(subs$original)) %in% SUBMISSION_IMAGE_EXTS
   subs$position <- NA_integer_
   subs$target <- FALSE
   for (cd in unique(subs$code)) {
@@ -57,9 +58,13 @@ assign_files <- function(subs, key) {
     ord <- i[order(as.numeric(subs$submission_id[i]))]
     subs$position[ord] <- seq_along(ord)
     docs <- ord[doc[ord]]
+    # A student who uploaded only images (a photo of handwritten work, a
+    # screenshot): the latest image is the target, and relink() answers it
+    # with an image of the same name.
+    if (!length(docs)) docs <- ord[img[ord]]
     if (!length(docs)) {
       stop(cd, ": no document file (", paste(DOCUMENT_EXTS, collapse = ", "),
-           ") to attach feedback to", call. = FALSE)
+           ") or image to attach feedback to", call. = FALSE)
     }
     non_spec <- docs[!subs$spec[docs]]
     tgt <- if (length(non_spec)) non_spec[length(non_spec)] else docs[length(docs)]
@@ -205,6 +210,15 @@ assign_files <- function(subs, key) {
 #' @param sweep_url The LM Studio server; must be on `localhost`.
 #' @param sweep_context Course and data terms the model must not flag, one
 #'   per line; defaults to `review_context.txt` beside the key when present.
+#' @param transcribe_images A student whose upload is an image (a photo of
+#'   handwritten work, a screenshot) stops the run unless this is `TRUE`. With
+#'   `TRUE`, the local model (`sweep_model` at `sweep_url`) transcribes each
+#'   image into that student's coded document, which then goes through the
+#'   same redaction and privacy sweep; the image is kept beside it as a PNG.
+#'   Transcribed students are listed by code on the console and in the log, to
+#'   be checked against the image before grades go out. A student with no
+#'   document has the latest image as the file feedback attaches to, and
+#'   [relink()] answers it with an image of the same name and type.
 #' @return A list with `students`, `files`, `replacements`, `patterns` (the
 #'   fixed-pattern replacements made), `images` (the images checked) and
 #'   `protected` (the protected-phrase occurrences kept) counts, invisibly. The run stops instead of returning when a leftover is found or
@@ -232,7 +246,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
                       anon_dir = NULL, dict = default_dict(),
                       sweep = getOption("coursepack.sweep", TRUE),
                       sweep_model = "gemma-4-31b-it-mlx", sweep_url = "http://localhost:1234",
-                      sweep_context = NULL) {
+                      sweep_context = NULL, transcribe_images = FALSE) {
   proj <- anon_proj(proj)
   assignment_dir <- proj_path(proj, assignment)
   key_path <- proj_path(proj, key)
@@ -283,7 +297,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   check_keep_phrases(keep, key, dict_path = dict_path)
   # The local privacy sweep is part of anonymizing: its model must be up
   # before anything is written. sweep = FALSE skips it, and the log says so.
-  if (isTRUE(sweep)) review_check_server(sweep_url, sweep_model)
+  if (isTRUE(sweep) || isTRUE(transcribe_images)) review_check_server(sweep_url, sweep_model)
 
   # From here on the coded files are built in a hidden folder beside anon/,
   # where no grader is pointed. anon/ itself is removed now and appears again
@@ -329,11 +343,18 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   pattern_counts <- c(SSN = 0L, PHONE = 0L, DOB = 0L, ADDRESS = 0L, PROFILE = 0L, HANDLE = 0L)
   path_counts <- c(PATH = 0L, EMAIL = 0L)
   kept <- 0L
+  transcribed <- character()
   for (r in shuffle(seq_len(nrow(subs)))) {
     s <- subs[r, ]
     out_md <- file.path(anon_dir, s$code, paste0(s$anon_name, ".md"))
+    is_img <- tolower(tools::file_ext(s$file)) %in% SUBMISSION_IMAGE_EXTS
+    tr <- if (isTRUE(transcribe_images) && is_img) {
+      function(png) transcribe_image(png, sweep_model, sweep_url,
+                                     file.path(assignment_dir, REVIEW_CACHE), s$code)
+    }
+    if (!is.null(tr)) transcribed <- c(transcribed, s$code)
     tryCatch(convert_to_text(file.path(assignment_dir, s$file), out_md,
-                             file.path(anon_dir, s$code, paste0(s$anon_name, "_media"))),
+                             file.path(anon_dir, s$code, paste0(s$anon_name, "_media")), tr),
              error = function(e) {
                stop(s$code, " (", s$anon_name, "): ", conditionMessage(e), call. = FALSE)
              })
@@ -429,7 +450,9 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
             images$scanned, images$stripped, images$flagged, images$removed, images$kept),
     "leftover check: 0 leftovers",
     "manifest: no lateness or submission times; all anon/ timestamps set to one value",
-    sweep_lines))
+    sweep_lines,
+    sprintf("transcribed from images by the local model (check against the image): %s",
+            if (length(transcribed)) paste(sort(unique(transcribed)), collapse = ", ") else "none")))
   unlink(file.path(anon_dir, "NOT_READY"))
   # Release: the finished build becomes anon/ in one step.
   if (!file.rename(build_dir, final_dir)) {
@@ -441,13 +464,18 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   cat(sprintf("anonymize: %d students, %d files, %d replacements, 0 leftovers. anon/ is ready.\n",
               n_students, nrow(subs), n))
   cat(if (is.null(sw)) "privacy sweep: BYPASSED (sweep = FALSE)\n" else "privacy sweep: passed\n")
+  if (length(transcribed)) {
+    cat(sprintf("TRANSCRIBED from images (check each against its image before grades go out): %s\n",
+                paste(sort(unique(transcribed)), collapse = ", ")))
+  }
   cat(sprintf("fixed patterns: %s\n", pc_text))
   cat(sprintf("protected phrases kept: %d\n", kept))
   cat(sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept)\n",
               images$scanned, images$stripped, images$flagged, images$removed, images$kept))
   version_line("anonymize")
   invisible(list(students = n_students, files = nrow(subs), replacements = n,
-                 patterns = pattern_counts, images = images, protected = kept))
+                 patterns = pattern_counts, images = images, protected = kept,
+                 transcribed = sort(unique(transcribed))))
 }
 
 # Identity strings that must not appear in one student's finished feedback:
@@ -471,14 +499,25 @@ foreign_terms <- function(key, code) {
 # with no writer here stops before anything is written.
 render_feedback <- function(md_lines, target, code) {
   ext <- tolower(tools::file_ext(target))
-  if (!ext %in% DOCUMENT_EXTS) {
+  if (!ext %in% c(DOCUMENT_EXTS, SUBMISSION_IMAGE_EXTS)) {
     stop(code, ": cannot write feedback as a .", ext, " file; feedback is written ",
-         "only as ", paste(DOCUMENT_EXTS, collapse = ", "), call. = FALSE)
+         "only as ", paste(c(DOCUMENT_EXTS, SUBMISSION_IMAGE_EXTS), collapse = ", "), call. = FALSE)
   }
   tmp <- tempfile(fileext = ".md")
   on.exit(unlink(tmp), add = TRUE)
   writeLines(md_lines, tmp, useBytes = TRUE)
-  if (ext == "pdf") {
+  if (ext %in% SUBMISSION_IMAGE_EXTS) {
+    # An image submission is answered with an image of the same name: the
+    # feedback is rendered to PDF, its pages to PNG, stacked into one image.
+    pdf <- tempfile(fileext = ".pdf"); pre <- tempfile("fb")
+    on.exit(unlink(c(pdf, Sys.glob(paste0(pre, "*")))), add = TRUE)
+    run_tool("pandoc", c(shQuote(tmp), "--pdf-engine=xelatex",
+                         "-V", "geometry:margin=1in", "-o", shQuote(pdf)))
+    run_tool("pdftoppm", c("-r", "150", "-png", shQuote(pdf), shQuote(pre)))
+    pages <- magick::image_read(sort(Sys.glob(paste0(pre, "*.png"))))
+    fmt <- switch(ext, jpg = , jpeg = "jpeg", tif = , tiff = "tiff", heic = , heif = "jpeg", ext)
+    magick::image_write(magick::image_append(pages, stack = TRUE), target, format = fmt)
+  } else if (ext == "pdf") {
     run_tool("pandoc", c(shQuote(tmp), "--pdf-engine=xelatex",
                          "-V", "geometry:margin=1in", "-o", shQuote(target)))
   } else if (ext %in% c("docx", "odt")) {
@@ -507,8 +546,10 @@ render_feedback <- function(md_lines, target, code) {
 #' [anonymize()], which picks it by the same rule), and the file is a valid
 #' file of that type: a `.pdf` submission gets a PDF through pandoc and
 #' xelatex, a `.docx` submission a Word file and an `.odt` submission an
-#' OpenDocument text file, both through pandoc, and a `.md`, `.qmd`, `.Rmd` or
-#' `.txt` submission gets the feedback text. Any other type stops the run,
+#' OpenDocument text file, both through pandoc, a `.md`, `.qmd`, `.Rmd` or
+#' `.txt` submission gets the feedback text, and an image submission (a
+#' student who uploaded only a photo) gets the feedback rendered to PDF and
+#' then to an image of the same type and name. Any other type stops the run,
 #' naming the code and the extension, before that file is written.
 #'
 #' Three files are written to `out_dir`: `feedback/`, holding one file per

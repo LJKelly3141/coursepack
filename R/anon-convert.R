@@ -8,6 +8,10 @@ TEXT_EXTS <- c("md", "qmd", "rmd", "r", "txt")
 # target. A script (.R) is read for grading but never answered in its own type.
 FEEDBACK_TEXT_EXTS <- c("md", "qmd", "rmd", "txt")
 DOCUMENT_EXTS <- c("docx", "odt", "pdf", FEEDBACK_TEXT_EXTS)
+# A photo or screenshot submitted instead of a document. With
+# anonymize(transcribe_images = TRUE) the local model transcribes it; relink()
+# answers it with feedback rendered as an image of the same type and name.
+SUBMISSION_IMAGE_EXTS <- c("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "bmp", "tif", "tiff")
 
 run_tool <- function(cmd, args) {
   res <- suppressWarnings(system2(cmd, args, stdout = TRUE, stderr = TRUE))
@@ -16,7 +20,7 @@ run_tool <- function(cmd, args) {
   invisible(res)
 }
 
-convert_to_text <- function(path, out_md, media_dir) {
+convert_to_text <- function(path, out_md, media_dir, transcribe = NULL) {
   ext <- tolower(tools::file_ext(path))
   dir.create(dirname(out_md), recursive = TRUE, showWarnings = FALSE)
   if (ext %in% c("docx", "odt")) {
@@ -39,6 +43,21 @@ convert_to_text <- function(path, out_md, media_dir) {
     run_tool("pdfimages", c("-png", shQuote(path), shQuote(file.path(media_dir, "img"))))
   } else if (ext %in% TEXT_EXTS) {
     writeLines(readLines(path, warn = FALSE, encoding = "UTF-8"), out_md, useBytes = TRUE)
+  } else if (ext %in% SUBMISSION_IMAGE_EXTS) {
+    if (is.null(transcribe)) {
+      stop("image submission (.", ext, "); anonymize(..., transcribe_images = TRUE) has the ",
+           "local model transcribe it", call. = FALSE)
+    }
+    # The image is kept beside the transcription as a PNG (any format, HEIC
+    # included, becomes one readable file); its metadata is stripped later
+    # with every other image.
+    dir.create(media_dir, recursive = TRUE, showWarnings = FALSE)
+    png <- file.path(media_dir, "image1.png")
+    magick::image_write(magick::image_read(path), png, format = "png")
+    text <- transcribe(png)
+    writeLines(c("*Transcribed from an image by the local model. Check it against the image below.*",
+                 "", text, "", paste0("![](", basename(media_dir), "/image1.png)")),
+               out_md, useBytes = TRUE)
   } else {
     stop("unsupported submission type: .", ext, call. = FALSE)
   }

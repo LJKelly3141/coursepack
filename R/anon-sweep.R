@@ -106,9 +106,9 @@ review_body <- function(text, images, prompt, model) {
                    auto_unbox = TRUE)
 }
 
-# The one function that talks to the server. Returns the parsed findings or
-# a short failure reason; never the reply text.
-review_call <- function(body, url) {
+# The one function that talks to the server. Returns the reply's text or a
+# short failure reason; never the reply text in a message.
+vision_post <- function(body, url) {
   h <- curl::new_handle(post = TRUE, postfields = body,
                         timeout = getOption("coursepack.review_timeout", 3600))
   curl::handle_setheaders(h, "Content-Type" = "application/json")
@@ -123,14 +123,58 @@ review_call <- function(body, url) {
     return(list(fail = substr(paste("HTTP", res$status_code,
                                     if (is.list(e)) e$message else paste(e)), 1, 160)))
   }
-  g <- tryCatch(jsonlite::fromJSON(fr$choices[[1]]$message$content, simplifyVector = FALSE),
-                error = function(e) NULL)
-  if (is.null(g) || !is.list(g$findings)) {
-    return(list(fail = sprintf("reply was not valid (stop: %s)",
-                               fr$choices[[1]]$finish_reason %||% "?")))
+  txt <- fr$choices[[1]]$message$content
+  if (!is.character(txt) || !length(txt)) {
+    return(list(fail = sprintf("empty reply (stop: %s)", fr$choices[[1]]$finish_reason %||% "?")))
   }
+  list(content = txt)
+}
+
+review_call <- function(body, url) {
+  r <- vision_post(body, url)
+  if (!is.null(r$fail)) return(r)
+  g <- tryCatch(jsonlite::fromJSON(r$content, simplifyVector = FALSE), error = function(e) NULL)
+  if (is.null(g) || !is.list(g$findings)) return(list(fail = "reply was not valid findings JSON"))
   list(findings = g$findings)
 }
+
+TRANSCRIBE_PROMPT <- paste(
+  "Transcribe this image of a student's homework into Markdown.",
+  "LEAVE OUT the header block entirely: the student's name or initials, the date,",
+  "the page number, and the course or instructor lines, wherever they appear on",
+  "the page (usually the top corner). Never write any person's name that appears",
+  "as a signature or header. Start with the title of the work and then the body.",
+  "Transcribe the body exactly as written: every word, number, equation, table and",
+  "label, in reading order. Keep the student's own spelling, grammar and wording;",
+  "do not correct, summarise or add anything. Copy every number and range exactly",
+  "(for example $70K-$80K). Write [illegible] for any word you cannot read.",
+  "Describe a graph or drawing in one bracketed line that keeps its axis labels and",
+  "the values marked on each axis.",
+  "Reply with the transcription only.")
+
+# One image to text with the local model, cached beside the key by the md5 of
+# the exact request. A second failure stops the run naming the code only.
+transcribe_image <- function(png, model, url, cache_dir, code) {
+  body <- jsonlite::toJSON(list(
+    model = model, temperature = 0, max_tokens = 8000,
+    messages = list(list(role = "user", content = list(
+      list(type = "text", text = TRANSCRIBE_PROMPT),
+      list(type = "image_url", image_url = list(url = paste0(
+        "data:image/png;base64,", jsonlite::base64_enc(readBin(png, "raw", file.info(png)$size))))))))),
+    auto_unbox = TRUE)
+  hit <- file.path(cache_dir, paste0("t_", digest::digest(body, algo = "md5", serialize = FALSE), ".txt"))
+  if (file.exists(hit)) return(readLines(hit, warn = FALSE, encoding = "UTF-8"))
+  r <- transcribe_call(body, url)
+  if (!is.null(r$fail)) r <- transcribe_call(body, url)
+  if (!is.null(r$fail)) {
+    stop("transcription failed for ", code, ": ", r$fail,
+         ". anon/ is not released; re-run anonymize() to resume.", call. = FALSE)
+  }
+  dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+  writeLines(r$content, hit, useBytes = TRUE)
+  strsplit(r$content, "\n", fixed = TRUE)[[1]]
+}
+transcribe_call <- function(body, url) vision_post(body, url)
 
 # One coded file: cached reply if the exact request was sent before,
 # otherwise one request, retried once. A second failure stops the sweep.
