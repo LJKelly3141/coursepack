@@ -40,7 +40,7 @@ coursepack::coursepack_version()
 ```
 
 The last line prints the installed version. For a specific release, name its
-tag: `remotes::install_github("LJKelly3141/coursepack@v1.2.6")`.
+tag: `remotes::install_github("LJKelly3141/coursepack@v1.2.8")`.
 
 To check the installation without touching any course, scaffold a throwaway
 course into a temporary directory and build it:

@@ -31,7 +31,7 @@ accomplish.
 \section{Status}{
 
 
-1.2.6. Every entry point the two originating course toolchains had is in
+1.2.8. Every entry point the two originating course toolchains had is in
 the package: checking, building, diffing against a reference export, QTI,
 preview, tile, audit, extraction, conversion, announcements, paper forms,
 the scaffold, the skills, and grading without student identity. Two courses have been built by this package
