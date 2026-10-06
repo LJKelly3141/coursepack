@@ -81,11 +81,14 @@ lines and lines starting with \verb{#} are ignored, and the file is read
 automatically when present. Each phrase must have two or more words, so a
 one-word line stops the run, naming only its line number, and a single name
 is never protected: a student who shares the instructor's first name is
-still redacted. A phrase that contains a student's full name form, a
-nickname of two or more words, a login or a Canvas id also stops the run,
-naming only the line number. A protected phrase stays whole in the text,
-also when a line break splits it, does not flag an image and is not a
-leftover, while the same name standing alone is still redacted to \verb{[name]}.
+still redacted. A phrase that contains any form of a student's name (the
+full name in either order, the name run together, an initial with the
+surname, or a nickname), or a student's file prefix, login or Canvas id,
+also stops the run, naming only the line number; a student's first or last
+name alone inside a phrase is allowed. A protected phrase stays whole in the
+text, also when a line break splits it or its words are separated by
+non-breaking spaces, does not flag an image and is not a leftover, while the
+same name standing alone is still redacted to \verb{[name]}.
 "Dr. Thorn" counts as two words, so "Dr. Thorn" would be kept wherever it is
 written: list exact phrases such as "Avery J. Thorn" or "Dr. Avery Thorn".
 The log and the console report how many protected-phrase occurrences were

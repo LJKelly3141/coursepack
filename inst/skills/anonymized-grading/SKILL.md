@@ -78,8 +78,10 @@ The coded folder shows no lateness and no submission times.
   ignored. Each phrase must be a whole phrase of two or more words. A single
   name is refused (the run stops, naming only the line number) because a
   student may share it, and that student's name must still be redacted. A
-  phrase holding a student's full name, a multi-word nickname, a login or a
-  Canvas id is refused too, by line number. "Dr. Thorn" counts as two words
+  phrase holding any form of a student's name (full name in either order,
+  run together, initial and surname, or a nickname), or a student's file
+  prefix, login or Canvas id, is refused too, by line number; a first or
+  last name alone inside a phrase is allowed. "Dr. Thorn" counts as two words
   and would be kept wherever it is written, so list exact phrases. A kept
   phrase stays whole, also across a line break; the same name alone still
   becomes `[name]`. The run and the log report how many were kept, never the
