@@ -403,6 +403,9 @@ anon_forget <- function(proj, assignment) {
          "relink() has run and the Canvas upload is confirmed.", call. = FALSE)
   }
   if (!file.remove(key_path)) stop("could not delete ", key_path, call. = FALSE)
+  # The sweep's cached replies and progress go with the key; anon_review.csv
+  # and the log stay as the instructor's record.
+  unlink(file.path(assignment_dir, c(REVIEW_CACHE, SWEEP_PROGRESS)), recursive = TRUE)
   append_log(assignment_dir, "anon_forget",
              "key deleted; this run's codes can no longer be linked to students")
   cat(sprintf("anon_forget: deleted %s; this run's codes can no longer be linked to students\n",

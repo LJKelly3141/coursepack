@@ -22,18 +22,36 @@ course's `semester/` folder except the `anon/` folder of the assignment it is
 grading. Not the downloads, not the key, not a scores file, not a grading
 notes file, not the nicknames file, not a gradebook export or import.
 
+**Nothing goes to a grader until anonymizing is complete, privacy sweep
+included.** `anonymize()` builds the coded files in a hidden folder beside `anon/`,
+runs the local privacy sweep there, and creates `anon/` only when it passes;
+until then there is no `anon/` to read. Never dispatch a grader while
+`anonymize()` is running, and never open the hidden build folder. Never run
+anything in parallel with it. "It was clean last time" is not a reason.
+
 ## The pipeline
 
 | Step | Who | Command or action |
 |---|---|---|
 | 1. Key | instructor's machine | `coursepack::anon_key(".", gradebook = "semester/<term>/gradebook_export/<latest export>.csv", assignment = "semester/<term>/<Assignment>", nicknames = "semester/<term>/nicknames.csv")` |
 | 2. Key review | the instructor, by hand | opens the key, adds nicknames to the nicknames file |
-| 3. Anonymize | instructor's machine | `coursepack::anonymize(".", "semester/<term>/<Assignment>")` |
-| 4. Grade | one agent per assignment | reads `anon/` only, writes `anon/feedback/` and `anon/scores.csv` |
-| 5. Rulings | the instructor | one decision at a time |
-| 6. Relink | instructor's machine | `coursepack::relink(".", "semester/<term>/<Assignment>")` |
-| 7. Grades for Canvas | instructor's machine | `coursepack::canvas_grades(".", gradebook = "semester/<term>/gradebook_export/<fresh export>.csv", map = "semester/<term>/canvas_columns.csv")`, written to `semester/<term>/gradebook_import/` |
-| 8. Forget the key | instructor's machine | `coursepack::anon_forget(".", "semester/<term>/<Assignment>")`, once the upload is confirmed |
+| 3. Anonymize, with the privacy sweep | instructor's machine, LM Studio running with `gemma-4-31b-it-mlx` loaded | `coursepack::anonymize(".", "semester/<term>/<Assignment>")`; if it stops on the sweep, the instructor marks each row of `anon_review.csv` noise or real, fixes real ones at the source, and runs it again, until it prints "anon/ is ready" and "privacy sweep: passed" |
+| 4. (no separate step) | | |
+| 5. Grade | one agent per assignment, only after anonymize() printed "privacy sweep: passed" and `anon/` exists | reads `anon/` only, writes `anon/feedback/` and `anon/scores.csv` |
+| 6. Rulings | the instructor | one decision at a time |
+| 7. Relink | instructor's machine | `coursepack::relink(".", "semester/<term>/<Assignment>")` |
+| 8. Grades for Canvas | instructor's machine | `coursepack::canvas_grades(".", gradebook = "semester/<term>/gradebook_export/<fresh export>.csv", map = "semester/<term>/canvas_columns.csv")`, written to `semester/<term>/gradebook_import/` |
+| 9. Forget the key | instructor's machine | `coursepack::anon_forget(".", "semester/<term>/<Assignment>")`, once the upload is confirmed |
+
+The agent may run `anonymize()` and read its console lines and
+`anon_sweep_progress.txt` beside the key (codes and counts only) to wait for
+it. It never opens `anon_review.csv` or `anon_review_cache/` (they hold
+flagged text), never marks a finding itself, and never passes
+`sweep = FALSE` unless the instructor says so for that run. If LM
+Studio or the model is not running, the sweep stops and says what to start:
+tell the instructor and wait; there is no way around the gate. Course and
+dataset terms the model must not flag go in `review_context.txt` beside the
+key, built from the rubric or answer key, never from student papers.
 
 Every command prints counts and codes only. That output is safe to read.
 
@@ -69,7 +87,7 @@ and emails. Every redacted name, whoever's it was, becomes the same token,
 student code inside the text; codes only name folders and feedback files. It also redacts phone numbers, SSNs, birth dates, street
 addresses, profile URLs and handles, and reads the text in images. It needs
 tesseract and stops before writing anything without it (`brew install
-tesseract`). It writes `anon/NOT_READY` until its own leftover check passes.
+tesseract`). It builds in a hidden folder beside `anon/` and creates `anon/` only when every check and the privacy sweep pass.
 The coded folder shows no lateness and no submission times.
 
 - To keep an instructor's or TA's name readable (a heading such as "Dr.
@@ -107,7 +125,21 @@ The coded folder shows no lateness and no submission times.
 - It refuses to run while `anon/feedback/` or `anon/scores.csv` exists, so it
   can never wipe grading work.
 
-### 4: grade
+### 4: the privacy sweep (inside anonymize)
+
+`anonymize()` runs it after the rule-based redaction, one coded file at a
+time with its images, printing one line per file (also in
+`anon_sweep_progress.txt` beside the key). Findings go to `anon_review.csv`
+beside the key; the instructor marks every row noise or real. Real findings
+are fixed at the source (a nickname in the key, an image marked remove in
+`anon_images.csv`) and `anonymize()` runs again; cached replies make the
+re-run quick. `sweep = FALSE` skips it, only on the instructor's word, and
+the log records the bypass.
+
+### 5: grade
+
+Start only when `anonymize()` printed "privacy sweep: passed" (or the
+instructor bypassed it) and `anon/` exists.
 
 The rubric, answer key and grading guide must exist first, in the course's
 private assessment folder. Write them before grading if they do not.
@@ -138,7 +170,7 @@ attaches to that student's latest document (`.docx`, `.odt`, `.pdf`, `.md`,
 the latest document when every one is a spec. A script such as `.R` is read but
 never gets feedback, and a student with no document at all stops the run.
 
-### 5: rulings
+### 6: rulings
 
 Read the grader's notes and bring each call to the instructor **one at a
 time**. Each message opens with the assignment and the question or criterion,
@@ -150,7 +182,7 @@ wrong idea from a neighbouring question.
 Apply each ruling through the same grading agent that wrote the feedback. Keep
 the feedback filenames identical, and record the ruling in its notes.
 
-### 6: relink
+### 7: relink
 
 `relink()` puts the names back, refuses any feedback that names another
 student, renders each file under the exact name of its submission (a PDF
@@ -161,7 +193,7 @@ file or zip. Move the old ones out first when re-running after a ruling.
 Before handing the zip over, confirm that every entry matches a submission
 filename in the folder.
 
-### 7: grades for Canvas
+### 8: grades for Canvas
 
 Canvas writes back every cell an import carries, and reads a blank cell as a
 deletion, but leaves alone any assignment column the import does not carry.
@@ -202,7 +234,7 @@ folder's own key, so no `key` is passed. The result is
 existing file; after a ruling, re-run with `overwrite = TRUE`. Tell the
 instructor to read Canvas's import preview before confirming.
 
-### 8: forget the key
+### 9: forget the key
 
 Once the instructor confirms the feedback upload and the grade import in
 Canvas, delete the assignment's key:
@@ -221,6 +253,7 @@ nothing on the machine links that run's codes to students.
 |---|---|---|
 | Grading agents share one scratch folder | one agent's drafts land in another assignment's feedback | a subfolder per assignment, and a title check before zipping |
 | A grader is given a downloads folder, a notes file or a scores file | names reach the grader | give it `anon/` and the rubric files only |
+| Graders started while the privacy sweep was still running (Case Studies 5 and 6, 2026-10-05) | coded files read before the privacy check finished | wait until anonymize() prints "privacy sweep: passed"; never grade while it runs |
 | Rulings sent as a batch across assignments | the instructor cannot tell which assignment a call belongs to | one call per message, assignment first |
 | A student's answer paraphrased in a ruling | the instructor rules on words the student never wrote | quote the coded file |
 | Feedback regenerated as `.docx` for a PDF submission | the name no longer matches and Canvas skips it | regenerate through `relink()` |

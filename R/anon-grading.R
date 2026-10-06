@@ -15,7 +15,8 @@ list_submissions <- function(assignment_dir) {
   f <- f[!dir.exists(file.path(assignment_dir, f))]
   # The run's own key, de-identification log and image decisions sit beside
   # the downloads; they are not stray files.
-  f <- setdiff(f, c(KEY_FILE, basename(log_path(assignment_dir)), "anon_images.csv"))
+  f <- setdiff(f, c(KEY_FILE, basename(log_path(assignment_dir)), "anon_images.csv",
+                    REVIEW_FILE, REVIEW_CONTEXT, SWEEP_PROGRESS))
   parsed <- lapply(f, parse_canvas_filename)
   keep <- !vapply(parsed, is.null, logical(1))
   if (!any(keep)) stop("no Canvas submission files found in ", assignment_dir, call. = FALSE)
@@ -190,6 +191,20 @@ assign_files <- function(subs, key) {
 #'   found in it ("Hall, Sam" gives "shall") is an ordinary word and is not
 #'   redacted. `NULL` keeps every form. The default is [default_dict()], the
 #'   system word list where one exists.
+#' @param sweep Run the local privacy sweep before releasing `anon/` (the
+#'   default). A local vision model, served by LM Studio on this machine,
+#'   reads every coded file with its images and lists anything that could
+#'   still identify a student in `anon_review.csv` beside the key. `anon/` is
+#'   released only when every file was reviewed, no student code is left, and
+#'   the instructor has marked every finding `noise`; otherwise it stays
+#'   `NOT_READY` and the run stops. Real findings are fixed at their source
+#'   and `anonymize()` run again; replies are cached beside the key. If the
+#'   server or the model is not running, the run stops before writing
+#'   anything. `FALSE` skips the sweep, and the log records the bypass.
+#' @param sweep_model The model loaded in LM Studio.
+#' @param sweep_url The LM Studio server; must be on `localhost`.
+#' @param sweep_context Course and data terms the model must not flag, one
+#'   per line; defaults to `review_context.txt` beside the key when present.
 #' @return A list with `students`, `files`, `replacements`, `patterns` (the
 #'   fixed-pattern replacements made), `images` (the images checked) and
 #'   `protected` (the protected-phrase occurrences kept) counts, invisibly. The run stops instead of returning when a leftover is found or
@@ -214,7 +229,10 @@ assign_files <- function(subs, key) {
 #' unlink(p, recursive = TRUE)
 #' @export
 anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.csv"),
-                      anon_dir = NULL, dict = default_dict()) {
+                      anon_dir = NULL, dict = default_dict(),
+                      sweep = getOption("coursepack.sweep", TRUE),
+                      sweep_model = "gemma-4-31b-it-mlx", sweep_url = "http://localhost:1234",
+                      sweep_context = NULL) {
   proj <- anon_proj(proj)
   assignment_dir <- proj_path(proj, assignment)
   key_path <- proj_path(proj, key)
@@ -263,12 +281,36 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   # before anything is written. Its error names the line number only.
   keep <- read_keep_phrases(proj)
   check_keep_phrases(keep, key, dict_path = dict_path)
+  # The local privacy sweep is part of anonymizing: its model must be up
+  # before anything is written. sweep = FALSE skips it, and the log says so.
+  if (isTRUE(sweep)) review_check_server(sweep_url, sweep_model)
 
-  # From here on a stop anywhere must not leave an old anon/ looking ready.
-  if (dir.exists(anon_dir)) {
-    writeLines("anonymize has not finished its leftover check",
-               file.path(anon_dir, "NOT_READY"))
+  # From here on the coded files are built in a hidden folder beside anon/,
+  # where no grader is pointed. anon/ itself is removed now and appears again
+  # only at the very end, in one rename, when every check and the privacy
+  # sweep have passed. A stop anywhere leaves no anon/ to read. Grader output
+  # from an earlier run (feedback/, scores.csv) is carried along.
+  final_dir <- anon_dir
+  build_dir <- file.path(dirname(final_dir), paste0(".", basename(final_dir), "_build"))
+  carry <- c("feedback", "scores.csv")
+  if (dir.exists(build_dir)) {
+    old <- list.files(build_dir, all.files = TRUE, no.. = TRUE, full.names = TRUE)
+    unlink(old[!basename(old) %in% carry], recursive = TRUE)
   }
+  dir.create(build_dir, recursive = TRUE, showWarnings = FALSE)
+  if (dir.exists(final_dir)) {
+    for (k in carry) {
+      src <- file.path(final_dir, k)
+      if (file.exists(src)) {
+        unlink(file.path(build_dir, k), recursive = TRUE)
+        file.rename(src, file.path(build_dir, k))
+      }
+    }
+    unlink(final_dir, recursive = TRUE)
+  }
+  anon_dir <- build_dir
+  writeLines("anonymize has not finished; this folder is not for grading",
+             file.path(anon_dir, "NOT_READY"))
 
   listed <- list_submissions(assignment_dir)
   ignored <- attr(listed, "ignored")
@@ -280,10 +322,6 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
                                              stringsAsFactors = FALSE),
                      dict_path = dict_path)
 
-  dir.create(anon_dir, recursive = TRUE, showWarnings = FALSE)
-  old <- list.files(anon_dir, full.names = TRUE)
-  unlink(old[!basename(old) %in% c("feedback", "scores.csv")], recursive = TRUE)
-  writeLines("anonymize has not finished its leftover check", file.path(anon_dir, "NOT_READY"))
 
   # Files are processed in a shuffled order, so the order anon/ is built in
   # says nothing about submission order or the key's row order.
@@ -332,7 +370,8 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
               decided$undecided$reason[i], ") needs a decision")
     }
     stop(nrow(decided$undecided), " image(s) need a decision before anon/ is ready. ",
-         "Open each listed image under anon/, then add a row per image to ",
+         "Open each listed image under ", basename(build_dir), "/ beside anon/ (the ",
+         "unreleased build), then add a row per image to ",
          "anon_images.csv beside the key: image,decision with keep or remove. ",
          "Re-run anonymize().", call. = FALSE)
   }
@@ -347,6 +386,22 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     stop(nrow(left), " leftover(s); anon/ is NOT ready for grading. ",
          "Add the missing form as a nickname in the key and re-run.", call. = FALSE)
   }
+  # The privacy sweep runs while NOT_READY still stands: anon/ is released
+  # only when every file was reviewed and every finding is marked noise.
+  sw <- NULL
+  if (isTRUE(sweep)) {
+    sw <- run_sweep(anon_dir, assignment_dir, keep, sweep_model, sweep_url,
+                    sweep_context %||% file.path(assignment_dir, REVIEW_CONTEXT))
+    if (!sw$passed) {
+      append_log(assignment_dir, "anonymize", c(sw$log, "anon/ not released: privacy sweep not passed"))
+      stop("The privacy sweep has not passed: ", sw$result, ". anon/ is NOT released. Open ",
+           REVIEW_FILE, " beside the key and mark each finding noise or real; fix every real ",
+           "one at its source (a nickname in the key, an image marked remove in ",
+           "anon_images.csv), then re-run anonymize().", call. = FALSE)
+    }
+  }
+  sweep_lines <- if (is.null(sw)) "privacy sweep: BYPASSED (sweep = FALSE)" else sw$log
+
   # One timestamp for everything under anon/, so file times say nothing about
   # when each student submitted. Removing NOT_READY touches anon/ itself, so
   # its own time is set once more afterwards.
@@ -373,12 +428,19 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept by instructor decision)",
             images$scanned, images$stripped, images$flagged, images$removed, images$kept),
     "leftover check: 0 leftovers",
-    "manifest: no lateness or submission times; all anon/ timestamps set to one value"))
+    "manifest: no lateness or submission times; all anon/ timestamps set to one value",
+    sweep_lines))
   unlink(file.path(anon_dir, "NOT_READY"))
+  # Release: the finished build becomes anon/ in one step.
+  if (!file.rename(build_dir, final_dir)) {
+    stop("could not move the finished build into ", final_dir, call. = FALSE)
+  }
+  anon_dir <- final_dir
   invisible(Sys.setFileTime(anon_dir, epoch))
 
   cat(sprintf("anonymize: %d students, %d files, %d replacements, 0 leftovers. anon/ is ready.\n",
               n_students, nrow(subs), n))
+  cat(if (is.null(sw)) "privacy sweep: BYPASSED (sweep = FALSE)\n" else "privacy sweep: passed\n")
   cat(sprintf("fixed patterns: %s\n", pc_text))
   cat(sprintf("protected phrases kept: %d\n", kept))
   cat(sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept)\n",
@@ -518,7 +580,6 @@ relink <- function(proj, assignment, key = file.path(assignment, "anon_key.csv")
   if (!dir.exists(assignment_dir)) {
     stop("no assignment folder at ", assignment_dir, call. = FALSE)
   }
-
   if (file.exists(file.path(anon_dir, "NOT_READY"))) {
     stop("anon/ is NOT_READY: anonymize did not pass its leftover check", call. = FALSE)
   }

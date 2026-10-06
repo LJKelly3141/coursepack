@@ -93,3 +93,16 @@ mk_png <- function(path) {
 }
 
 raw_text <- function(p) rawToChar(readBin(p, "raw", file.info(p)$size))
+
+
+# An assignment folder semester/A1 under proj with the fixture key staged as
+# its own, so S01 is Quill and S02 is Rivera.
+a1_assignment <- function(cc) {
+  a <- file.path(cc$proj, "semester", "A1"); dir.create(a, recursive = TRUE)
+  stage_key(cc$proj, "semester/A1", cc$kp)
+  a
+}
+
+# Tests do not need LM Studio: anonymize() skips the privacy sweep unless a
+# test turns it on and mocks the model.
+options(coursepack.sweep = FALSE)

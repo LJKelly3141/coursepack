@@ -9,7 +9,11 @@ anonymize(
   assignment,
   key = file.path(assignment, "anon_key.csv"),
   anon_dir = NULL,
-  dict = default_dict()
+  dict = default_dict(),
+  sweep = getOption("coursepack.sweep", TRUE),
+  sweep_model = "gemma-4-31b-it-mlx",
+  sweep_url = "http://localhost:1234",
+  sweep_context = NULL
 )
 }
 \arguments{
@@ -30,6 +34,24 @@ inside \code{assignment}.}
 found in it ("Hall, Sam" gives "shall") is an ordinary word and is not
 redacted. \code{NULL} keeps every form. The default is \code{\link[=default_dict]{default_dict()}}, the
 system word list where one exists.}
+
+\item{sweep}{Run the local privacy sweep before releasing \verb{anon/} (the
+default). A local vision model, served by LM Studio on this machine,
+reads every coded file with its images and lists anything that could
+still identify a student in \code{anon_review.csv} beside the key. \verb{anon/} is
+released only when every file was reviewed, no student code is left, and
+the instructor has marked every finding \code{noise}; otherwise it stays
+\code{NOT_READY} and the run stops. Real findings are fixed at their source
+and \code{anonymize()} run again; replies are cached beside the key. If the
+server or the model is not running, the run stops before writing
+anything. \code{FALSE} skips the sweep, and the log records the bypass.}
+
+\item{sweep_model}{The model loaded in LM Studio.}
+
+\item{sweep_url}{The LM Studio server; must be on \code{localhost}.}
+
+\item{sweep_context}{Course and data terms the model must not flag, one
+per line; defaults to \code{review_context.txt} beside the key when present.}
 }
 \value{
 A list with \code{students}, \code{files}, \code{replacements}, \code{patterns} (the

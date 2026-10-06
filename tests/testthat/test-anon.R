@@ -466,7 +466,7 @@ test_that("ignored files are counted, never named, and unfed submissions reporte
   expect_false(any(grepl("Rivera|Stone|1002|1003", out_nf)))
 })
 
-test_that("a failed re-run leaves NOT_READY, never an old anon/ looking ready", {
+test_that("a failed re-run leaves no anon/ at all, never an old one to read", {
   skip_if_no("pandoc")
   cc <- anon_course(); proj <- cc$proj; kp <- cc$kp; td <- cc$td
   nr <- file.path(td, "NotReady"); dir.create(nr)
@@ -476,7 +476,8 @@ test_that("a failed re-run leaves NOT_READY, never an old anon/ looking ready", 
   mk_docx(file.path(nr, "nobodyx_4242_9402_q.docx"), "unknown student")
   msg4 <- errors_with(anon(proj, nr, kp))
   expect_false(is.na(msg4))
-  expect_true(file.exists(file.path(nr, "anon", "NOT_READY")))
+  expect_false(dir.exists(file.path(nr, "anon")))                 # nothing to read
+  expect_true(file.exists(file.path(nr, ".anon_build", "NOT_READY")))
 })
 
 test_that("'spec' must start a word", {
@@ -554,7 +555,8 @@ test_that("a conversion failure names the code and file position, and stays NOT_
   msg9 <- errors_with(anon(proj, cf, kp))
   expect_true(startsWith(msg9, "S01 (file2): unsupported submission type: .xlsx"))
   expect_false(grepl("quill|1001", msg9, ignore.case = TRUE))
-  expect_true(file.exists(file.path(cf, "anon", "NOT_READY")))
+  expect_false(dir.exists(file.path(cf, "anon")))                 # nothing to read
+  expect_true(file.exists(file.path(cf, ".anon_build", "NOT_READY")))
 })
 
 test_that("a classmate's full name in feedback stops relink with nothing written", {
@@ -959,14 +961,6 @@ test_that("a session seed does not repeat the shuffle, and the caller's RNG stat
 
 # ---- de-identification hardening ---------------------------------------------------
 
-# An assignment folder semester/A1 under proj with the fixture key staged as
-# its own, so S01 is Quill and S02 is Rivera.
-a1_assignment <- function(cc) {
-  a <- file.path(cc$proj, "semester", "A1"); dir.create(a, recursive = TRUE)
-  stage_key(cc$proj, "semester/A1", cc$kp)
-  a
-}
-
 test_that("anonymize stops before writing anything when tesseract is missing", {
   cc <- anon_course(); a <- a1_assignment(cc)
   writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
@@ -1007,7 +1001,7 @@ test_that("anonymize redacts fixed patterns and logs counts, with no names in th
   expect_false(file.exists(file.path(a, "anon", "deidentification_log.md")))
 })
 
-test_that("a flagged image holds anon/ at NOT_READY until decided, then releases", {
+test_that("a flagged image keeps anon/ unreleased until decided, then releases", {
   skip_if_no("tesseract"); skip_if_no("pandoc")
   cc <- anon_course(); a <- a1_assignment(cc)
   png_path <- file.path(cc$td, "name.png")
@@ -1021,10 +1015,11 @@ test_that("a flagged image holds anon/ at NOT_READY until decided, then releases
     errors_with(quiet(anonymize(cc$proj, "semester/A1", dict = NULL))),
     message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
   expect_true(grepl("anon_images.csv", err, fixed = TRUE))
-  expect_true(file.exists(file.path(a, "anon", "NOT_READY")))
+  expect_false(dir.exists(file.path(a, "anon")))                  # nothing to read
+  expect_true(file.exists(file.path(a, ".anon_build", "NOT_READY")))
   expect_false(any(grepl("Quill|1001|5001|quillpat|Essay", c(err, msgs), ignore.case = TRUE)))
-  man <- utils::read.csv(file.path(a, "anon", "manifest.csv"), colClasses = "character")
-  an <- normalizePath(file.path(a, "anon"))
+  man <- utils::read.csv(file.path(a, ".anon_build", "manifest.csv"), colClasses = "character")
+  an <- normalizePath(file.path(a, ".anon_build"))
   flagged_rel <- substring(normalizePath(image_files(file.path(an, man$code[1]))),
                            nchar(an) + 2L)
   expect_identical(length(flagged_rel), 1L)
@@ -1078,13 +1073,13 @@ test_that("the manifest is sorted by code and file, never in download order", {
   expect_identical(man$file, c("file1", "file1", "file1", "file2"))
 })
 
-test_that("a log write failure leaves anon/ at NOT_READY", {
+test_that("a log write failure leaves no anon/ to read", {
   skip_if_no("tesseract")
   cc <- anon_course(); a <- a1_assignment(cc)
   writeLines("Pat Quill wrote this.", file.path(a, "quillpat_1001_5001_essay.md"))
   local_mocked_bindings(append_log = function(...) stop("disk full", call. = FALSE))
   expect_error(quiet(anonymize(cc$proj, "semester/A1", dict = NULL)), "disk full")
-  expect_true(file.exists(file.path(a, "anon", "NOT_READY")))
+  expect_false(dir.exists(file.path(a, "anon")))
 })
 
 # ---- protected phrases (anon_keep.txt) -----------------------------------------
