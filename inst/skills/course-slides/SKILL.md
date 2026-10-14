@@ -60,15 +60,23 @@ the instructor's decision.
    - **Fragments.** Put a line holding only `---` in the notes before each
      point's narration: one more part than the slide has fragment steps, the
      first part spoken before any appears.
-   - **Charts.** A chart button plays when the notes quote its label exactly
-     ("AD falls"). Never rephrase a quoted label. Buttons need
-     `transition: {duration: 0}`. The notes say what plays and describe what
-     the viewer is watching, not only the result.
+   - **Charts.** Cue a chart button with a play tag at a sentence boundary
+     in the notes: `Watch demand fall. [play: AD falls] Real GDP drops.`
+     The voice never reads the tag, so the sentence must read well without
+     it. The animation starts as the words before the tag end, and the
+     narration waits for it to finish. `[play: label, over]` keeps the
+     narration going while the chart plays, for long runs. The label must
+     match a button on the slide, or the build stops and lists the slide's
+     labels. Buttons need `transition: {duration: 0}`. The notes describe
+     what the viewer is watching, not only the result.
    - **Play the whole, then point at the parts.** A button that plays a
      multi-step story keeps its full-story button, and gets one more button
-     per step whose single frame is that step's end state. Step labels are
-     short spoken phrases, unique on the slide. The notes quote the full-story
-     label first, then each step's label as that step is discussed.
+     per step whose single frame is that step's end state (`method: animate`,
+     frame and transition durations of 0). Put the step buttons in a second
+     `updatemenus` entry with `visible: false`, so the chart's own button row
+     does not overflow; a play tag still reaches a hidden button. Step labels
+     must be unique on the slide. The notes tag the full-story button first,
+     then each step's button as that step is discussed.
 3. **Render.** The course's `_quarto.yml` renders only what its `render:` list
    names. That list is an allowlist on purpose, and a deck is left out until
    someone adds it:
@@ -81,11 +89,11 @@ the instructor's decision.
    `docs/slides/<deck>.html`.
 4. **Check the notes.** `lecturecast::lint_notes("slides/<deck>.qmd")` lists,
    by slide, what will read badly aloud and where the screen sits still:
-   slides with nothing said, chart buttons the notes never quote, and long
-   stretches with nothing new on screen. Propose a fix for each flag, apply
-   only what the instructor approves, render, and lint again. Stop when what
-   is left is deliberate (an abbreviation inside a quoted button label, for
-   example). `lecturecast::lecture_script("slides/<deck>.qmd")` shows every
+   slides with nothing said, chart buttons the notes never cue, play tags
+   that name no button, and long stretches with nothing new on screen.
+   Propose a fix for each flag, apply only what the instructor approves,
+   render, and lint again. Stop when what is left is deliberate.
+   `lecturecast::lecture_script("slides/<deck>.qmd")` shows every
    word as it will be voiced, for a final read-through.
 
 ## Route 1: class
