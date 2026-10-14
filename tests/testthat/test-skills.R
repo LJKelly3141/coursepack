@@ -1,4 +1,5 @@
 test_that("install_skills copies every skill, stamps the version, refuses to overwrite, overwrites when told", {
+  local_mocked_bindings(pkg_skill_dir = function(pkg) if (pkg == "lecturecast") "" else system.file("skills", package = pkg))
   p <- withr::local_tempdir()
   out <- install_skills(p)
   expect_setequal(basename(out), basename(list.dirs(system.file("skills", package = "coursepack"), recursive = FALSE)))
