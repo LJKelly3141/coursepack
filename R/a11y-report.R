@@ -446,7 +446,8 @@ confidence_line_for <- function(detail) {
 #' @param df A classified findings data frame, already notice-free.
 #' @param meta The run's metadata: `date`, `tool`, `standard`,
 #'   `pages_examined`, `surfaces`, `declared`, `failed_pages`,
-#'   `cartridge_files`, `media_inventory`, `notices`, `zero_page_targets`.
+#'   `cartridge_files`, `media_inventory`, `pdf_validation`, `notices`,
+#'   `zero_page_targets`.
 #' @param path Where to write the markdown.
 #' @return `path`, invisibly.
 #' @examples
@@ -730,6 +731,48 @@ render_report <- function(df, meta, path) {
             "editorial call, not one this inventory makes."),
       "", "| Surface | Kind | Files | Note |", "|---|---|---:|---|", rows, "")
   }
+  # ---- published PDFs, validated against PDF/UA-1 --------------------------
+  #
+  # Every PDF in the rendered output gets a row whether or not veraPDF ran:
+  # "not checked" and "passed" must never read the same, and neither may a PDF
+  # simply be absent from the report. Like the inventory, this sits outside
+  # the nrow(df) branch so it survives a zero-finding run.
+  pdf_lines <- character()
+  pv <- meta$pdf_validation
+  if (!is.null(pv)) {
+    rows <- character()
+    fails <- character()
+    for (s in names(pv$results)) {
+      r <- pv$results[[s]]
+      for (i in order(r$origin, r$file)) {
+        rows <- c(rows, sprintf(
+          "| %s | %s | %s | %s |", s, r$file[i],
+          if (r$origin[i] == "built") sprintf("built here, from `%s`", r$source_file[i])
+          else "carried, not built here",
+          r$status[i]))
+        if (r$status[i] %in% c("failed", "unreadable")) {
+          fails <- c(fails, sprintf("**%s: %s** (%s)", s, r$file[i], r$status[i]),
+                     "", paste0("- ", r$rules[[i]]), "")
+        }
+      }
+    }
+    pdf_lines <- c(
+      sprintf("## Published PDFs, validated against %s", pv$standard), "",
+      if (!isTRUE(pv$checked)) c(paste("**NOT CHECKED.**", VERAPDF_INSTALL_HINT), ""),
+      paste("veraPDF tests the rules a machine can test: tags, structure,",
+            "language, title and table headers. A pass does not show that the",
+            "reading order is right or that the text makes sense read aloud.",
+            "A person still has to check those."),
+      "",
+      paste("A PDF built here that fails is a finding, and its fix lands in",
+            "the source file named beside it. A carried PDF (a publisher",
+            "handout, a form) is validated and listed, and is not counted as",
+            "a finding because its source is not in this course."),
+      "",
+      if (length(rows)) c("| Surface | PDF | Origin | Result |", "|---|---|---|---|", rows, "")
+      else c("No PDF was found in the published output.", ""),
+      if (length(fails)) c("### Failed rules", "", fails))
+  }
   if (nrow(df)) {
     tb <- as.data.frame(table(df$surface, df$fix_class))
     names(tb) <- c("surface", "class", "n")
@@ -740,7 +783,7 @@ render_report <- function(df, meta, path) {
   # The inventory follows the summary's own tables rather than splitting
   # them: it is a list of what was NOT audited, and it has to survive a
   # zero-finding run, so it sits outside the nrow(df) branch on both sides.
-  L <- c(L, media_lines)
+  L <- c(L, media_lines, pdf_lines)
   if (nrow(df)) {
 
     # Notices are counted, not listed, and are never in df at this point:

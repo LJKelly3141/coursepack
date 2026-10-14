@@ -56,14 +56,41 @@ build, so an edit there is silently discarded the next time anyone runs
 source file that a person can open and edit, that is a bug in the finding,
 not an invitation to patch the rendered copy.
 
-Non-HTML media (images, PDFs) is inventoried, not audited: `inventory_media()`
-lists what pa11y and the HTML-layer checks structurally cannot see, so nothing
-goes missing by silent omission. The audit calls it once per repo and the
-report carries a per-surface count table, with every path in the JSON.
-Classifying a listed file as in scope, a working file, or
-published-but-out-of-scope is a per-repo editorial call, not something the
-inventory decides on its own. (It said all this for a day while nothing
-called the function; wired up 2026-08-13.)
+Source-side media (images, and PDFs outside the rendered output) is
+inventoried, not audited: `inventory_media()` lists what pa11y and the
+HTML-layer checks structurally cannot see, so nothing goes missing by silent
+omission. The audit calls it once per repo and the report carries a
+per-surface count table, with every path in the JSON. Classifying a listed
+file as in scope, a working file, or published-but-out-of-scope is a per-repo
+editorial call, not something the inventory decides on its own. (It said all
+this for a day while nothing called the function; wired up 2026-08-13.)
+
+**Published PDFs are validated against PDF/UA-1 with veraPDF.**
+`check_published_pdfs()` runs over every PDF in the rendered output, and the
+report has a "Published PDFs" section with one row per file: passed, failed,
+unreadable, or not checked. The failed rules are listed under the table and
+are in the JSON under `audit.pdf_validation`.
+
+- A PDF **built here** (a `.qmd` or `.Rmd` of the same path and name exists)
+  that fails is a finding. Its fix target is that source file. The usual fix
+  is `pdf-standard: ua-1` under the `typst` or `pdf` format, plus `title` and
+  `lang` in the front matter.
+- A **carried** PDF (a publisher handout, a form) is validated and listed but
+  is never a finding. Its source is not in the course. Whether to replace it
+  or offer an accessible alternative is the instructor's call.
+- `check_pdf_standard()` separately flags any source that renders to `typst`
+  or `pdf` without `pdf-standard: ua-1`, and a `_quarto.yml` that does the
+  same. It reads sources, so it works without veraPDF.
+- veraPDF is optional. Without it (or without Java) the audit asks whether to
+  install it or continue, continues on its own where nobody can answer, and
+  reports every PDF as **not checked**. "Not checked" is not a pass. Say so
+  when summarising a run, and ask the user whether they want it installed
+  (`quarto install verapdf`, which needs Java 8 or later). Do not install it
+  unasked.
+- **A veraPDF pass is not the whole check.** It covers what a machine can
+  test: tags, structure, language, title, table headers. Reading order, and
+  whether the text makes sense read aloud, still need a person. Never report
+  a passing PDF as "accessible" without that caveat.
 
 ## Coverage is measured, and it is not the same number as the declaration
 

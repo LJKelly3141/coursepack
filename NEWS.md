@@ -1,3 +1,13 @@
+# coursepack 1.3.0
+
+* The accessibility audit now validates published PDFs. `audit_course()` runs veraPDF over every PDF in the rendered output and checks it against PDF/UA-1. Before 1.3.0 a published PDF was not checked at all, and was not even listed, because the media inventory leaves the output directory out.
+* The findings report has a new "Published PDFs" section with one row per file: passed, failed, unreadable, or not checked, with the failed rules listed below it. The same results are in the JSON under `audit.pdf_validation`.
+* A PDF the course builds from a `.qmd` or `.Rmd` of the same path and name, and that fails, is a finding whose fix target is that source file. A PDF the course only carries, such as a publisher handout, is validated and listed and is never a finding.
+* New source check: a `.qmd` or `.Rmd` that renders to `typst` or `pdf` without `pdf-standard: ua-1` is a finding, and so is a `_quarto.yml` that declares such a format without it. This check reads sources and does not need veraPDF.
+* veraPDF is optional, and so is the Java it runs on. When it is missing the audit asks whether to install it with `quarto install verapdf` or continue without it. Where nobody can answer, it continues. Every PDF is then reported as not checked, and the audit does not fail. The launcher is found on `PATH`, then in the directory Quarto installs it into. New argument `verapdf` on `audit_course()` names a copy anywhere else.
+* A veraPDF pass covers the rules a machine can test: tags, structure, language, title and table headers. Reading order, and whether the text makes sense read aloud, still need a person. The report and the `course-accessibility-review` skill both say so.
+* New exported functions: `find_verapdf()`, `check_published_pdfs()` and `check_pdf_standard()`. DESCRIPTION and SETUP list veraPDF as optional.
+
 # coursepack 1.2.8.1
 
 * Fix: with `transcribe_images = TRUE` the photo is no longer copied into `anon/`. The local model transcribes it from a temporary copy that is then deleted, so the redacted transcript is the student's only file, the photo is never swept, and the run no longer stops for a decision on it. The student is still listed as transcribed, to be checked against the original submission.

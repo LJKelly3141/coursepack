@@ -10,7 +10,8 @@ audit_course(
   out_dir = file.path(proj, "project", "accessibility"),
   port = 8766L,
   cartridge_dirs = CARTRIDGE_SEARCH_DIRS,
-  video_fetch = default_youtube_fetch
+  video_fetch = default_youtube_fetch,
+  verapdf = find_verapdf()
 )
 }
 \arguments{
@@ -28,6 +29,10 @@ cartridges, passed to \code{\link[=cartridges_in]{cartridges_in()}}.}
 
 \item{video_fetch}{The watch-page fetcher passed to \code{\link[=audit_cartridge]{audit_cartridge()}}.
 Defaults to the real network fetcher.}
+
+\item{verapdf}{The veraPDF launcher used to validate published PDFs, from
+\code{\link[=find_verapdf]{find_verapdf()}}. When it is missing the audit asks whether to install it
+or continue without it, and continues on its own where nobody can answer.}
 }
 \value{
 Invisibly, a list with \code{findings} (the full frame, classified rows

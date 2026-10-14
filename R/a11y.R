@@ -28,6 +28,9 @@
 #'   cartridges, passed to [cartridges_in()].
 #' @param video_fetch The watch-page fetcher passed to [audit_cartridge()].
 #'   Defaults to the real network fetcher.
+#' @param verapdf The veraPDF launcher used to validate published PDFs, from
+#'   [find_verapdf()]. When it is missing the audit asks whether to install it
+#'   or continue without it, and continues on its own where nobody can answer.
 #' @return Invisibly, a list with `findings` (the full frame, classified rows
 #'   plus the notice rows), `meta` (the run's metadata) and `files` (the three
 #'   paths written).
@@ -53,7 +56,8 @@ audit_course <- function(repos, proj = ".",
                          out_dir = file.path(proj, "project", "accessibility"),
                          port = 8766L,
                          cartridge_dirs = CARTRIDGE_SEARCH_DIRS,
-                         video_fetch = default_youtube_fetch) {
+                         video_fetch = default_youtube_fetch,
+                         verapdf = find_verapdf()) {
   if (!length(repos)) {
     stop("usage: audit_course(<repo> [, <repo> ...])\n",
          "  no repo is assumed; this audit is not tied to one course")
@@ -71,6 +75,13 @@ audit_course <- function(repos, proj = ".",
   # intended_surfaces() so the guarantee does not depend on this driver
   # remembering to ask (R/a11y-targets.R, finding I8).
   halt_on_surface_collision(repos)
+
+  # veraPDF is optional. Settled once, here, before any work: a person who
+  # wants it installed should be asked now, not after pa11y has read every
+  # page.
+  if (!verapdf_usable(verapdf)) verapdf <- ask_about_verapdf()
+  pdf_tool <- !is.na(verapdf)
+  pdf_results <- list()
 
   # zero_page_targets carries zero_page_note() TEXT, not bare surface names.
   # It is folded into the report as supplementary detail once
@@ -145,6 +156,12 @@ audit_course <- function(repos, proj = ".",
     }
     media_inventory[[surface]] <- inv
 
+    # Published PDFs. Runs before the zero-page exit below on purpose: a
+    # target with no output directory has no PDFs and reports none.
+    pdf <- check_published_pdfs(tgt, surface, verapdf = verapdf)
+    pdf_results[[surface]] <- pdf$results
+    all[[length(all) + 1]] <- pdf$findings
+
     # A zero-page target is recorded as a FINDING, not just a console line.
     # Console output scrolls away; the report persists and is what someone
     # relies on. An audit that examined nothing and an audit that found nothing
@@ -213,6 +230,8 @@ audit_course <- function(repos, proj = ".",
                                                     exclude = src_exclude)
     all[[length(all) + 1]] <- check_colour_only(tgt$repo, surface,
                                                 exclude = src_exclude)
+    all[[length(all) + 1]] <- check_pdf_standard(tgt$repo, surface,
+                                                 exclude = src_exclude)
   }
 
   # Any cartridge in a repo's build or reference directories.
@@ -376,6 +395,9 @@ audit_course <- function(repos, proj = ".",
                cartridge_files   = as.list(cartridge_files),
                zero_page_targets = zero_page_targets,
                media_inventory   = media_inventory,
+               pdf_validation    = list(standard = PDF_UA_LABEL,
+                                        checked  = pdf_tool,
+                                        results  = pdf_results),
                notices           = notices)
 
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -418,6 +440,13 @@ audit_course <- function(repos, proj = ".",
         "examined: ", paste(failed_pages, collapse = ", "), "\n", sep = "")
   } else {
     cat("\npa11y failed on 0 pages\n")
+  }
+  n_pdf <- sum(vapply(pdf_results, nrow, integer(1)))
+  if (n_pdf) {
+    st <- table(unlist(lapply(pdf_results, `[[`, "status")))
+    cat("\npublished PDFs against ", PDF_UA_LABEL, ": ",
+        paste(sprintf("%d %s", as.integer(st), names(st)), collapse = ", "),
+        "\n", sep = "")
   }
   cat("\nwrote:\n  ", jsonp, "\n  ", mdp, "\n  ", planp, "\n", sep = "")
   version_line("audit_course")

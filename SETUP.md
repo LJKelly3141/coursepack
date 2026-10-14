@@ -14,12 +14,20 @@ walk-through.
 | render the site and paper forms (`make site`, `make paper`) | `quarto` |
 | preview the module tree (`make mockup`) | `python3`, for the local server |
 | audit for accessibility (`make a11y`) | `python3`, Node with `npx`, and a Chrome or Chromium binary |
+| validate published PDFs in the audit (optional) | veraPDF, and Java 8 or later to run it |
 | the scaffold's `git init` | `git` |
 | grade without student identity (`anonymize()`) | `tesseract`, to check text in submitted images |
 
 The audit is the only reason Node appears anywhere. It drives pa11y, which
 `npx` fetches at run time and which needs a browser. None of that is needed to
 build a cartridge, a quiz package, or a preview.
+
+veraPDF is optional. With it, the audit validates every published PDF against
+PDF/UA-1. Without it, the audit still runs and reports each PDF as not
+checked. Install Java first (on macOS, `brew install --cask temurin` from a
+Terminal window, because it asks for your password), then run
+`quarto install verapdf`. Quarto keeps its copy outside `PATH`, and the audit
+finds it there.
 
 By platform:
 

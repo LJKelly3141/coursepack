@@ -11,7 +11,8 @@ render_report(df, meta, path)
 
 \item{meta}{The run's metadata: \code{date}, \code{tool}, \code{standard},
 \code{pages_examined}, \code{surfaces}, \code{declared}, \code{failed_pages},
-\code{cartridge_files}, \code{media_inventory}, \code{notices}, \code{zero_page_targets}.}
+\code{cartridge_files}, \code{media_inventory}, \code{pdf_validation}, \code{notices},
+\code{zero_page_targets}.}
 
 \item{path}{Where to write the markdown.}
 }
