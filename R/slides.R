@@ -68,6 +68,15 @@ use_uwrf_slides <- function(proj, dir = "slides", overwrite = FALSE) {
   cat("  format:\n    uwrf-revealjs:\n      footer: \"<course>, <term>\"\n")
   cat("\nTo render the decks with the site, add \"", dir,
       "/**/*.qmd\" to the render list in _quarto.yml.\n", sep = "")
+  # lecturecast is optional and not a declared dependency, so it is detected
+  # by its installed files rather than by requireNamespace().
+  if (nzchar(system.file(package = "lecturecast"))) {
+    cat("\nlecturecast is installed: a rendered deck can also become a narrated\n")
+    cat("video. See the course-slides skill.\n")
+  } else {
+    cat("\nNarrated videos from these decks need the lecturecast package, which is\n")
+    cat("not installed. Slides for class work without it.\n")
+  }
   version_line("use_uwrf_slides")
   invisible(dst)
 }

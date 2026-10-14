@@ -9,7 +9,8 @@ install_skills(proj = ".", which = NULL, overwrite = FALSE)
 \arguments{
 \item{proj}{Course project root.}
 
-\item{which}{Skill names to install. \code{NULL} installs every shipped skill.}
+\item{which}{Skill names to install. \code{NULL} installs every shipped skill,
+lecturecast's included when it is installed.}
 
 \item{overwrite}{Whether to replace a skill already installed under \code{proj}.}
 }
@@ -22,6 +23,12 @@ Copies each skill directory out of the installed package into
 every copied \code{SKILL.md}.
 }
 \details{
+When the optional lecturecast package is installed, its shipped skills (such
+as \code{lecture-video}, for narrated videos made from a slide deck) are copied
+too, stamped with lecturecast's version, so one call gives a course both
+packages' skills. Without lecturecast nothing changes. A skill name shipped
+by both packages stops the call before anything is copied.
+
 A skill directory is editable once it is in a course, so an existing
 destination stops the call and names what it found. Overwriting is a
 deliberate argument, because the alternative is losing a local edit without
