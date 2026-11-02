@@ -37,7 +37,7 @@ anything in parallel with it. "It was clean last time" is not a reason.
 | 2. Key review | the instructor, by hand | opens the key, adds nicknames to the nicknames file |
 | 3. Anonymize, with the privacy sweep | instructor's machine, LM Studio running with `gemma-4-31b-it-mlx` loaded | `coursepack::anonymize(".", "semester/<term>/<Assignment>")`; if it stops on the sweep, the instructor marks each row of `anon_review.csv` noise or real, fixes real ones at the source, and runs it again, until it prints "anon/ is ready" and "privacy sweep: passed" |
 | 4. (no separate step) | | |
-| 5. Grade | one agent per assignment, only after anonymize() printed "privacy sweep: passed" and `anon/` exists | reads `anon/` only, writes `anon/feedback/` and `anon/scores.csv` |
+| 5. Grade | one agent per student, only after anonymize() printed "privacy sweep: passed" and `anon/` exists | reads every file and image the student submitted, in full, from `anon/` only; writes `anon/feedback/<code>.md`; the session combines the score rows into `anon/scores.csv` |
 | 6. Rulings | the instructor | one decision at a time |
 | 7. Relink | instructor's machine | `coursepack::relink(".", "semester/<term>/<Assignment>")` |
 | 8. Grades for Canvas | instructor's machine | `coursepack::canvas_grades(".", gradebook = "semester/<term>/gradebook_export/<fresh export>.csv", map = "semester/<term>/canvas_columns.csv")`, written to `semester/<term>/gradebook_import/` |
@@ -144,25 +144,40 @@ instructor bypassed it) and `anon/` exists.
 The rubric, answer key and grading guide must exist first, in the course's
 private assessment folder. Write them before grading if they do not.
 
-Dispatch **one fresh agent per assignment**, all in parallel. Each dispatch
-contains exactly these parts:
+**HARD RULE: no grade without a full read.** A grader reads every file the
+student submitted from the first line to the last, and opens every image. No
+condensed views, no scripts or keyword searches standing in for reading, no
+sampling, no skipping an image because the results appear as text. A grader
+that could not read something completely says so and gives no score for that
+student; the student goes back to the session, never into `scores.csv`.
 
-1. The `anon/` folder path for that assignment, and nothing else from
+Dispatch **one fresh agent per student**, all in parallel. An agent never
+grades a second student. Each dispatch contains exactly these parts:
+
+1. That student's `anon/<code>/` folder path, and nothing else from
    `semester/`.
 2. The rubric, answer key and grading guide paths.
 3. The rulings file, if the instructor has made rulings for this assignment:
    general rules, no student names.
 4. The calibration the instructor gave (for example "generous but fair").
-5. Its own scratch subfolder, named for the assignment
-   (`<scratch>/grade-<assignment>/`), and an order to use no other.
-6. The outputs: `anon/feedback/<code>.md` per student, titled
-   `<Assignment> Feedback: <code>`, and `anon/scores.csv` with a `code`
-   column, one column per criterion or question, and `total`.
+5. Its own scratch subfolder, named for the assignment and student
+   (`<scratch>/grade-<assignment>/<code>/`), and an order to use no other.
+6. The outputs: `anon/feedback/<code>.md`, titled
+   `<Assignment> Feedback: <code>`, and a one-row `scores.csv` in its scratch
+   subfolder with a `code` column, the exact criterion or question columns the
+   session names, and `total`. The session combines the rows into
+   `anon/scores.csv`.
 7. A notes file for the instructor: every judgment call, by code, quoting the
    student's own words.
-8. The checks it must run before reporting: totals equal parts, every score is
+8. A read log in its scratch subfolder: every file and image in the student's
+   folder, each with its line count or dimensions and how it was read. A score
+   without a complete log does not count.
+9. The checks it must run before reporting: totals equal parts, every score is
    a rubric value, no other student's code inside a student's feedback, no
    em-dashes, no mention of AI.
+
+Before rulings, the session compares each read log against the student's
+folder and sends back any student with a missing or partly read file.
 
 When a student uploaded several files, the grader sees all of them. Feedback
 attaches to that student's latest document (`.docx`, `.odt`, `.pdf`, `.md`,
@@ -251,7 +266,8 @@ nothing on the machine links that run's codes to students.
 
 | Mistake | What it costs | Do instead |
 |---|---|---|
-| Grading agents share one scratch folder | one agent's drafts land in another assignment's feedback | a subfolder per assignment, and a title check before zipping |
+| One agent given a whole assignment (Case Studies 7, 8 and 10, 2026-11-02) | graders read condensed views, skipped images, and still passed every check; all grades were thrown out | one agent per student, a full read, and a read log the session checks |
+| Grading agents share one scratch folder | one agent's drafts land in another assignment's feedback | a subfolder per student, and a title check before zipping |
 | A grader is given a downloads folder, a notes file or a scores file | names reach the grader | give it `anon/` and the rubric files only |
 | Graders started while the privacy sweep was still running (Case Studies 5 and 6, 2026-10-05) | coded files read before the privacy check finished | wait until anonymize() prints "privacy sweep: passed"; never grade while it runs |
 | Rulings sent as a batch across assignments | the instructor cannot tell which assignment a call belongs to | one call per message, assignment first |

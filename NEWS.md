@@ -1,3 +1,7 @@
+# coursepack 1.3.0.1
+
+* The anonymized-grading skill now requires one agent per student, a full read of every file and image, and a read log checked before rulings. Cartridge output is unchanged.
+
 # coursepack 1.3.0
 
 * The accessibility audit now validates published PDFs. `audit_course()` runs veraPDF over every PDF in the rendered output and checks it against PDF/UA-1. Before 1.3.0 a published PDF was not checked at all, and was not even listed, because the media inventory leaves the output directory out.
