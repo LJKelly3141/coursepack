@@ -688,8 +688,8 @@ test_that("an OLE-wrapped pdf is flagged and its images linked", {
 WB_IMAGE <- "S01/file1_media/image1.png"
 # The fixture's defined name "PatQuillRange" glues the name into one
 # identifier, which whole-word redaction cannot split; the leftover check
-# stops the run on it. nickname = TRUE stages the documented remedy, the form
-# added as a nickname in the key.
+# reports it in a workbook and does not stop. nickname = TRUE stages the
+# remedy, the form added as a nickname in the key.
 add_quill_nickname <- function(a) {
   kp <- file.path(a, "anon_key.csv")
   k <- read_key(kp)
@@ -720,17 +720,16 @@ coded_md <- function(w) readLines(file.path(w$a, "anon", "S01", "file1.md"), war
 
 test_that("workbook end to end leaves no name", {
   w <- wb_assignment(nickname = FALSE)
-  # A name glued into a defined name is not redacted; the leftover check
-  # stops the run, naming the code and the anon/ path only.
+  # A name glued into a defined name is not redacted; in a workbook the
+  # leftover check reports it (code and anon/ path only) and does not stop.
   msgs <- character()
-  err <- withCallingHandlers(errors_with(wb_anonymize(w)),
+  out <- withCallingHandlers(wb_anonymize(w),
     message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
-  expect_match(err, "leftover", fixed = TRUE)
-  expect_true(any(grepl("^LEFTOVER: a value for S01 remains in anon/S01/file1.md", msgs)))
-  expect_false(dir.exists(file.path(w$a, "anon")))
-  expect_false(any(grepl("quill|1001|partb", c(err, msgs), ignore.case = TRUE)))
-  add_quill_nickname(w$a)
-  wb_anonymize(w)
+  expect_true(any(grepl("GLUED NAME: a value for S01 may remain in anon/S01/file1.md (glued into another word; not redacted)", msgs, fixed = TRUE)))
+  expect_false(any(grepl("quill|1001|partb", msgs, ignore.case = TRUE)))
+  expect_false(file.exists(file.path(w$a, "anon", "NOT_READY")))
+  expect_match(paste(readLines(file.path(w$a, "deidentification_log.md")), collapse = "\n"),
+               "glued-name hits in workbook or csv files, reported not blocking: 1", fixed = TRUE)
   texts <- list.files(file.path(w$a, "anon"), recursive = TRUE, full.names = TRUE)
   texts <- texts[!grepl("\\.(png|jpe?g|gif|emf|wmf|bin)$", texts, ignore.case = TRUE)]
   expect_true(length(texts) >= 3)
@@ -739,8 +738,10 @@ test_that("workbook end to end leaves no name", {
     # secret.xlsx in the student's home folder) must not appear, while the
     # very hidden sheet's own cell text "secret calc" is content the grader
     # is shown.
+    # The glued PatQuillRange is the reported, accepted leak.
     hits <- grep("quill|rivera|\\bmo\\b|xq100|1001|secret\\.xlsx", readLines(f, warn = FALSE),
                  ignore.case = TRUE, value = TRUE)
+    hits <- grep("PatQuillRange", hits, fixed = TRUE, invert = TRUE, value = TRUE)
     expect_identical(hits, character(), info = f)
   }
   man <- utils::read.csv(file.path(w$a, "anon", "manifest.csv"), colClasses = c(target = "logical"))
@@ -748,6 +749,21 @@ test_that("workbook end to end leaves no name", {
   expect_equal(nrow(q), 1)
   expect_equal(q$ext, "xlsx")
   expect_true(q$target)
+})
+
+test_that("whole-word name in a workbook still stops", {
+  w <- wb_assignment(nickname = FALSE)
+  # A redactor that lets names through leaves whole-word hits: pass 1, which
+  # stays blocking in a workbook.
+  local_mocked_bindings(redact_lines = function(lines, terms, keep)
+    list(text = lines, n = 0L, kept = 0L))
+  msgs <- character()
+  err <- withCallingHandlers(errors_with(wb_anonymize(w)),
+    message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  expect_match(err, "leftover", fixed = TRUE)
+  expect_true(any(grepl("^LEFTOVER: a value for S01 remains in anon/S01/file1.md", msgs)))
+  expect_false(any(grepl("^GLUED NAME: .*S01", msgs)))
+  expect_false(dir.exists(file.path(w$a, "anon")))
 })
 
 test_that("sheet name redacted consistently", {

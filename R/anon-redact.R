@@ -130,9 +130,12 @@ loose_terms <- function(terms) {
 }
 
 # Protected phrases (anon_keep.txt) are dropped from the text before both
-# passes; everything else is checked as written.
+# passes; everything else is checked as written. The `pass` column says which
+# pass found the hit: "word" (first) or "glued" (second); a file and code
+# found by both keep "word".
 find_leftovers <- function(files, terms, keep = character()) {
-  out <- data.frame(file = character(), code = character(), stringsAsFactors = FALSE)
+  out <- data.frame(file = character(), code = character(), pass = character(),
+                    stringsAsFactors = FALSE)
   loose <- loose_terms(terms)
   for (f in files) {
     txt <- paste(readLines(f, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
@@ -142,17 +145,20 @@ find_leftovers <- function(files, terms, keep = character()) {
     txt <- gsub(NAME_TOKEN, "[\u0003]", txt, fixed = TRUE)
     for (i in seq_len(nrow(terms))) {
       if (grepl(word_rx(terms$term[i]), txt, perl = TRUE, ignore.case = TRUE)) {
-        out <- rbind(out, data.frame(file = f, code = terms$code[i],
+        out <- rbind(out, data.frame(file = f, code = terms$code[i], pass = "word",
                                      stringsAsFactors = FALSE))
       }
     }
     low <- tolower(txt)
     for (i in seq_len(nrow(loose))) {
       if (grepl(loose$term[i], low, fixed = TRUE)) {
-        out <- rbind(out, data.frame(file = f, code = loose$code[i],
+        out <- rbind(out, data.frame(file = f, code = loose$code[i], pass = "glued",
                                      stringsAsFactors = FALSE))
       }
     }
   }
-  unique(out)
+  out <- out[order(out$pass != "word"), , drop = FALSE]
+  out <- out[!duplicated(out[c("file", "code")]), , drop = FALSE]
+  rownames(out) <- NULL
+  out
 }

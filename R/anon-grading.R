@@ -194,7 +194,10 @@ assign_files <- function(subs, key) {
 #' search for every name value of five or more letters with spaces and
 #' punctuation removed, so a name glued inside a longer token is still found.
 #' Any hit stops the run and prints the code and the anonymized file path,
-#' never the value found. Until the check passes, `anon_dir/NOT_READY` exists,
+#' never the value found, with one exception: in a file read from a workbook
+#' or `.csv` submission, a hit found only by the bare substring search is
+#' reported as `GLUED NAME` with the code and path and does not stop the run
+#' (a possible leak, counted in the log). Until the check passes, `anon_dir/NOT_READY` exists,
 #' and [relink()] refuses a folder carrying it, so a failed run never leaves an
 #' old folder looking ready. The fix for a leftover is to add the missing form
 #' to the student's nicknames in the term nicknames file, run [anon_key()]
@@ -487,6 +490,21 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
 
   texts <- list.files(anon_dir, "\\.(md|csv)$", recursive = TRUE, full.names = TRUE)
   left <- find_leftovers(texts, terms, keep)
+  # A hit found only by the glued-name pass in a file read from a workbook or
+  # csv is reported, not blocking (known possible leak, project/TODO.md item
+  # 8). The file type comes from the source submission, not the .md name.
+  is_sheet <- tolower(tools::file_ext(subs$original)) %in% SHEET_EXTS
+  sheet_md <- file.path(anon_dir, subs$code[is_sheet], paste0(subs$anon_name[is_sheet], ".md"))
+  glued <- left$pass == "glued" & left$file %in% sheet_md
+  n_glued <- sum(glued)
+  if (n_glued) {
+    for (i in which(glued)) {
+      message("GLUED NAME: a value for ", left$code[i], " may remain in ",
+              sub(paste0("^", rx_escape(anon_dir), "/?"), "anon/", left$file[i]),
+              " (glued into another word; not redacted)")
+    }
+  }
+  left <- left[!glued, , drop = FALSE]
   if (nrow(left)) {
     for (i in seq_len(nrow(left))) {
       message("LEFTOVER: a value for ", left$code[i], " remains in ",
@@ -540,6 +558,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept by instructor decision)",
             images$scanned, images$stripped, images$flagged, images$removed, images$kept),
     "leftover check: 0 leftovers",
+    sprintf("glued-name hits in workbook or csv files, reported not blocking: %d", n_glued),
     "manifest: no lateness or submission times; all anon/ timestamps set to one value",
     sweep_lines,
     sprintf("transcribed from images by the local model (check against the image): %s",

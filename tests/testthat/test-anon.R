@@ -221,6 +221,22 @@ test_that("a student's several files are numbered in upload order with one targe
   expect_true(!is.na(msg) && !grepl("4242|nobody", msg))   # stops without printing the id
 })
 
+test_that("a glued name in a document submission still stops the run", {
+  skip_if_no("tesseract")
+  cc <- anon_course()
+  ad <- file.path(cc$proj, "semester", "Essay"); dir.create(ad, recursive = TRUE)
+  writeLines("see PatQuillRange for the data", file.path(ad, "quillpat_1001_5001_essay.md"))
+  stage_key(cc$proj, "semester/Essay", cc$kp)
+  msgs <- character()
+  err <- withCallingHandlers(
+    errors_with(capture.output(anonymize(cc$proj, "semester/Essay", dict = NULL, sweep = FALSE))),
+    message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  expect_match(err, "leftover", fixed = TRUE)
+  expect_true(any(grepl("^LEFTOVER: a value for S01 remains in anon/S01/file1.md", msgs)))
+  expect_false(any(grepl("GLUED NAME", msgs)))
+  expect_false(dir.exists(file.path(ad, "anon")))
+})
+
 test_that("anonymize() resolves relative paths against proj and defaults anon_dir", {
   skip_if_no("tesseract")
   cc <- anon_course()

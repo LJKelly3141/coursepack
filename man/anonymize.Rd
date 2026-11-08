@@ -176,7 +176,10 @@ every key value: once mirroring the redactor, and once as a bare substring
 search for every name value of five or more letters with spaces and
 punctuation removed, so a name glued inside a longer token is still found.
 Any hit stops the run and prints the code and the anonymized file path,
-never the value found. Until the check passes, \code{anon_dir/NOT_READY} exists,
+never the value found, with one exception: in a file read from a workbook
+or \code{.csv} submission, a hit found only by the bare substring search is
+reported as \verb{GLUED NAME} with the code and path and does not stop the run
+(a possible leak, counted in the log). Until the check passes, \code{anon_dir/NOT_READY} exists,
 and \code{\link[=relink]{relink()}} refuses a folder carrying it, so a failed run never leaves an
 old folder looking ready. The fix for a leftover is to add the missing form
 to the student's nicknames in the term nicknames file, run \code{\link[=anon_key]{anon_key()}}
