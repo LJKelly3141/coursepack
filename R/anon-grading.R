@@ -460,8 +460,14 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   transcribed <- character()
   other <- integer()
   ignored_sheets <- 0L
+  done <- 0L
   for (r in shuffle(seq_len(nrow(subs)))) {
     s <- subs[r, ]
+    # Code and position only, flushed first, so a crash inside a converter
+    # (one no tryCatch can catch) still shows which file it was on.
+    done <- done + 1L
+    cat(sprintf("Converting file %d of %d (%s)\n", done, nrow(subs), s$code))
+    flush(stdout())
     out_md <- file.path(anon_dir, s$code, paste0(s$anon_name, ".md"))
     is_img <- tolower(tools::file_ext(s$file)) %in% SUBMISSION_IMAGE_EXTS
     tr <- if (isTRUE(transcribe_images) && is_img) {

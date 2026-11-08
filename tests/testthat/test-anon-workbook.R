@@ -397,6 +397,27 @@ test_that("embedded picture lands in media", {
   expect_true(any(grepl("signature image", s1, fixed = TRUE)))
 })
 
+test_that("sparkline count does not search every element of a large sheet", {
+  # libxml2 2.14 caps an XPath node set at 10 million nodes, and xml2 then
+  # dereferences a null pointer: R segfaults, which no tryCatch can catch.
+  # A whole-sheet "//*" search on a big data sheet hit that cap.
+  skip_on_cran()
+  row <- "<row><c><v>1</v></c><c><v>2</v></c></row>"
+  x <- paste0('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+              "<sheetData>", strrep(row, 2100000L), "</sheetData>",
+              '<extLst><ext uri="{05C60535-1F16-4fd2-B633-F4F36F0B64E0}" ',
+              'xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main">',
+              "<x14:sparklineGroups><x14:sparklineGroup><x14:sparklines>",
+              "<x14:sparkline/><x14:sparkline/>",
+              "</x14:sparklines></x14:sparklineGroup></x14:sparklineGroups></ext></extLst>",
+              "</worksheet>")
+  sdoc <- xml2::read_xml(x, options = "HUGE")
+  rm(x)
+  st <- wb_state()
+  sheet_extras(sdoc, st)
+  expect_equal(other_counts(st)[["sparklines"]], 2L)
+})
+
 test_that("nothing silently dropped", {
   r <- wb_md()
   oc <- paste(section(r$lines, "## Other content"), collapse = "\n")

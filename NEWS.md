@@ -1,3 +1,8 @@
+# coursepack 1.3.2
+
+* `anonymize()` no longer crashes R on a workbook with a very large sheet. The sparkline count searched every element of the sheet, and past 10 million elements the XML library crashed R outright, which no error handler can catch. The count now searches only the sheet's extension list, where sparklines are stored.
+* `anonymize()` prints a line before converting each file, giving its position and code only, so a crash shows which file it was on.
+
 # coursepack 1.3.1
 
 * `anonymize()` reads workbooks (`.xlsx`, `.xlsm`) and `.csv` files as submissions. A workbook is read into markdown: sheets in order with hidden ones marked, formulas shown beside the values they produce, pivot tables, comments, text boxes, hyperlinks, defined names, headers and footers, and embedded Word, OpenDocument text and PDF documents. Every chart is described in words from its own XML (type, series, categories, values, titles, axes, data labels, and any text boxes drawn on the chart, such as a source line, listed as other text on the chart), so no picture of it is made and none is sent to a grader. The newer Excel chart types (histogram, Pareto, box and whisker, waterfall, treemap, sunburst, funnel and filled map) are described the same way, with their bins, quartile method, mean and outlier markers, and waterfall subtotals. A chart with more than 200 points lists the first 100 and last 20 values with a count line, which also gives the minimum and maximum when the values are numbers.

@@ -235,8 +235,11 @@ structure_lines <- function(root, rt, sdoc, hid) {
 }
 
 # Sparklines and sheet extensions; header/footer pictures.
+# Never search a whole sheet with "//*": on a big data sheet the node set
+# passes libxml2's 10-million-node cap and xml2 segfaults. Sparklines live
+# only under the sheet's extLst, so the search starts there.
 sheet_extras <- function(sdoc, st) {
-  add_other(st, "sparklines", length(xml2::xml_find_all(sdoc, "//*[local-name()='sparkline']")))
+  add_other(st, "sparklines", length(xml2::xml_find_all(sdoc, "/*/m:extLst//*[local-name()='sparkline']", CHART_NS)))
   for (e in xml2::xml_find_all(sdoc, "/*/m:extLst/m:ext", CHART_NS)) {
     k <- xml2::xml_name(xml2::xml_children(e))
     k <- setdiff(k, "sparklineGroups")
