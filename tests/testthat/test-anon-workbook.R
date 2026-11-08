@@ -287,3 +287,294 @@ test_that("zip entries that climb out are refused", {
                                   "/etc/x", "a\\..\\b", "C:/x", "xl/a..b.xml")),
                c(FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE))
 })
+
+# Task 5: the rest of the workbook read into markdown.
+wb_md <- function(macro = FALSE, p = NULL, env = parent.frame()) {
+  td <- withr::local_tempdir(.local_envir = env)
+  if (is.null(p)) {
+    p <- fake_workbook(td, name = if (macro) "quillpat_1001_5001_partb.xlsm" else
+      "quillpat_1001_5001_partb.xlsx", macro = macro)
+  }
+  media <- file.path(td, "file1_media")
+  r <- workbook_to_md(p, media, "file1_media")
+  r$media_dir <- media
+  r
+}
+# Lines under a `## ` heading, up to the next one.
+section <- function(lines, heading) {
+  i <- which(lines == heading)
+  if (!length(i)) return(character())
+  rest <- lines[-seq_len(i[1])]
+  j <- which(startsWith(rest, "## "))
+  if (length(j)) rest[seq_len(j[1] - 1)] else rest
+}
+
+test_that("charts come first", {
+  r <- wb_md()
+  h <- grep("^## ", r$lines, value = TRUE)
+  expect_equal(h[1], "## Charts")
+  ch <- section(r$lines, "## Charts")
+  expect_true(any(grepl("^### Chart 1 \\(sheet Summary, G3:L17\\)$", ch)))
+  expect_true(any(grepl("^### Chart 2 \\(sheet Summary, N3:S17\\)$", ch)))
+})
+
+test_that("sheets in order with hidden marks", {
+  r <- wb_md()
+  h <- grep("^## Sheet: ", r$lines, value = TRUE)
+  expect_equal(h, c("## Sheet: Summary", "## Sheet: Pat Quill data",
+                    "## Sheet: Hidden calc (very hidden)"))
+  s1 <- section(r$lines, "## Sheet: Summary")
+  expect_true("Hidden rows: 4" %in% s1)
+  expect_true("Hidden columns: D" %in% s1)
+  expect_true(any(grepl("hidden row note", s1, fixed = TRUE)))
+  expect_true("Autofilter: A6:B9" %in% s1)
+  expect_true(any(grepl("secret calc", section(r$lines, "## Sheet: Hidden calc (very hidden)"))))
+})
+
+test_that("formulas beside values", {
+  r <- wb_md()
+  expect_true(any(grepl("268 `=SUM('Pat Quill data'!B2:B5)`", r$lines, fixed = TRUE)))
+  # Shared formulas are written out for every cell they fill.
+  expect_true(any(grepl("40 `=B8*2`", r$lines, fixed = TRUE)))
+  expect_true(any(grepl("60 `=B9*2`", r$lines, fixed = TRUE)))
+})
+
+test_that("split run read whole", {
+  r <- wb_md()
+  expect_equal(sum(grepl("| Pat Quill |", r$lines, fixed = TRUE)), 1)
+  expect_false(any(grepl("| Pat |  Quill", r$lines, fixed = TRUE)))
+})
+
+test_that("pivot, comment, text box, hyperlink, defined name, header present", {
+  r <- wb_md()
+  pv <- paste(section(r$lines, "## Pivot tables"), collapse = "\n")
+  expect_match(pv, "PivotTable1", fixed = TRUE)
+  expect_match(pv, "G1:H5", fixed = TRUE)
+  expect_match(pv, "'Pat Quill data'!D1:E31", fixed = TRUE)
+  expect_match(pv, "rows: state", fixed = TRUE)
+  expect_match(pv, "Sum of surveys", fixed = TRUE)
+  cm <- paste(section(r$lines, "## Comments"), collapse = "\n")
+  expect_match(cm, "Summary!A1 (threaded comment): Check this total", fixed = TRUE)
+  expect_match(cm, "Summary!A2 (note): [author removed]: Legacy note from the author", fixed = TRUE)
+  expect_false(grepl("[Threaded comment]", cm, fixed = TRUE))
+  expect_false(grepl("Pat Quill", cm, fixed = TRUE))
+  tb <- paste(section(r$lines, "## Text boxes"), collapse = "\n")
+  expect_match(tb, "prompt log: Pat Quill asked the assistant", fixed = TRUE)
+  hl <- paste(section(r$lines, "## Hyperlinks and defined names"), collapse = "\n")
+  expect_match(hl, "Contact the author", fixed = TRUE)
+  expect_match(hl, "mailto:pat.quill@example.edu", fixed = TRUE)
+  expect_match(hl, "PatQuillRange: 'Pat Quill data'!$B$2:$B$31", fixed = TRUE)
+  hf <- paste(section(r$lines, "## Headers and footers"), collapse = "\n")
+  expect_match(hf, "left: Pat Quill", fixed = TRUE)
+  expect_match(hf, "center: Report", fixed = TRUE)
+  # Fixed order of the sections after the sheets.
+  h <- grep("^## ", r$lines, value = TRUE)
+  rest <- h[!startsWith(h, "## Sheet: ")][-1]
+  expect_equal(rest, c("## Pivot tables", "## Comments", "## Text boxes",
+                       "## Hyperlinks and defined names", "## Headers and footers",
+                       "## Other content"))
+})
+
+test_that("metadata never read", {
+  for (m in c(FALSE, TRUE)) {
+    r <- wb_md(macro = m)
+    txt <- paste(r$lines, collapse = "\n")
+    for (s in c("Rivera", "Quill LLC", "patquill/secret", "XQ1001", "SQLOLEDB",
+                "Campus data", "7C3D1A10", "5A1F0C2E", "PLACEHOLDER")) {
+      expect_false(grepl(s, txt, fixed = TRUE), info = s)
+    }
+    expect_equal(r$other[["macros"]], as.integer(m))
+    expect_equal(r$other[["external_links"]], 1L)
+    expect_equal(r$other[["connections"]], 1L)
+  }
+})
+
+test_that("embedded picture lands in media", {
+  r <- wb_md()
+  expect_true(file.exists(file.path(r$media_dir, "image1.png")))
+  s1 <- section(r$lines, "## Sheet: Summary")
+  expect_true(any(grepl("](file1_media/image1.png)", s1, fixed = TRUE)))
+  expect_true(any(grepl("signature image", s1, fixed = TRUE)))
+})
+
+test_that("nothing silently dropped", {
+  r <- wb_md()
+  oc <- paste(section(r$lines, "## Other content"), collapse = "\n")
+  expect_match(oc, "form control", fixed = TRUE)
+  expect_match(oc, "sparkline", fixed = TRUE)
+  expect_match(oc, "embedded object", fixed = TRUE)
+  expect_equal(r$other[["form_controls"]], 1L)
+  expect_equal(r$other[["sparklines"]], 1L)
+  expect_equal(r$other[["embedded_objects"]], 1L)
+  expect_false(any(grepl("—", r$lines)))
+})
+
+test_that("an embedded Word document is converted", {
+  skip_if_no("pandoc")
+  src <- withr::local_tempdir()
+  png <- mk_png(file.path(src, "pic.png"))
+  doc <- file.path(src, "inner.docx")
+  mk_docx(doc, c("# Memo", "", "Embedded essay text by Pat Quill.", "", sprintf("![](%s)", png)))
+  p <- wb_variant(function(parts) {
+    dir.create(file.path(parts, "xl", "embeddings"), showWarnings = FALSE)
+    file.copy(doc, file.path(parts, "xl", "embeddings", "Microsoft_Word_Document.docx"))
+  })
+  r <- wb_md(p = p)
+  ed <- section(r$lines, "## Embedded document 1")
+  expect_true(any(grepl("Embedded essay text by Pat Quill.", ed, fixed = TRUE)))
+  expect_true(any(grepl("](file1_media/embedded1/media/", ed, fixed = TRUE)))
+  expect_length(list.files(file.path(r$media_dir, "embedded1"), recursive = TRUE, pattern = "\\.png$"), 1)
+  expect_false(any(grepl("\\.md$", list.files(r$media_dir, recursive = TRUE))))
+  # The placeholder OLE object is still only counted.
+  expect_equal(r$other[["embedded_objects"]], 1L)
+  h <- grep("^## ", r$lines, value = TRUE)
+  expect_equal(h[length(h) - 1], "## Embedded document 1")
+})
+
+test_that("csv reads as one sheet", {
+  r <- csv_to_md(fake_hcahps())
+  expect_equal(sum(grepl("^## Sheet:", r$lines)), 1)
+  rows <- grep("^\\| [0-9]+ \\|", r$lines, value = TRUE)
+  expect_length(rows, 31)
+  expect_match(rows[1], "facility_id", fixed = TRUE)
+  expect_equal(nrow(r$big_sheets), 0)
+})
+
+test_that("big sheet recorded", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("id,score", sprintf("%d,%d", seq_len(1499), seq_len(1499) %% 100)), p)
+  r <- csv_to_md(p)
+  expect_equal(nrow(r$big_sheets), 1)
+  expect_equal(r$big_sheets$rows, 1500)
+  expect_equal(r$big_sheets$sheet_pos, 1)
+  expect_length(grep("^\\| [0-9]+ \\|", r$lines), 1500)
+  expect_true(any(grepl("^\\| 1500 \\| 1499 \\| 99 \\|$", r$lines)))
+})
+
+test_that("a chart sheet takes its place among the sheets", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/workbook.xml", function(x) sub("</sheets>",
+      "<sheet name=\"Chart1\" sheetId=\"4\" r:id=\"rId11\"/></sheets>", x, fixed = TRUE))
+    change(parts, "xl/_rels/workbook.xml.rels", function(x) sub("</Relationships>",
+      "<Relationship Id=\"rId11\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartsheet\" Target=\"chartsheets/sheet1.xml\"/></Relationships>", x, fixed = TRUE))
+    put(parts, "xl/chartsheets/sheet1.xml", '<chartsheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><headerFooter><oddFooter>&amp;CChart footer</oddFooter></headerFooter></chartsheet>')
+  })
+  r <- wb_md(p = p)
+  h <- grep("^## Sheet: ", r$lines, value = TRUE)
+  expect_equal(h[4], "## Sheet: Chart1")
+  expect_true("A chart sheet: its chart is described under Charts." %in% section(r$lines, "## Sheet: Chart1"))
+  expect_true("- Chart1, footer: center: Chart footer" %in% section(r$lines, "## Headers and footers"))
+})
+
+# Task 5 fix round 1.
+csv_bytes <- function(raw) {
+  p <- withr::local_tempfile(fileext = ".csv", .local_envir = parent.frame())
+  writeBin(raw, p)
+  p
+}
+csv_rows <- function(r) grep("^\\| [0-9]+ \\|", r$lines, value = TRUE)
+
+test_that("a cp1252 csv keeps every row and its accents", {
+  p <- csv_bytes(c(charToRaw("name,score\nAlpha,1\nCaf"), as.raw(0xe9),
+                   charToRaw(",2\nBeta,3\nGamma,4\n")))
+  r <- csv_to_md(p)
+  rows <- csv_rows(r)
+  expect_length(rows, 5)
+  expect_true("| 3 | Café | 2 |" %in% rows)
+  expect_true("| 5 | Gamma | 4 |" %in% rows)
+})
+
+test_that("a ragged csv row stays one row", {
+  p <- csv_bytes(charToRaw("a,b\n1,2\n3,4\n5,6\n7,8\n9,10\n11,12,13,14\n"))
+  r <- csv_to_md(p)
+  rows <- csv_rows(r)
+  expect_length(rows, 7)
+  expect_true("| 7 | 11 | 12 | 13 | 14 |" %in% rows)
+  expect_true("| 1 | a | b |  |  |" %in% rows)
+})
+
+test_that("a blank csv line keeps later row numbers", {
+  r <- csv_to_md(csv_bytes(charToRaw("a,b\n\n1,2\n")))
+  rows <- csv_rows(r)
+  expect_true("| 3 | 1 | 2 |" %in% rows)
+  expect_length(rows, 3)
+})
+
+test_that("a csv read problem is counted, not hidden", {
+  r <- csv_to_md(csv_bytes(charToRaw("a,b\n\"open,2\n3,4\n")))
+  expect_gte(r$other[["csv_read_problems"]], 1L)
+  expect_match(paste(section(r$lines, "## Other content"), collapse = "\n"), "csv read problems")
+  expect_false("No cell content." %in% r$lines)
+})
+
+test_that("a picture relationship outside xl/media is not copied", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/drawings/_rels/drawing1.xml.rels", function(x)
+      sub("../media/image1.png", "../comments1.xml", x, fixed = TRUE))
+  })
+  r <- wb_md(p = p)
+  expect_length(list.files(r$media_dir), 0)
+  expect_false(any(grepl("![picture]", r$lines, fixed = TRUE)))
+  expect_gte(r$other[["other_pictures"]], 1L)
+})
+
+test_that("scenarios and data tables are counted and marked", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/worksheets/sheet3.xml", function(x) {
+      x <- sub("</sheetData>", paste0(
+        "<row r=\"3\"><c r=\"A3\"><v>1</v></c><c r=\"B3\"><f t=\"dataTable\" ref=\"B3:B4\" dt2D=\"0\" dtr=\"0\" r1=\"B1\"/><v>7</v></c></row>",
+        "<row r=\"4\"><c r=\"A4\"><v>2</v></c><c r=\"B4\"><v>8</v></c></row></sheetData>",
+        "<scenarios><scenario name=\"Best\" count=\"1\"><inputCells r=\"B1\" val=\"50\"/></scenario></scenarios>"),
+        x, fixed = TRUE)
+      sub("A1:B1", "A1:B4", x, fixed = TRUE)
+    })
+  })
+  r <- wb_md(p = p)
+  expect_equal(r$other[["scenarios"]], 1L)
+  expect_equal(r$other[["data_tables"]], 1L)
+  s3 <- section(r$lines, "## Sheet: Hidden calc (very hidden)")
+  expect_true("| 3 | 1 | 7 (data table B3:B4) |" %in% s3)
+  expect_true("| 4 | 2 | 8 (data table B3:B4) |" %in% s3)
+})
+
+test_that("formula prefixes stripped and spills marked", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/worksheets/sheet3.xml", function(x) {
+      x <- sub("</sheetData>", paste0(
+        "<row r=\"5\"><c r=\"A5\" cm=\"1\"><f t=\"array\" ref=\"A5:A6\">_xlfn._xlws.SORT(B1:B2)</f><v>3</v></c>",
+        "<c r=\"B5\"><f t=\"array\" ref=\"B5\">SUM(B1:B2*2)</f><v>84</v></c>",
+        "<c r=\"C5\"><f>_xlfn.LET(_xlpm.x,2,_xlpm.x*3)</f><v>6</v></c></row>",
+        "<row r=\"6\"><c r=\"A6\"><v>4</v></c></row></sheetData>"), x, fixed = TRUE)
+      sub("A1:B1", "A1:C6", x, fixed = TRUE)
+    })
+  })
+  r <- wb_md(p = p)
+  s3 <- section(r$lines, "## Sheet: Hidden calc (very hidden)")
+  txt <- paste(s3, collapse = "\n")
+  expect_match(txt, "3 `=SORT(B1:B2)` (spills into A5:A6)", fixed = TRUE)
+  expect_match(txt, "84 `{=SUM(B1:B2*2)}`", fixed = TRUE)
+  expect_match(txt, "6 `=LET(x,2,x*3)`", fixed = TRUE)
+  expect_false(grepl("_xl", txt, fixed = TRUE))
+})
+
+test_that("an OLE-wrapped pdf is flagged and its images linked", {
+  skip_if_no("pdftotext"); skip_if_no("pdfimages")
+  src <- withr::local_tempdir()
+  pdf <- file.path(src, "inner.pdf")
+  grDevices::pdf(pdf, width = 3, height = 3)
+  graphics::plot.new(); graphics::text(0.5, 0.5, "Embedded pdf words")
+  graphics::rasterImage(matrix(c(0, 1, 1, 0), 2), 0, 0, 0.3, 0.3, interpolate = FALSE)
+  invisible(grDevices::dev.off())
+  pdf_raw <- readBin(pdf, "raw", file.size(pdf))
+  p <- wb_variant(function(parts) {
+    writeBin(c(charToRaw("OLE-HEADER-BYTES"), pdf_raw, as.raw(c(0, 0, 0))),
+             file.path(parts, "xl", "embeddings", "oleObject2.bin"))
+  })
+  r <- wb_md(p = p)
+  ed <- section(r$lines, "## Embedded document 1")
+  txt <- paste(ed, collapse = "\n")
+  expect_match(txt, "Embedded pdf words", fixed = TRUE)
+  expect_match(txt, "taken out of an embedded object", fixed = TRUE)
+  expect_match(txt, "](file1_media/embedded1/img-000.png)", fixed = TRUE)
+  expect_true(file.exists(file.path(r$media_dir, "embedded1", "img-000.png")))
+})
