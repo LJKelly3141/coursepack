@@ -15,8 +15,7 @@ anonymize(
   sweep_url = "http://localhost:1234",
   sweep_context = NULL,
   transcribe_images = FALSE,
-  skip_types = character(),
-  source_data = NULL
+  skip_types = character()
 )
 }
 \arguments{
@@ -70,8 +69,6 @@ document has the latest image as the file feedback attaches to, and
 \code{c("csv", "xlsm")}; case and a leading dot do not matter. Skipped files are
 counted by extension on the console and in the result's \code{skipped}. A
 student whose every file is skipped stops the run.}
-
-\item{source_data}{Reserved for the workbook reader; accepted and not yet used.}
 }
 \value{
 A list with \code{students}, \code{files}, \code{replacements}, \code{patterns} (the

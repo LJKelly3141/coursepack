@@ -437,18 +437,122 @@ test_that("csv reads as one sheet", {
   rows <- grep("^\\| [0-9]+ \\|", r$lines, value = TRUE)
   expect_length(rows, 31)
   expect_match(rows[1], "facility_id", fixed = TRUE)
-  expect_equal(nrow(r$big_sheets), 0)
+  expect_equal(nrow(r$ignored), 0)
 })
 
-test_that("big sheet recorded", {
+# Raw-data cap: a sheet or csv over RAW_CELL_CAP (4,000) cells is not read.
+# `rows` x `cols` of invented strings "zqRxC"; B2:B4 are 10, 20, 30.
+big_variant <- function(rows, cols, chart_on_big = FALSE, drop_cache = FALSE, dim = NULL, link = FALSE, env = parent.frame()) {
+  wb_variant(function(parts) {
+    cell <- function(r, c) {
+      a <- paste0(LETTERS[c], r)
+      if (c == 2 && r >= 2 && r <= 4) return(sprintf('<c r="%s"><v>%d</v></c>', a, (r - 1) * 10))
+      sprintf('<c r="%s" t="inlineStr"><is><t>zq%dx%d</t></is></c>', a, r, c)
+    }
+    body <- paste0(vapply(seq_len(rows), function(r) paste0('<row r="', r, '">',
+      paste(vapply(seq_len(cols), function(c) cell(r, c), ""), collapse = ""), '</row>'), ""), collapse = "")
+    change(parts, "xl/worksheets/sheet2.xml", function(x) {
+      x <- paste(x, collapse = "\n")
+      d <- if (is.null(dim)) sprintf('<dimension ref="A1:%s%d"/>', LETTERS[cols], rows) else if (nzchar(dim)) sprintf('<dimension ref="%s"/>', dim) else ""
+      x <- sub('<dimension ref="[^"]*"/>', d, x)
+      lk <- if (link) '<hyperlinks><hyperlink ref="A1" location="Summary!A1" display="zqlinktext"/></hyperlinks>' else ""
+      sub("<sheetData>.*</sheetData>", paste0("<sheetData>", body, "</sheetData>", lk), x)
+    })
+    if (chart_on_big) change(parts, "xl/charts/chart1.xml", function(x) {
+      x <- gsub("Summary!\\$A\\$7:\\$A\\$9", "'Pat Quill data'!$A$2:$A$4", x)
+      x <- gsub("Summary!\\$B\\$7:\\$B\\$9", "'Pat Quill data'!$B$2:$B$4", x)
+      if (drop_cache) x <- gsub("<c:numCache>.*?</c:numCache>", "", x)
+      x
+    })
+  }, env = env)
+}
+
+test_that("sheet over the cap is ignored", {
+  r <- wb_md(p = big_variant(201, 20))
+  sh <- section(r$lines, "## Sheet: Pat Quill data")
+  expect_true(any(grepl("Not read: 201 rows x 20 columns is over the 4,000-cell limit for raw data.", sh, fixed = TRUE)))
+  expect_false(any(grepl("zq", r$lines, fixed = TRUE)))
+  expect_false(any(grepl("^\\| [0-9]+ \\|", sh)))
+  expect_equal(nrow(r$ignored), 1)
+  expect_equal(r$ignored$rows, 201)
+  expect_equal(r$ignored$cols, 20)
+  expect_equal(r$ignored$sheet_pos, 2)
+  expect_null(r$big_sheets)
+  # The other sheets are still read.
+  expect_true(any(grepl("^## Sheet: Summary", r$lines)))
+})
+
+test_that("sheet at the cap is read", {
+  r <- wb_md(p = big_variant(200, 20))
+  sh <- section(r$lines, "## Sheet: Pat Quill data")
+  expect_false(any(grepl("Not read", sh)))
+  expect_true(any(grepl("zq200x20", sh, fixed = TRUE)))
+  expect_equal(nrow(r$ignored), 0)
+})
+
+test_that("csv over the cap is ignored", {
   p <- withr::local_tempfile(fileext = ".csv")
-  writeLines(c("id,score", sprintf("%d,%d", seq_len(1499), seq_len(1499) %% 100)), p)
+  writeLines(c("id", sprintf("zq%d", seq_len(4000))), p)
   r <- csv_to_md(p)
-  expect_equal(nrow(r$big_sheets), 1)
-  expect_equal(r$big_sheets$rows, 1500)
-  expect_equal(r$big_sheets$sheet_pos, 1)
-  expect_length(grep("^\\| [0-9]+ \\|", r$lines), 1500)
-  expect_true(any(grepl("^\\| 1500 \\| 1499 \\| 99 \\|$", r$lines)))
+  expect_true(any(grepl("Not read: 4,001 rows x 1 columns is over the 4,000-cell limit for raw data.", r$lines, fixed = TRUE)))
+  expect_false(any(grepl("zq", r$lines, fixed = TRUE)))
+  expect_equal(r$ignored$rows, 4001)
+  expect_equal(r$ignored$cols, 1)
+  expect_equal(r$ignored$sheet_pos, 1)
+  p2 <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("id", sprintf("zq%d", seq_len(3999))), p2)
+  r2 <- csv_to_md(p2)
+  expect_equal(nrow(r2$ignored), 0)
+  expect_true(any(grepl("zq3999", r2$lines, fixed = TRUE)))
+})
+
+test_that("charts on an ignored sheet still described", {
+  chart1 <- function(r) {
+    ch <- section(r$lines, "## Charts")
+    i <- grep("^### Chart", ch)
+    paste(ch[i[1]:(i[2] - 1)], collapse = "\n")
+  }
+  r <- wb_md(p = big_variant(201, 20, chart_on_big = TRUE))
+  expect_match(chart1(r), "values: 10, 20, 30", fixed = TRUE)
+  expect_false(grepl("from cells", chart1(r), fixed = TRUE))
+  r2 <- wb_md(p = big_variant(201, 20, chart_on_big = TRUE, drop_cache = TRUE))
+  expect_match(chart1(r2), "values not available", fixed = TRUE)
+  expect_false(grepl("10, 20, 30", chart1(r2), fixed = TRUE))
+  expect_false(any(grepl("zq", r2$lines, fixed = TRUE)))
+})
+
+test_that("a small sheet with an inflated dimension is read", {
+  r <- wb_md(p = big_variant(10, 5, dim = "A1:J1000"))
+  sh <- section(r$lines, "## Sheet: Pat Quill data")
+  expect_false(any(grepl("Not read", sh)))
+  expect_true(any(grepl("zq10x5", sh, fixed = TRUE)))
+  expect_equal(nrow(r$ignored), 0)
+})
+
+test_that("a sheet with no dimension is measured from its cells", {
+  r <- wb_md(p = big_variant(201, 20, dim = ""))
+  expect_true(any(grepl("Not read: 201 rows x 20 columns", r$lines, fixed = TRUE)))
+  expect_equal(nrow(r$ignored), 1)
+})
+
+test_that("a dimensionless over-cap sheet is not read by a chart", {
+  r <- wb_md(p = big_variant(201, 20, chart_on_big = TRUE, drop_cache = TRUE, dim = ""))
+  chs <- section(r$lines, "## Charts")
+  ch <- paste(chs[seq_len(grep("^### Chart 2", chs)[1] - 1)], collapse = "\n")
+  expect_match(ch, "values not available", fixed = TRUE)
+  expect_false(grepl("from cells", ch, fixed = TRUE))
+  expect_false(grepl("10, 20, 30", ch, fixed = TRUE))
+})
+
+test_that("an ignored sheet lists no hyperlinks", {
+  r <- wb_md(p = big_variant(201, 20, link = TRUE))
+  expect_false(any(grepl("zqlinktext", r$lines, fixed = TRUE)))
+  expect_false(any(grepl("^- .*Pat Quill data.*!A1: ", r$lines)))
+  expect_true(any(grepl("hyperlinks on sheets not read as raw data (not listed): 1", section(r$lines, "## Other content"), fixed = TRUE)))
+})
+
+test_that("anonymize has no source_data argument", {
+  expect_false("source_data" %in% names(formals(anonymize)))
 })
 
 test_that("a chart sheet takes its place among the sheets", {

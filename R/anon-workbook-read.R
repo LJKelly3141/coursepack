@@ -7,7 +7,9 @@
 # connections.xml are never extracted; their presence is counted only.
 
 WB_NEVER_READ <- "^(docProps/|xl/persons/|xl/vbaProject\\.bin$|xl/externalLinks/|xl/connections\\.xml$)"
-BIG_SHEET_ROWS <- 1000
+# A sheet or .csv whose used range (first to last non-empty cell) is over this
+# many cells is raw data: it is not read, and one "Not read" line says so.
+RAW_CELL_CAP <- 4000L
 
 # Parts this reader handles or deliberately leaves alone. Anything else is
 # counted under Other content as an unrecognised part.
@@ -44,6 +46,7 @@ WB_OTHER_LABELS <- c(
   sheet_extensions = "sheet extensions not described",
   other_sheets = "sheets of another type (not read)",
   other_parts = "unrecognised parts",
+  raw_hyperlinks = "hyperlinks on sheets not read as raw data (not listed)",
   data_tables = "what-if data tables (cells marked in the sheet)",
   scenarios = "what-if scenarios (not described)",
   csv_read_problems = "csv read problems")
@@ -243,13 +246,27 @@ sheet_extras <- function(sdoc, st) {
             length(xml2::xml_find_all(sdoc, "/*/m:legacyDrawingHF", CHART_NS)))
 }
 
+# ---- raw-data cap -------------------------------------------------------------
+
+not_read_line <- function(rows, cols) {
+  f <- function(x) format(x, big.mark = ",", scientific = FALSE, trim = TRUE)
+  sprintf("Not read: %s rows x %s columns is over the %s-cell limit for raw data.",
+          f(rows), f(cols), f(RAW_CELL_CAP))
+}
+
+# Rows and columns from the first to the last non-empty cell; c(0, 0) if none.
+used_extent <- function(r, c) {
+  if (!length(r)) return(c(0, 0))
+  c(max(r) - min(r) + 1, max(c) - min(c) + 1)
+}
+
 # ---- one sheet --------------------------------------------------------------
 
-read_sheet <- function(wb, i, cells, st, media_dir, media_rel) {
+read_sheet <- function(wb, i, cells, st, media_dir, media_rel, used = c(0, 0)) {
   s <- wb$sheets[i, ]
   mark <- switch(if (is.na(s$state)) "visible" else s$state,
                  hidden = " (hidden)", veryHidden = " (very hidden)", "")
-  res <- list(rows = 0L, lines = character(), pivots = character(), comments = character(),
+  res <- list(ignored = NULL, lines = character(), pivots = character(), comments = character(),
               text = character(), links = character(), headers = character())
   head <- sprintf("## Sheet: %s%s", s$name, mark)
   if (is.na(s$part) || !file.exists(file.path(wb$root, s$part))) {
@@ -277,12 +294,22 @@ read_sheet <- function(wb, i, cells, st, media_dir, media_rel) {
   res$links <- hyperlink_lines(rt, sdoc, s$name, cells)
   res$pivots <- unlist(lapply(rel_of(rt, "pivotTable"), function(pp)
     if (file.exists(file.path(wb$root, pp))) pivot_lines(wb$root, pp, s$name)))
+  if (used[1] * used[2] > RAW_CELL_CAP) {
+    # Raw data: no cells, formulas, filters, sort state or hyperlink lines
+    # (hyperlinks are only counted). Charts, pivots, comments and text boxes
+    # are still read.
+    add_other(st, "raw_hyperlinks", length(xml2::xml_find_all(sdoc, "/m:worksheet/m:hyperlinks/m:hyperlink", CHART_NS)))
+    res$links <- character()
+    res$ignored <- data.frame(sheet_pos = i, rows = used[1], cols = used[2])
+    res$lines <- c(head, "", not_read_line(used[1], used[2]), "",
+                   if (length(dr$pictures)) c(dr$pictures, ""))
+    return(res)
+  }
   d <- cells[cells$sheet == s$name & (!cells$is_blank | !is.na(cells$formula)), ]
   hid <- hidden_rows_cols(sdoc)
   info <- structure_lines(wb$root, rt, sdoc, hid)
   marks <- formula_marks(sdoc, st)
   tab <- if (nrow(d)) cell_table(d$row, d$col, cell_values(d, marks), hid$rows, hid$cols) else "No cell content."
-  res$rows <- length(unique(d$row))
   res$lines <- c(head, "", if (length(info)) c(info, ""), tab, "",
                  if (length(dr$pictures)) c(dr$pictures, ""))
   res
@@ -337,23 +364,37 @@ other_lines <- function(st) {
 section_md <- function(heading, x) c(heading, "", if (length(x)) x else "None.", "")
 
 # Markdown lines for a workbook, the counts for Other content, and the sheets
-# past BIG_SHEET_ROWS rows (all their rows are still written).
-workbook_to_md <- function(xlsx, media_dir, media_rel, sources = NULL) {
-  if (!is.null(sources)) stop("comparing sheets with source data is not available yet", call. = FALSE)
+# ignored as raw data (over RAW_CELL_CAP cells): sheet_pos, rows, cols.
+workbook_to_md <- function(xlsx, media_dir, media_rel) {
   charts <- workbook_charts(xlsx)
   wb <- workbook_open(xlsx)
   on.exit(unlink(wb$root, recursive = TRUE), add = TRUE)
-  cells <- tidyxl::xlsx_cells(xlsx)
+  # Every worksheet's cells are loaded and its used range measured from the
+  # non-blank (or formula) cells; the <dimension> is not trusted, since styled
+  # empty cells inflate it. Cells of sheets over the cap are then dropped, so
+  # nothing downstream (charts included) can read them.
+  is_ws <- !is.na(wb$sheets$part) & grepl("^xl/worksheets/", wb$sheets$part)
+  cells <- if (any(is_ws)) tidyxl::xlsx_cells(xlsx, sheets = wb$sheets$name[is_ws]) else NULL
+  used <- matrix(0, nrow(wb$sheets), 2)
+  if (!is.null(cells)) {
+    live <- cells[!cells$is_blank | !is.na(cells$formula), ]
+    for (i in which(is_ws)) {
+      d0 <- live[live$sheet == wb$sheets$name[i], ]
+      used[i, ] <- used_extent(d0$row, d0$col)
+    }
+    over <- wb$sheets$name[is_ws & used[, 1] * used[, 2] > RAW_CELL_CAP]
+    cells <- cells[!cells$sheet %in% over, ]
+  }
   st <- wb_state()
   out <- c("## Charts", "", if (length(charts)) unlist(lapply(charts, function(ch)
     c(describe_chart(ch, cells), ""))) else c("None.", ""))
-  big <- data.frame(sheet_pos = integer(), rows = integer())
+  ignored <- data.frame(sheet_pos = integer(), rows = numeric(), cols = numeric())
   acc <- list(pivots = character(), comments = character(), text = character(),
               links = character(), headers = character())
   for (i in seq_len(nrow(wb$sheets))) {
-    s <- read_sheet(wb, i, cells, st, media_dir, media_rel)
+    s <- read_sheet(wb, i, cells, st, media_dir, media_rel, used = used[i, ])
     out <- c(out, s$lines)
-    if (s$rows > BIG_SHEET_ROWS) big <- rbind(big, data.frame(sheet_pos = i, rows = s$rows))
+    if (!is.null(s$ignored)) ignored <- rbind(ignored, s$ignored)
     for (k in names(acc)) acc[[k]] <- c(acc[[k]], s[[k]])
   }
   # Media files no drawing placed (a cell picture, a background) are counted.
@@ -372,7 +413,7 @@ workbook_to_md <- function(xlsx, media_dir, media_rel, sources = NULL) {
            section_md("## Headers and footers", acc$headers),
            emb,
            section_md("## Other content", other_lines(st)))
-  list(lines = out, other = other_counts(st), big_sheets = big)
+  list(lines = out, other = other_counts(st), ignored = ignored)
 }
 
 # A .csv file's text as UTF-8: as is when valid, else read as Windows-1252
@@ -394,10 +435,9 @@ csv_trim_end <- function(s) sub("\r?\n$", "", s)
 # A .csv as one sheet, in the same layout. Every value is kept as written;
 # blank lines keep their row numbers and a long row stays one row. A read
 # problem is counted under Other content, never hidden.
-csv_to_md <- function(path, sources = NULL) {
-  if (!is.null(sources)) stop("comparing sheets with source data is not available yet", call. = FALSE)
+csv_to_md <- function(path) {
   st <- wb_state()
-  big <- data.frame(sheet_pos = integer(), rows = integer())
+  ignored <- data.frame(sheet_pos = integer(), rows = numeric(), cols = numeric())
   head <- "## Sheet: (the .csv file)"
   # Quoted text in a message could be cell content; it is left out.
   problem <- function(m) add_other(st, "csv_read_problems", detail = gsub("'[^']*'", "'...'", m))
@@ -415,13 +455,19 @@ csv_to_md <- function(path, sources = NULL) {
   oc <- function() if (sum(other_counts(st))) section_md("## Other content", other_lines(st))
   if (is.null(d)) {
     return(list(lines = c(head, "", "The .csv file could not be read; see Other content.", "", oc()),
-                other = other_counts(st), big_sheets = big))
+                other = other_counts(st), ignored = ignored))
   }
   if (!nrow(d) || !ncol(d)) {
-    return(list(lines = c(head, "", "No cell content.", "", oc()), other = other_counts(st), big_sheets = big))
+    return(list(lines = c(head, "", "No cell content.", "", oc()), other = other_counts(st), ignored = ignored))
   }
   r <- rep(seq_len(nrow(d)), ncol(d)); c <- rep(seq_len(ncol(d)), each = nrow(d))
   v <- unlist(d, use.names = FALSE)
-  if (nrow(d) > BIG_SHEET_ROWS) big <- data.frame(sheet_pos = 1L, rows = nrow(d))
-  list(lines = c(head, "", cell_table(r, c, v), "", oc()), other = other_counts(st), big_sheets = big)
+  ne <- nzchar(v)
+  used <- if (any(ne)) used_extent(r[ne], c[ne]) else c(nrow(d), ncol(d))
+  if (used[1] * used[2] > RAW_CELL_CAP) {
+    ignored <- data.frame(sheet_pos = 1L, rows = used[1], cols = used[2])
+    return(list(lines = c(head, "", not_read_line(used[1], used[2]), "", oc()),
+                other = other_counts(st), ignored = ignored))
+  }
+  list(lines = c(head, "", cell_table(r, c, v), "", oc()), other = other_counts(st), ignored = ignored)
 }

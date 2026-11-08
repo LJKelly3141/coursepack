@@ -253,7 +253,6 @@ assign_files <- function(subs, key) {
 #'   `c("csv", "xlsm")`; case and a leading dot do not matter. Skipped files are
 #'   counted by extension on the console and in the result's `skipped`. A
 #'   student whose every file is skipped stops the run.
-#' @param source_data Reserved for the workbook reader; accepted and not yet used.
 #' @return A list with `students`, `files`, `replacements`, `patterns` (the
 #'   fixed-pattern replacements made), `images` (the images checked) and
 #'   `protected` (the protected-phrase occurrences kept) counts, plus `transcribed`
@@ -285,7 +284,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
                       sweep = getOption("coursepack.sweep", TRUE),
                       sweep_model = "gemma-4-31b-it-mlx", sweep_url = "http://localhost:1234",
                       sweep_context = NULL, transcribe_images = FALSE,
-                      skip_types = character(), source_data = NULL) {
+                      skip_types = character()) {
   proj <- anon_proj(proj)
   assignment_dir <- proj_path(proj, assignment)
   key_path <- proj_path(proj, key)
