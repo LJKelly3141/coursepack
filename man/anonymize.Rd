@@ -66,16 +66,20 @@ document has the latest image as the file feedback attaches to, and
 \code{\link[=relink]{relink()}} answers it with an image of the same name and type.}
 
 \item{skip_types}{File extensions to leave out, such as \code{"xls"} or
-\code{c("csv", "xlsm")}; case and a leading dot do not matter. Skipped files are
-counted by extension on the console and in the result's \code{skipped}. A
+\code{c("csv", "xlsm")}; case and a leading dot do not matter. The default
+skips nothing, so an unsupported type still stops the run. Skipped files
+get no \verb{file<k>.md} and are counted by extension, never named, on the
+console, in the de-identification log and in the result's \code{skipped}. A
 student whose every file is skipped stops the run.}
 }
 \value{
 A list with \code{students}, \code{files}, \code{replacements}, \code{patterns} (the
 fixed-pattern replacements made), \code{images} (the images checked) and
 \code{protected} (the protected-phrase occurrences kept) counts, plus \code{transcribed}
-(the codes of transcribed students) and \code{skipped} (files left out by
-\code{skip_types}, a named integer count by extension), invisibly. The run
+(the codes of transcribed students), \code{skipped} (files left out by
+\code{skip_types}, a named integer count by extension), \code{other} (workbook
+content not read, a named integer count by kind) and \code{ignored_sheets}
+(sheets and \code{.csv} files over the 4,000-cell limit), invisibly. The run
 stops instead of returning when a leftover is found or an image needs a
 decision.
 }
@@ -96,6 +100,34 @@ other type stops the run, naming the code and file position. Files without
 the Canvas shape are skipped and counted, never named; the assignment's own
 \code{anon_key.csv}, \code{deidentification_log.md} and \code{anon_images.csv} are neither
 converted nor counted.
+
+A workbook (\code{.xlsx} or \code{.xlsm}) is read as a zip of XML parts and is never
+opened in a spreadsheet program, so macros, external links and data
+connections never run. Its \verb{file<k>.md} describes each chart in words (type,
+titles, axes, series with their ranges and values, and any setting it cannot
+describe, named), with no picture of the chart; then lists every sheet in
+order, hidden ones marked, with cell values, formulas beside their values,
+hidden rows and columns, filters and embedded pictures (under
+\verb{file<k>_media/}); then pivot tables, comments (authors removed), text boxes,
+hyperlinks, defined names, headers and footers, any embedded document, and
+an "Other content" section that counts what is not read, such as macro code,
+form controls, sparklines and links to other workbooks. Document properties
+(author, last saved by, company) and comment authors are never read. A
+\code{.csv} is read as one sheet. A sheet or \code{.csv} whose used range is more than
+4,000 cells (rows times columns) is raw data and is not read: its heading
+stays, with one line giving its size, the console prints the code, file
+position and number of such sheets, and the log counts them. Charts that
+plot such a sheet are still described from the values saved with the chart.
+Every line written to \verb{file<k>.md} from a workbook goes through the same
+redaction, leftover check, image review and privacy sweep as a document;
+the console and the log get only codes, file positions and counts. Warnings
+and messages from the reading libraries are not shown, since they can quote
+the workbook; warnings are counted in the log as \code{reader_warnings}. A legacy
+\code{.xls} workbook, or a workbook saved in Strict Open XML format, stops the
+run, naming the code and file position, with advice to re-save it as a
+normal \code{.xlsx} or leave the type out with \code{skip_types}. Any other workbook
+or \code{.csv} that cannot be read stops the run the same way with a fixed
+message, never the reader's own error, which could quote the workbook.
 
 A student may submit any number of files. Each student's files are numbered
 in upload order and written as \verb{anon_dir/<code>/file1.md}, \code{file2.md} and so
@@ -187,7 +219,9 @@ The coded folder shows nothing about timing: every file under \code{anon_dir} is
 given the same modification time, and students are processed in a shuffled
 order. Each successful run appends a record of counts to
 \code{deidentification_log.md} beside the key, and \code{\link[=relink]{relink()}} and \code{\link[=anon_forget]{anon_forget()}}
-append to it too. The log holds counts, types and codes only, and
+append to it too. Among its counts are files skipped by type, workbook
+content not read by kind, and sheets over the 4,000-cell limit. The log
+holds counts, types and codes only, and
 \code{\link[=anon_forget]{anon_forget()}} does not delete it. Keep it with the course records as the
 record that submissions were de-identified before grading.
 }

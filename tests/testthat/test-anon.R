@@ -119,8 +119,8 @@ test_that("conversion to text drops document metadata and copies text files", {
   convert_to_text(qmd, out2, file.path(td, "media_qmd"))
   expect_identical(readLines(out2)[2], "author: Pat Quill")
 
-  xl <- file.path(td, "in.xlsx"); writeLines("x", xl)
-  expect_true(grepl("\\.xlsx", errors_with(convert_to_text(xl, file.path(td, "o.md"),
+  xl <- file.path(td, "in.pptx"); writeLines("x", xl)
+  expect_true(grepl("\\.pptx", errors_with(convert_to_text(xl, file.path(td, "o.md"),
                                                             file.path(td, "m")))))
 })
 
@@ -551,9 +551,9 @@ test_that("a conversion failure names the code and file position, and stays NOT_
   # A document comes first so the student has a target; a student with no
   # document at all stops earlier, at target selection.
   writeLines("x", file.path(cf, "quillpat_1001_9700_hw.md"))
-  writeLines("x", file.path(cf, "quillpat_1001_9701_hw.xlsx"))
+  writeLines("x", file.path(cf, "quillpat_1001_9701_hw.pptx"))
   msg9 <- errors_with(anon(proj, cf, kp))
-  expect_true(startsWith(msg9, "S01 (file2): unsupported submission type: .xlsx"))
+  expect_true(startsWith(msg9, "S01 (file2): unsupported submission type: .pptx"))
   expect_false(grepl("quill|1001", msg9, ignore.case = TRUE))
   expect_false(dir.exists(file.path(cf, "anon")))                 # nothing to read
   expect_true(file.exists(file.path(cf, ".anon_build", "NOT_READY")))

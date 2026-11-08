@@ -18,6 +18,14 @@ SUBMISSION_IMAGE_EXTS <- c("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", 
 WORKBOOK_EXTS <- c("xlsx", "xlsm")
 SHEET_EXTS <- c(WORKBOOK_EXTS, "csv")
 
+# The package's own workbook messages: fixed text, never workbook content.
+# Classed so convert_to_text() can pass them through and replace any other
+# reader error, whose text could quote the workbook.
+wb_stop <- function(msg) {
+  stop(structure(class = c("coursepack_wb_error", "error", "condition"),
+                 list(message = msg, call = NULL)))
+}
+
 run_tool <- function(cmd, args) {
   res <- suppressWarnings(system2(cmd, args, stdout = TRUE, stderr = TRUE))
   st <- attr(res, "status")
@@ -25,6 +33,9 @@ run_tool <- function(cmd, args) {
   invisible(res)
 }
 
+# Returns out_md invisibly. For a workbook or .csv it carries attributes
+# "other" (named integer counts of content not read, by kind) and "ignored"
+# (data.frame of sheets over the raw-data cell cap: sheet_pos, rows, cols).
 convert_to_text <- function(path, out_md, media_dir, transcribe = NULL) {
   ext <- tolower(tools::file_ext(path))
   dir.create(dirname(out_md), recursive = TRUE, showWarnings = FALSE)
@@ -63,6 +74,35 @@ convert_to_text <- function(path, out_md, media_dir, transcribe = NULL) {
     text <- transcribe(png)
     writeLines(c("*Transcribed from an image by the local model. Check it against the original submission.*",
                  "", text), out_md, useBytes = TRUE)
+  } else if (ext %in% SHEET_EXTS) {
+    # Read as XML (or plain text for a .csv); nothing in the workbook runs.
+    # The markdown goes through anonymize()'s redaction like any document.
+    # The readers get a copy under a neutral name: the Canvas filename carries
+    # the student's name and id, and unzip() and tidyxl put the path they
+    # were given into their error messages.
+    tmp <- tempfile("submission_", fileext = paste0(".", ext))
+    on.exit(unlink(tmp), add = TRUE)
+    # file.copy() warnings can name the source path, the Canvas filename.
+    if (!suppressWarnings(file.copy(path, tmp))) wb_stop("could not copy the workbook for reading")
+    # Allow-list: only the package's own messages (wb_stop()) pass through. A
+    # third-party error (tidyxl, xml2/libxml2, unzip) can quote sheet names or
+    # cell text, so it is replaced by a fixed message.
+    # Warnings and messages from the readers can quote the workbook too
+    # (libxml2 names a bad namespace URI): muffled, and warnings only counted.
+    n_warn <- 0L
+    wb <- tryCatch(
+      withCallingHandlers(
+        if (ext == "csv") csv_to_md(tmp) else workbook_to_md(tmp, media_dir, basename(media_dir)),
+        warning = function(w) { n_warn <<- n_warn + 1L; invokeRestart("muffleWarning") },
+        message = function(m) invokeRestart("muffleMessage")),
+      error = function(e) {
+        if (inherits(e, "coursepack_wb_error")) stop(conditionMessage(e), call. = FALSE)
+        stop(if (ext == "csv") "the csv could not be read; re-save it, or pass skip_types" else
+          "the workbook could not be read; re-save it as .xlsx, or pass skip_types", call. = FALSE)
+      })
+    writeLines(wb$lines, out_md, useBytes = TRUE)
+    attr(out_md, "other") <- c(wb$other, reader_warnings = n_warn)
+    attr(out_md, "ignored") <- wb$ignored
   } else if (ext == "xls") {
     stop("legacy .xls workbook; re-save as .xlsx, or pass skip_types = \"xls\" to leave ",
          ".xls files out", call. = FALSE)

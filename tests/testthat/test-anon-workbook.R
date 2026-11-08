@@ -682,3 +682,259 @@ test_that("an OLE-wrapped pdf is flagged and its images linked", {
   expect_match(txt, "](file1_media/embedded1/img-000.png)", fixed = TRUE)
   expect_true(file.exists(file.path(r$media_dir, "embedded1", "img-000.png")))
 })
+
+# Task 7: workbooks through anonymize() end to end. Quill (S01) submits only
+# the fixture workbook; Rivera (S02) a .docx.
+WB_IMAGE <- "S01/file1_media/image1.png"
+# The fixture's defined name "PatQuillRange" glues the name into one
+# identifier, which whole-word redaction cannot split; the leftover check
+# stops the run on it. nickname = TRUE stages the documented remedy, the form
+# added as a nickname in the key.
+add_quill_nickname <- function(a) {
+  kp <- file.path(a, "anon_key.csv")
+  k <- read_key(kp)
+  k$nicknames[k$canvas_id == "1001"] <- "PatQuillRange"
+  utils::write.csv(k, kp, row.names = FALSE)
+}
+wb_assignment <- function(xlsx = NULL, decide = TRUE, nickname = TRUE, env = parent.frame()) {
+  skip_if_no("tesseract"); skip_if_no("pandoc")
+  cc <- anon_course(env = env); a <- a1_assignment(cc)
+  if (is.null(xlsx)) xlsx <- fake_workbook(withr::local_tempdir(.local_envir = env))
+  file.copy(xlsx, file.path(a, "quillpat_1001_5001_partb.xlsx"))
+  mk_docx(file.path(a, "riveramorgan_1002_5002_partb.docx"),
+          c("Morgan Rivera answered part B.", "", "Mo checked it."))
+  if (decide) {
+    utils::write.csv(data.frame(image = WB_IMAGE, decision = "remove"),
+                     file.path(a, "anon_images.csv"), row.names = FALSE)
+  }
+  if (nickname) add_quill_nickname(a)
+  list(cc = cc, a = a)
+}
+# Runs anonymize() and returns the console output; the result is in attr "res".
+wb_anonymize <- function(w, ...) {
+  out <- capture.output(res <- anonymize(w$cc$proj, "semester/A1", dict = NULL, sweep = FALSE, ...))
+  attr(out, "res") <- res
+  out
+}
+coded_md <- function(w) readLines(file.path(w$a, "anon", "S01", "file1.md"), warn = FALSE)
+
+test_that("workbook end to end leaves no name", {
+  w <- wb_assignment(nickname = FALSE)
+  # A name glued into a defined name is not redacted; the leftover check
+  # stops the run, naming the code and the anon/ path only.
+  msgs <- character()
+  err <- withCallingHandlers(errors_with(wb_anonymize(w)),
+    message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  expect_match(err, "leftover", fixed = TRUE)
+  expect_true(any(grepl("^LEFTOVER: a value for S01 remains in anon/S01/file1.md", msgs)))
+  expect_false(dir.exists(file.path(w$a, "anon")))
+  expect_false(any(grepl("quill|1001|partb", c(err, msgs), ignore.case = TRUE)))
+  add_quill_nickname(w$a)
+  wb_anonymize(w)
+  texts <- list.files(file.path(w$a, "anon"), recursive = TRUE, full.names = TRUE)
+  texts <- texts[!grepl("\\.(png|jpe?g|gif|emf|wmf|bin)$", texts, ignore.case = TRUE)]
+  expect_true(length(texts) >= 3)
+  for (f in texts) {
+    # "secret" is spelled secret.xlsx here: the external link target (a
+    # secret.xlsx in the student's home folder) must not appear, while the
+    # very hidden sheet's own cell text "secret calc" is content the grader
+    # is shown.
+    hits <- grep("quill|rivera|\\bmo\\b|xq100|1001|secret\\.xlsx", readLines(f, warn = FALSE),
+                 ignore.case = TRUE, value = TRUE)
+    expect_identical(hits, character(), info = f)
+  }
+  man <- utils::read.csv(file.path(w$a, "anon", "manifest.csv"), colClasses = c(target = "logical"))
+  q <- man[man$code == "S01", ]
+  expect_equal(nrow(q), 1)
+  expect_equal(q$ext, "xlsx")
+  expect_true(q$target)
+})
+
+test_that("sheet name redacted consistently", {
+  p <- wb_variant(function(parts) change(parts, "xl/charts/chart1.xml", function(x) {
+    x <- gsub("Summary!\\$A\\$7:\\$A\\$9", "'Pat Quill data'!$A$2:$A$4", x)
+    gsub("Summary!\\$B\\$7:\\$B\\$9", "'Pat Quill data'!$B$2:$B$4", x)
+  }))
+  w <- wb_assignment(p)
+  wb_anonymize(w)
+  md <- coded_md(w)
+  expect_true("## Sheet: [name] data" %in% md)
+  expect_true(any(grepl("=SUM('[name] data'!B2:B5)", md, fixed = TRUE)))
+  ch <- md[seq_len(which(md == "## Sheet: Summary")[1])]
+  expect_true(any(grepl("'[name] data'!$B$2:$B$4", ch, fixed = TRUE)))
+})
+
+test_that("split run redacted", {
+  w <- wb_assignment()
+  wb_anonymize(w)
+  txt <- paste(coded_md(w), collapse = "\n")
+  expect_false(grepl("Pat\\s+(\\|\\s*)?Quill", txt, ignore.case = TRUE))
+  expect_false(grepl("quill", txt, ignore.case = TRUE))
+})
+
+test_that("fixture picture held for review", {
+  w <- wb_assignment(decide = FALSE)
+  msgs <- character()
+  err <- withCallingHandlers(errors_with(wb_anonymize(w)),
+    message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  expect_match(err, "image(s) need a decision", fixed = TRUE)
+  expect_true(any(grepl(WB_IMAGE, msgs, fixed = TRUE)))
+  expect_false(dir.exists(file.path(w$a, "anon")))
+  expect_false(any(grepl("quill|1001|partb", c(err, msgs), ignore.case = TRUE)))
+})
+
+test_that("big sheet ignored end to end", {
+  w <- wb_assignment(big_variant(201, 20))
+  out <- wb_anonymize(w)
+  expect_true(any(grepl("Not read: 201 rows x 20 columns is over the 4,000-cell limit for raw data.",
+                        coded_md(w), fixed = TRUE)))
+  expect_true("S01 (file1): 1 sheet(s) over the 4,000-cell limit not read" %in% out)
+  log <- readLines(file.path(w$a, "deidentification_log.md"))
+  expect_true("- workbook sheets over the 4,000-cell limit not read: 1" %in% log)
+  expect_equal(attr(out, "res")$ignored_sheets, 1L)
+})
+
+test_that("log records skipped and other content", {
+  w <- wb_assignment()
+  writeLines("x", file.path(w$a, "riveramorgan_1002_5003_old.xls"))
+  out <- wb_anonymize(w, skip_types = "xls")
+  log <- readLines(file.path(w$a, "deidentification_log.md"))
+  expect_true("- files skipped by type: xls 1" %in% log)
+  oc <- grep("^- workbook content not read", log, value = TRUE)
+  expect_length(oc, 1)
+  expect_match(oc, "external_links 1", fixed = TRUE)
+  expect_match(oc, "connections 1", fixed = TRUE)
+  expect_match(oc, "form_controls 1", fixed = TRUE)
+  expect_false(grepl("macros", oc, fixed = TRUE))   # zero counts left out
+  expect_true("- workbook sheets over the 4,000-cell limit not read: 0" %in% log)
+  expect_false(any(grepl("quill|rivera|1001|1002|5003|partb|\\.xlsx|_old", log, ignore.case = TRUE)))
+  res <- attr(out, "res")
+  expect_equal(res$other[["external_links"]], 1L)
+})
+
+test_that("strict workbook stops anonymize naming code and position", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/workbook.xml", function(x) sub("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+      "http://purl.oclc.org/ooxml/spreadsheetml/main", x, fixed = TRUE))
+  })
+  w <- wb_assignment(p)
+  err <- errors_with(wb_anonymize(w))
+  expect_equal(err, paste0("S01 (file1): workbook saved in Strict Open XML format; re-save it as a ",
+                           "normal .xlsx workbook, or pass \"xlsx\" in skip_types"))
+  expect_false(dir.exists(file.path(w$a, "anon")))
+})
+
+test_that("a corrupt workbook's error never names the file", {
+  skip_if_no("tesseract")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines("x", file.path(a, "quillpat_1001_5001_partb.xlsx"))
+  mk_docx(file.path(a, "riveramorgan_1002_5002_partb.docx"), "Hello")
+  err <- errors_with(quiet(anonymize(cc$proj, "semester/A1", dict = NULL, sweep = FALSE)))
+  expect_match(err, "^S01 \\(file1\\): ")
+  expect_false(grepl("quill|1001|5001|partb", err, ignore.case = TRUE))
+  expect_false(grepl(normalizePath(a), err, fixed = TRUE))
+})
+
+# Fix round 1: an error raised by a third-party reader (tidyxl, xml2) can
+# quote workbook content, so only the package's own messages pass through.
+WB_UNREADABLE <- "the workbook could not be read; re-save it as .xlsx, or pass skip_types"
+test_that("a reader error from tidyxl is replaced by the fixed text", {
+  p <- wb_variant(function(parts) change(parts, "xl/_rels/workbook.xml.rels", function(x) {
+    gsub('Target="worksheets/', 'Target="./worksheets/', x, fixed = TRUE)
+  }))
+  w <- wb_assignment(p)
+  err <- errors_with(wb_anonymize(w))
+  expect_equal(err, paste0("S01 (file1): ", WB_UNREADABLE))
+  expect_false(grepl("quill", err, ignore.case = TRUE))
+})
+
+test_that("a malformed XML part gives the fixed text", {
+  p <- wb_variant(function(parts) change(parts, "xl/worksheets/sheet1.xml", function(x) {
+    sub("<sheetData>", "<sheetData><bad>Pat Quill wrote this <row", x, fixed = TRUE)
+  }))
+  td <- withr::local_tempdir()
+  err <- errors_with(convert_to_text(p, file.path(td, "file1.md"), file.path(td, "file1_media")))
+  expect_equal(err, WB_UNREADABLE)
+  w <- wb_assignment(p)
+  err2 <- errors_with(wb_anonymize(w))
+  expect_equal(err2, paste0("S01 (file1): ", WB_UNREADABLE))
+  expect_false(grepl("quill", err2, ignore.case = TRUE))
+})
+
+test_that("an unreadable csv gives the csv fixed text", {
+  td <- withr::local_tempdir()
+  p <- file.path(td, "in.csv"); writeLines("a,b", p)
+  local_mocked_bindings(csv_to_md = function(path) stop("cell Pat Quill broke it"))
+  err <- errors_with(convert_to_text(p, file.path(td, "file1.md"), file.path(td, "file1_media")))
+  expect_equal(err, "the csv could not be read; re-save it, or pass skip_types")
+})
+
+test_that("the package's own workbook messages pass through", {
+  td <- withr::local_tempdir()
+  p <- file.path(td, "in.xlsx"); writeLines("x", p)
+  local_mocked_bindings(workbook_to_md = function(...) wb_stop("own message kept"))
+  err <- errors_with(convert_to_text(p, file.path(td, "file1.md"), file.path(td, "file1_media")))
+  expect_equal(err, "own message kept")
+})
+
+# Fix round 2: warnings and messages from third-party readers can quote the
+# workbook (libxml2: "xmlns:q: 'Pat Quill secret' is not a valid URI"); they
+# are muffled and only counted.
+ns_variant <- function(env = parent.frame()) {
+  wb_variant(function(parts) {
+    for (rel in c("xl/workbook.xml", "xl/worksheets/sheet1.xml")) change(parts, rel, function(x) {
+      sub("(<(workbook|worksheet) )", "\\1xmlns:q=\"Pat Quill secret\" ", x)
+    })
+  }, env = env)
+}
+conditions_of <- function(expr) {
+  seen <- character()
+  withCallingHandlers(force(expr),
+    warning = function(w) { seen <<- c(seen, conditionMessage(w)); invokeRestart("muffleWarning") },
+    message = function(m) { seen <<- c(seen, conditionMessage(m)); invokeRestart("muffleMessage") })
+  seen
+}
+test_that("reader warnings are muffled and counted", {
+  p <- ns_variant()
+  td <- withr::local_tempdir()
+  expect_no_warning(r <- convert_to_text(p, file.path(td, "file1.md"), file.path(td, "file1_media")))
+  seen <- conditions_of(convert_to_text(p, file.path(td, "f2.md"), file.path(td, "f2_media")))
+  expect_false(any(grepl("quill", seen, ignore.case = TRUE)))
+  expect_true(attr(r, "other")[["reader_warnings"]] > 0)
+  w <- wb_assignment(p)
+  seen2 <- conditions_of(out <- wb_anonymize(w))
+  expect_false(any(grepl("quill", c(seen2, out), ignore.case = TRUE)))
+  expect_true(dir.exists(file.path(w$a, "anon")))
+  expect_match(grep("^- workbook content not read", readLines(file.path(w$a, "deidentification_log.md")),
+                    value = TRUE), "reader_warnings [0-9]+")
+})
+
+# Fix round 3: a failed copy warns "problem copying <path>", and the path is
+# the Canvas filename. The warning is suppressed; the fixed message stays.
+test_that("a failed workbook copy names no file", {
+  skip_on_os("windows")
+  td <- withr::local_tempdir()
+  p <- file.path(td, "quillpat_1001_5001_partb.xlsx"); writeLines("x", p)
+  Sys.chmod(p, "000"); withr::defer(Sys.chmod(p, "644"))
+  skip_if(file.access(p, 4) == 0, "file stays readable (running as root)")
+  seen <- character()
+  err <- withCallingHandlers(
+    errors_with(convert_to_text(p, file.path(td, "o", "file1.md"), file.path(td, "o", "file1_media"))),
+    warning = function(w) { seen <<- c(seen, conditionMessage(w)); invokeRestart("muffleWarning") })
+  expect_length(seen, 0)
+  expect_equal(err, "could not copy the workbook for reading")
+  expect_false(any(grepl("quill", c(err, seen), ignore.case = TRUE)))
+})
+
+test_that("a copy that warns is silent and names no file", {
+  td <- withr::local_tempdir()
+  # A folder with a workbook's name: file.copy() warns and copies nothing.
+  p <- file.path(td, "quillpat_1001_5001_partb.xlsx"); dir.create(p)
+  seen <- character()
+  err <- withCallingHandlers(
+    errors_with(convert_to_text(p, file.path(td, "o", "file1.md"), file.path(td, "o", "file1_media"))),
+    warning = function(w) { seen <<- c(seen, conditionMessage(w)); invokeRestart("muffleWarning") })
+  expect_length(seen, 0)
+  expect_equal(err, "could not copy the workbook for reading")
+  expect_false(any(grepl("quill", c(err, seen), ignore.case = TRUE)))
+})

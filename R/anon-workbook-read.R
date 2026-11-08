@@ -320,7 +320,7 @@ read_sheet <- function(wb, i, cells, st, media_dir, media_rel, used = c(0, 0)) {
 workbook_open <- function(xlsx) {
   nm <- utils::unzip(xlsx, list = TRUE)$Name
   if (any(unsafe_part_name(nm))) {
-    stop("workbook contains a part whose path climbs out of the file (\"..\" or a leading slash); refused", call. = FALSE)
+    wb_stop("workbook contains a part whose path climbs out of the file (\"..\" or a leading slash); refused")
   }
   root <- tempfile("wbread_")
   dir.create(root)
@@ -421,7 +421,7 @@ workbook_to_md <- function(xlsx, media_dir, media_rel) {
 csv_text <- function(path) {
   raw <- readBin(path, "raw", file.size(path))
   if (length(raw) >= 3 && identical(raw[1:3], as.raw(c(0xef, 0xbb, 0xbf)))) raw <- raw[-(1:3)]
-  if (any(raw == as.raw(0))) stop("the file holds NUL bytes", call. = FALSE)
+  if (any(raw == as.raw(0))) wb_stop("the file holds NUL bytes")
   s <- rawToChar(raw)
   if (validUTF8(s)) { Encoding(s) <- "UTF-8"; return(s) }
   out <- iconv(s, "CP1252", "UTF-8")

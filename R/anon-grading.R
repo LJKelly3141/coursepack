@@ -119,6 +119,34 @@ assign_files <- function(subs, key) {
 #' `anon_key.csv`, `deidentification_log.md` and `anon_images.csv` are neither
 #' converted nor counted.
 #'
+#' A workbook (`.xlsx` or `.xlsm`) is read as a zip of XML parts and is never
+#' opened in a spreadsheet program, so macros, external links and data
+#' connections never run. Its `file<k>.md` describes each chart in words (type,
+#' titles, axes, series with their ranges and values, and any setting it cannot
+#' describe, named), with no picture of the chart; then lists every sheet in
+#' order, hidden ones marked, with cell values, formulas beside their values,
+#' hidden rows and columns, filters and embedded pictures (under
+#' `file<k>_media/`); then pivot tables, comments (authors removed), text boxes,
+#' hyperlinks, defined names, headers and footers, any embedded document, and
+#' an "Other content" section that counts what is not read, such as macro code,
+#' form controls, sparklines and links to other workbooks. Document properties
+#' (author, last saved by, company) and comment authors are never read. A
+#' `.csv` is read as one sheet. A sheet or `.csv` whose used range is more than
+#' 4,000 cells (rows times columns) is raw data and is not read: its heading
+#' stays, with one line giving its size, the console prints the code, file
+#' position and number of such sheets, and the log counts them. Charts that
+#' plot such a sheet are still described from the values saved with the chart.
+#' Every line written to `file<k>.md` from a workbook goes through the same
+#' redaction, leftover check, image review and privacy sweep as a document;
+#' the console and the log get only codes, file positions and counts. Warnings
+#' and messages from the reading libraries are not shown, since they can quote
+#' the workbook; warnings are counted in the log as `reader_warnings`. A legacy
+#' `.xls` workbook, or a workbook saved in Strict Open XML format, stops the
+#' run, naming the code and file position, with advice to re-save it as a
+#' normal `.xlsx` or leave the type out with `skip_types`. Any other workbook
+#' or `.csv` that cannot be read stops the run the same way with a fixed
+#' message, never the reader's own error, which could quote the workbook.
+#'
 #' A student may submit any number of files. Each student's files are numbered
 #' in upload order and written as `anon_dir/<code>/file1.md`, `file2.md` and so
 #' on, with images under `file<k>_media/`. A file is a spec when "spec" starts a
@@ -209,7 +237,9 @@ assign_files <- function(subs, key) {
 #' given the same modification time, and students are processed in a shuffled
 #' order. Each successful run appends a record of counts to
 #' `deidentification_log.md` beside the key, and [relink()] and [anon_forget()]
-#' append to it too. The log holds counts, types and codes only, and
+#' append to it too. Among its counts are files skipped by type, workbook
+#' content not read by kind, and sheets over the 4,000-cell limit. The log
+#' holds counts, types and codes only, and
 #' [anon_forget()] does not delete it. Keep it with the course records as the
 #' record that submissions were de-identified before grading.
 #'
@@ -250,14 +280,18 @@ assign_files <- function(subs, key) {
 #'   document has the latest image as the file feedback attaches to, and
 #'   [relink()] answers it with an image of the same name and type.
 #' @param skip_types File extensions to leave out, such as `"xls"` or
-#'   `c("csv", "xlsm")`; case and a leading dot do not matter. Skipped files are
-#'   counted by extension on the console and in the result's `skipped`. A
+#'   `c("csv", "xlsm")`; case and a leading dot do not matter. The default
+#'   skips nothing, so an unsupported type still stops the run. Skipped files
+#'   get no `file<k>.md` and are counted by extension, never named, on the
+#'   console, in the de-identification log and in the result's `skipped`. A
 #'   student whose every file is skipped stops the run.
 #' @return A list with `students`, `files`, `replacements`, `patterns` (the
 #'   fixed-pattern replacements made), `images` (the images checked) and
 #'   `protected` (the protected-phrase occurrences kept) counts, plus `transcribed`
-#'   (the codes of transcribed students) and `skipped` (files left out by
-#'   `skip_types`, a named integer count by extension), invisibly. The run
+#'   (the codes of transcribed students), `skipped` (files left out by
+#'   `skip_types`, a named integer count by extension), `other` (workbook
+#'   content not read, a named integer count by kind) and `ignored_sheets`
+#'   (sheets and `.csv` files over the 4,000-cell limit), invisibly. The run
 #'   stops instead of returning when a leftover is found or an image needs a
 #'   decision.
 #' @seealso [anon_key()], [relink()], [anon_forget()], [canvas_grades()]
@@ -384,6 +418,8 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   path_counts <- c(PATH = 0L, EMAIL = 0L)
   kept <- 0L
   transcribed <- character()
+  other <- integer()
+  ignored_sheets <- 0L
   for (r in shuffle(seq_len(nrow(subs)))) {
     s <- subs[r, ]
     out_md <- file.path(anon_dir, s$code, paste0(s$anon_name, ".md"))
@@ -393,11 +429,23 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
                                      file.path(assignment_dir, REVIEW_CACHE), s$code)
     }
     if (!is.null(tr)) transcribed <- c(transcribed, s$code)
-    tryCatch(convert_to_text(file.path(assignment_dir, s$file), out_md,
-                             file.path(anon_dir, s$code, paste0(s$anon_name, "_media")), tr),
-             error = function(e) {
-               stop(s$code, " (", s$anon_name, "): ", conditionMessage(e), call. = FALSE)
-             })
+    conv <- tryCatch(convert_to_text(file.path(assignment_dir, s$file), out_md,
+                                     file.path(anon_dir, s$code, paste0(s$anon_name, "_media")), tr),
+                     error = function(e) {
+                       stop(s$code, " (", s$anon_name, "): ", conditionMessage(e), call. = FALSE)
+                     })
+    # Workbook content not read is counted by kind; sheets over the raw-data
+    # cap are counted and named on the console by code and position only.
+    oth <- attr(conv, "other")
+    if (length(oth)) {
+      for (k in names(oth)) other[[k]] <- (if (is.na(other[k])) 0L else other[[k]]) + as.integer(oth[[k]])
+    }
+    ign <- attr(conv, "ignored")
+    if (!is.null(ign) && nrow(ign) > 0) {
+      ignored_sheets <- ignored_sheets + nrow(ign)
+      cat(sprintf("%s (%s): %d sheet(s) over the 4,000-cell limit not read\n",
+                  s$code, s$anon_name, nrow(ign)))
+    }
     rp <- redact_paths(readLines(out_md, warn = FALSE, encoding = "UTF-8"), counts = TRUE)
     path_counts <- path_counts + rp$counts[names(path_counts)]
     pt <- redact_patterns(rp$text)
@@ -486,6 +534,9 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     sprintf("home-folder paths: %d; email addresses: %d",
             path_counts[["PATH"]], path_counts[["EMAIL"]]),
     sprintf("fixed patterns: %s", pc_text),
+    sprintf("files skipped by type: %s", count_text(skipped)),
+    sprintf("workbook content not read (counts by kind): %s", count_text(other)),
+    sprintf("workbook sheets over the 4,000-cell limit not read: %d", ignored_sheets),
     sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept by instructor decision)",
             images$scanned, images$stripped, images$flagged, images$removed, images$kept),
     "leftover check: 0 leftovers",
@@ -516,7 +567,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   invisible(list(students = n_students, files = nrow(subs), replacements = n,
                  patterns = pattern_counts, images = images, protected = kept,
                  transcribed = sort(unique(transcribed)),
-                 skipped = skipped))
+                 skipped = skipped, other = other, ignored_sheets = ignored_sheets))
 }
 
 # Identity strings that must not appear in one student's finished feedback:

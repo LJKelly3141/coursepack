@@ -130,7 +130,7 @@ unsafe_part_name <- function(nm) grepl("(^|[/\\\\])\\.\\.([/\\\\]|$)|^[/\\\\]|^[
 workbook_charts <- function(xlsx) {
   nm <- utils::unzip(xlsx, list = TRUE)$Name
   if (any(unsafe_part_name(nm))) {
-    stop("workbook contains a part whose path climbs out of the file (\"..\" or a leading slash); refused", call. = FALSE)
+    wb_stop("workbook contains a part whose path climbs out of the file (\"..\" or a leading slash); refused")
   }
   root <- tempfile("wbchart_")
   dir.create(root)
@@ -138,8 +138,7 @@ workbook_charts <- function(xlsx) {
   utils::unzip(xlsx, files = grep(CHART_PARTS, nm, value = TRUE), exdir = root)
   wb <- xml2::read_xml(file.path(root, "xl/workbook.xml"))
   if (any(grepl("^http://purl\\.oclc\\.org/ooxml/", xml2::xml_ns(wb)))) {
-    stop("workbook saved in Strict Open XML format; re-save it as a normal .xlsx workbook, or pass \"xlsx\" in skip_types",
-         call. = FALSE)
+    wb_stop("workbook saved in Strict Open XML format; re-save it as a normal .xlsx workbook, or pass \"xlsx\" in skip_types")
   }
   wrel <- part_rels(root, "xl/workbook.xml")
   out <- list(); seen <- character()
