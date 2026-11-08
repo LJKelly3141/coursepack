@@ -16,7 +16,7 @@ walk-through.
 | audit for accessibility (`make a11y`) | `python3`, Node with `npx`, and a Chrome or Chromium binary |
 | validate published PDFs in the audit (optional) | veraPDF, and Java 8 or later to run it |
 | the scaffold's `git init` | `git` |
-| grade without student identity (`anonymize()`) | `tesseract`, to check text in submitted images |
+| grade without student identity (`anonymize()`) | `tesseract`, to check text in submitted images. Reading Excel workbook submissions uses the `tidyxl` R package, which installs with coursepack |
 
 The audit is the only reason Node appears anywhere. It drives pa11y, which
 `npx` fetches at run time and which needs a browser. None of that is needed to

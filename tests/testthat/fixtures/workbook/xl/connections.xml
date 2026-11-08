@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<connections xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><connection id="1" name="Campus data" type="1" refreshedVersion="6" background="1"><dbPr connection="Provider=SQLOLEDB;Data Source=campus.example.edu;User ID=XQ1001;Password=invented" command="SELECT * FROM scores"/></connection></connections>

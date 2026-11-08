@@ -24,6 +24,7 @@ Imports:
     magick,
     stats,
     stringr,
+    tidyxl,
     tools,
     utils,
     xml2,
