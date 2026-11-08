@@ -938,3 +938,33 @@ test_that("a copy that warns is silent and names no file", {
   expect_equal(err, "could not copy the workbook for reading")
   expect_false(any(grepl("quill", c(err, seen), ignore.case = TRUE)))
 })
+
+# Task 8: relink() answers a workbook with markdown.
+test_that("feedback_name swaps sheet extensions only", {
+  expect_equal(feedback_name("quillpat_1001_5001_partb.xlsx"), "quillpat_1001_5001_partb.md")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.xlsm"), "quillpat_1001_5001_partb.md")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.CSV"), "quillpat_1001_5001_partb.md")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.docx"), "quillpat_1001_5001_partb.docx")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.png"), "quillpat_1001_5001_partb.png")
+})
+
+test_that("workbook-only student gets md feedback", {
+  skip_if_no("tesseract"); skip_if_no("pandoc"); skip_if_no("zip")
+  cc <- anon_course(); a <- a1_assignment(cc)
+  writeLines(c("item,score", "a,1", "b,2"), file.path(a, "quillpat_1001_5001_partb.csv"))
+  mk_docx(file.path(a, "riveramorgan_1002_5002_partb.docx"), "Morgan Rivera answered part B.")
+  quiet(anonymize(cc$proj, "semester/A1", dict = NULL, sweep = FALSE))
+  fb <- file.path(a, "anon", "feedback"); dir.create(fb, recursive = TRUE)
+  writeLines("Good work, S01.", file.path(fb, "S01.md"))
+  writeLines("Good work, S02.", file.path(fb, "S02.md"))
+  utils::write.csv(data.frame(code = c("S01", "S02"), total = c("9", "8")),
+                   file.path(a, "anon", "scores.csv"), row.names = FALSE)
+  quiet(relink(cc$proj, "semester/A1", dict = NULL))
+  out <- file.path(a, "feedback", "quillpat_1001_5001_partb.md")
+  expect_true(file.exists(out))
+  expect_false(file.exists(file.path(a, "feedback", "quillpat_1001_5001_partb.csv")))
+  expect_match(readLines(out, warn = FALSE), "Pat Quill", fixed = TRUE)
+  z <- utils::unzip(file.path(a, "feedback.zip"), list = TRUE)$Name
+  expect_true("feedback/quillpat_1001_5001_partb.md" %in% z)
+  expect_false(any(grepl("\\.csv$|\\.xlsx$", z)))
+})

@@ -585,6 +585,15 @@ foreign_terms <- function(key, code) {
   bad[!is.na(bad) & nchar(bad) >= 2]
 }
 
+# The filename feedback is written under. A workbook or csv submission is
+# answered with markdown of the same name, since feedback cannot be written as
+# a spreadsheet; every other type keeps its name and type.
+feedback_name <- function(target) {
+  if (tolower(tools::file_ext(target)) %in% SHEET_EXTS) {
+    paste0(tools::file_path_sans_ext(target), ".md")
+  } else target
+}
+
 # `code` is what an error names; target is a Canvas filename and carries the
 # student's name prefix and id.
 # Every feedback file must be a valid file of its submission's type, so a type
@@ -665,6 +674,12 @@ render_feedback <- function(md_lines, target, code) {
 #' [anon_forget()] deletes this assignment's key. A successful run appends a
 #' record of counts to `deidentification_log.md` beside the key, the log that
 #' [anonymize()] began.
+#'
+#' A student whose submission is a workbook (`.xlsx`, `.xlsm`) or a `.csv` is
+#' answered with a markdown file of the same name, for example
+#' `quillpat_1001_5001_partb.md` for `quillpat_1001_5001_partb.xlsx`, because
+#' feedback cannot be written as a spreadsheet. The zip check expects that
+#' name. The scores file still lists the original submission file.
 #'
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of the assignment's Canvas downloads, the one
@@ -767,7 +782,7 @@ relink <- function(proj, assignment, key = file.path(assignment, "anon_key.csv")
                                          ignore.case = TRUE), logical(1))
     if (any(hit)) stop(cd, ": feedback mentions another student; fix anon/feedback/",
                        cd, ".md and re-run", call. = FALSE)
-    finished[[cd]] <- list(lines = txt, target = t$file)
+    finished[[cd]] <- list(lines = txt, target = feedback_name(t$file))
   }
 
   # Render into a scratch folder beside the destination and move it into

@@ -1,3 +1,11 @@
+# coursepack (development version)
+
+* `anonymize()` reads workbooks (`.xlsx`, `.xlsm`) and `.csv` files as submissions. A workbook is read into markdown: sheets in order with hidden ones marked, formulas shown beside the values they produce, pivot tables, comments, text boxes, hyperlinks, defined names, headers and footers, and embedded Word documents. Every chart is described in words from its own XML (type, series, categories, values, titles, axes, data labels, and any text boxes drawn on the chart, such as a source line, listed as other text on the chart), so no picture of it is made and none is sent to a grader.
+* A sheet over 4,000 cells is treated as raw data and is not read. A "Not read" line under the sheet's heading gives its size in rows and columns, so a grader knows it was left out. Anything else in a workbook the reader cannot describe is named rather than dropped silently.
+* New `skip_types` option on `anonymize()` leaves out files of the types named. The count skipped is reported.
+* An old `.xls` workbook is refused with advice to re-save it as `.xlsx`, and so is a workbook saved in Strict Open XML format. Neither message names the file.
+* A student whose only submission is a workbook or `.csv` now has that file as the one feedback attaches to, and `relink()` answers it with a markdown file of the same name (`partb.xlsx` is answered by `partb.md`). The zip check expects that name. Whether Canvas accepts a `.md` comment attachment on a workbook submission has not been confirmed.
+
 # coursepack 1.3.0.1
 
 * The anonymized-grading skill now requires one agent per student, a full read of every file and image, and a read log checked before rulings. Cartridge output is unchanged.
