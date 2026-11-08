@@ -13,6 +13,11 @@ DOCUMENT_EXTS <- c("docx", "odt", "pdf", FEEDBACK_TEXT_EXTS)
 # answers it with feedback rendered as an image of the same type and name.
 SUBMISSION_IMAGE_EXTS <- c("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "bmp", "tif", "tiff")
 
+# A workbook submitted instead of a document. Never a feedback target while the
+# student also submitted a document or an image.
+WORKBOOK_EXTS <- c("xlsx", "xlsm")
+SHEET_EXTS <- c(WORKBOOK_EXTS, "csv")
+
 run_tool <- function(cmd, args) {
   res <- suppressWarnings(system2(cmd, args, stdout = TRUE, stderr = TRUE))
   st <- attr(res, "status")
@@ -58,6 +63,9 @@ convert_to_text <- function(path, out_md, media_dir, transcribe = NULL) {
     text <- transcribe(png)
     writeLines(c("*Transcribed from an image by the local model. Check it against the original submission.*",
                  "", text), out_md, useBytes = TRUE)
+  } else if (ext == "xls") {
+    stop("legacy .xls workbook; re-save as .xlsx, or pass skip_types = \"xls\" to leave ",
+         ".xls files out", call. = FALSE)
   } else {
     stop("unsupported submission type: .", ext, call. = FALSE)
   }

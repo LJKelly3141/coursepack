@@ -10,7 +10,7 @@
 # a student, an id or an original filename, because these messages end up in
 # terminal scrollback and logs that are not the key.
 
-list_submissions <- function(assignment_dir) {
+list_submissions <- function(assignment_dir, skip_types = character()) {
   f <- list.files(assignment_dir, all.files = FALSE, no.. = TRUE)
   f <- f[!dir.exists(file.path(assignment_dir, f))]
   # The run's own key, de-identification log and image decisions sit beside
@@ -28,7 +28,20 @@ list_submissions <- function(assignment_dir) {
                     submission_id = vapply(p, `[[`, "", "submission_id"),
                     original = vapply(p, `[[`, "", "original"),
                     stringsAsFactors = FALSE)
-  attr(out, "ignored") <- sum(!keep)
+  ign <- sum(!keep)
+  # skip_types: extensions to leave out, case-insensitive, leading dot allowed.
+  skip <- unique(sub("^\\.", "", tolower(skip_types)))
+  skip <- skip[nzchar(skip)]
+  ext <- tolower(tools::file_ext(out$original))
+  drop <- ext %in% skip
+  counts <- table(factor(ext[drop], levels = intersect(skip, ext[drop])))
+  skipped_ids <- out$canvas_id[drop]
+  out <- out[!drop, , drop = FALSE]
+  attr(out, "ignored") <- ign
+  attr(out, "skipped") <- stats::setNames(as.integer(counts), names(counts))
+  # A student whose every file was skipped has no row left; assign_files()
+  # uses these ids to stop on that student instead of dropping them silently.
+  attr(out, "skipped_ids") <- skipped_ids
   out
 }
 
@@ -41,16 +54,27 @@ list_submissions <- function(assignment_dir) {
 # every document is a spec, the latest document. A student with no document
 # at all stops the run, because there is nothing to attach feedback to.
 assign_files <- function(subs, key) {
-  unknown <- !(subs$canvas_id %in% key$canvas_id)
+  # Skipped files still count here: a student not in the key stops the run
+  # even when every one of their files was skipped.
+  all_ids <- c(subs$canvas_id, attr(subs, "skipped_ids"))
+  unknown <- !(all_ids %in% key$canvas_id)
   if (any(unknown)) {
     stop(sum(unknown), " submission file(s) belong to a student not in the key; ",
          "remove the file(s) or rebuild the key from a fresh gradebook export",
+         call. = FALSE)
+  }
+  gone <- unique(setdiff(attr(subs, "skipped_ids"), subs$canvas_id))
+  if (length(gone)) {
+    cd <- key$code[match(gone, key$canvas_id)]
+    stop(sort(cd[!is.na(cd)])[1], ": no document file (", paste(DOCUMENT_EXTS, collapse = ", "),
+         ") or image to attach feedback to; every file was skipped by skip_types",
          call. = FALSE)
   }
   subs$code <- key$code[match(subs$canvas_id, key$canvas_id)]
   subs$spec <- grepl("(^|[^a-z])spec", subs$original, ignore.case = TRUE, perl = TRUE)
   doc <- tolower(tools::file_ext(subs$original)) %in% DOCUMENT_EXTS
   img <- tolower(tools::file_ext(subs$original)) %in% SUBMISSION_IMAGE_EXTS
+  sheet <- tolower(tools::file_ext(subs$original)) %in% SHEET_EXTS
   subs$position <- NA_integer_
   subs$target <- FALSE
   for (cd in unique(subs$code)) {
@@ -62,6 +86,9 @@ assign_files <- function(subs, key) {
     # screenshot): the latest image is the target, and relink() answers it
     # with an image of the same name.
     if (!length(docs)) docs <- ord[img[ord]]
+    # A student who uploaded only a workbook (or csv): the latest one is the
+    # target.
+    if (!length(docs)) docs <- ord[sheet[ord]]
     if (!length(docs)) {
       stop(cd, ": no document file (", paste(DOCUMENT_EXTS, collapse = ", "),
            ") or image to attach feedback to", call. = FALSE)
@@ -100,7 +127,10 @@ assign_files <- function(subs, key) {
 #' (`.docx`, `.odt`, `.pdf`, `.md`, `.qmd`, `.Rmd` or `.txt`), never a script
 #' such as `.R`: the latest-uploaded document that is not a spec, or the
 #' latest document when every document is a spec. A student with no document
-#' at all stops the run, naming only the code. `anon_dir/manifest.csv` records
+#' but an image has the latest image as target; with neither, the latest
+#' `.xlsx`, `.xlsm` or `.csv` file. A legacy `.xls` stops the run with advice to
+#' re-save it as `.xlsx` or pass `skip_types`. A student with none of
+#' these, or whose every file is skipped, stops the run, naming only the code. `anon_dir/manifest.csv` records
 #' `code`, `file`, `ext`, `spec` and `target`, sorted by code and file, and
 #' carries no names, ids, original filenames, lateness or submission times.
 #'
@@ -219,10 +249,18 @@ assign_files <- function(subs, key) {
 #'   be checked against the image before grades go out. A student with no
 #'   document has the latest image as the file feedback attaches to, and
 #'   [relink()] answers it with an image of the same name and type.
+#' @param skip_types File extensions to leave out, such as `"xls"` or
+#'   `c("csv", "xlsm")`; case and a leading dot do not matter. Skipped files are
+#'   counted by extension on the console and in the result's `skipped`. A
+#'   student whose every file is skipped stops the run.
+#' @param source_data Reserved for the workbook reader; accepted and not yet used.
 #' @return A list with `students`, `files`, `replacements`, `patterns` (the
 #'   fixed-pattern replacements made), `images` (the images checked) and
-#'   `protected` (the protected-phrase occurrences kept) counts, invisibly. The run stops instead of returning when a leftover is found or
-#'   an image needs a decision.
+#'   `protected` (the protected-phrase occurrences kept) counts, plus `transcribed`
+#'   (the codes of transcribed students) and `skipped` (files left out by
+#'   `skip_types`, a named integer count by extension), invisibly. The run
+#'   stops instead of returning when a leftover is found or an image needs a
+#'   decision.
 #' @seealso [anon_key()], [relink()], [anon_forget()], [canvas_grades()]
 #' @examples
 #' p <- tempfile("course-"); dir.create(p)
@@ -246,7 +284,8 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
                       anon_dir = NULL, dict = default_dict(),
                       sweep = getOption("coursepack.sweep", TRUE),
                       sweep_model = "gemma-4-31b-it-mlx", sweep_url = "http://localhost:1234",
-                      sweep_context = NULL, transcribe_images = FALSE) {
+                      sweep_context = NULL, transcribe_images = FALSE,
+                      skip_types = character(), source_data = NULL) {
   proj <- anon_proj(proj)
   assignment_dir <- proj_path(proj, assignment)
   key_path <- proj_path(proj, key)
@@ -326,7 +365,9 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   writeLines("anonymize has not finished; this folder is not for grading",
              file.path(anon_dir, "NOT_READY"))
 
-  listed <- list_submissions(assignment_dir)
+  listed <- list_submissions(assignment_dir, skip_types)
+  skipped <- attr(listed, "skipped")
+  for (e in names(skipped)) cat(sprintf("%d file(s) skipped (.%s)\n", skipped[[e]], e))
   ignored <- attr(listed, "ignored")
   if (!is.null(ignored) && ignored > 0) {
     cat(sprintf("%d file(s) ignored (not Canvas submission names)\n", ignored))
@@ -475,7 +516,8 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
   version_line("anonymize")
   invisible(list(students = n_students, files = nrow(subs), replacements = n,
                  patterns = pattern_counts, images = images, protected = kept,
-                 transcribed = sort(unique(transcribed))))
+                 transcribed = sort(unique(transcribed)),
+                 skipped = skipped))
 }
 
 # Identity strings that must not appear in one student's finished feedback:

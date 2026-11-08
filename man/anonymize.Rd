@@ -14,7 +14,9 @@ anonymize(
   sweep_model = "gemma-4-31b-it-mlx",
   sweep_url = "http://localhost:1234",
   sweep_context = NULL,
-  transcribe_images = FALSE
+  transcribe_images = FALSE,
+  skip_types = character(),
+  source_data = NULL
 )
 }
 \arguments{
@@ -63,12 +65,22 @@ Transcribed students are listed by code on the console and in the log, to
 be checked against the image before grades go out. A student with no
 document has the latest image as the file feedback attaches to, and
 \code{\link[=relink]{relink()}} answers it with an image of the same name and type.}
+
+\item{skip_types}{File extensions to leave out, such as \code{"xls"} or
+\code{c("csv", "xlsm")}; case and a leading dot do not matter. Skipped files are
+counted by extension on the console and in the result's \code{skipped}. A
+student whose every file is skipped stops the run.}
+
+\item{source_data}{Reserved for the workbook reader; accepted and not yet used.}
 }
 \value{
 A list with \code{students}, \code{files}, \code{replacements}, \code{patterns} (the
 fixed-pattern replacements made), \code{images} (the images checked) and
-\code{protected} (the protected-phrase occurrences kept) counts, invisibly. The run stops instead of returning when a leftover is found or
-an image needs a decision.
+\code{protected} (the protected-phrase occurrences kept) counts, plus \code{transcribed}
+(the codes of transcribed students) and \code{skipped} (files left out by
+\code{skip_types}, a named integer count by extension), invisibly. The run
+stops instead of returning when a leftover is found or an image needs a
+decision.
 }
 \description{
 Turn a folder of Canvas submission downloads into coded plain text that a
@@ -96,7 +108,10 @@ word in its original name. Exactly one file per student is the target that
 (\code{.docx}, \code{.odt}, \code{.pdf}, \code{.md}, \code{.qmd}, \code{.Rmd} or \code{.txt}), never a script
 such as \code{.R}: the latest-uploaded document that is not a spec, or the
 latest document when every document is a spec. A student with no document
-at all stops the run, naming only the code. \code{anon_dir/manifest.csv} records
+but an image has the latest image as target; with neither, the latest
+\code{.xlsx}, \code{.xlsm} or \code{.csv} file. A legacy \code{.xls} stops the run with advice to
+re-save it as \code{.xlsx} or pass \code{skip_types}. A student with none of
+these, or whose every file is skipped, stops the run, naming only the code. \code{anon_dir/manifest.csv} records
 \code{code}, \code{file}, \code{ext}, \code{spec} and \code{target}, sorted by code and file, and
 carries no names, ids, original filenames, lateness or submission times.
 
