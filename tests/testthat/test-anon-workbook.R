@@ -955,16 +955,16 @@ test_that("a copy that warns is silent and names no file", {
   expect_false(any(grepl("quill", c(err, seen), ignore.case = TRUE)))
 })
 
-# Task 8: relink() answers a workbook with markdown.
+# Task 8: relink() answers a workbook with a Word file of the same name.
 test_that("feedback_name swaps sheet extensions only", {
-  expect_equal(feedback_name("quillpat_1001_5001_partb.xlsx"), "quillpat_1001_5001_partb.md")
-  expect_equal(feedback_name("quillpat_1001_5001_partb.xlsm"), "quillpat_1001_5001_partb.md")
-  expect_equal(feedback_name("quillpat_1001_5001_partb.CSV"), "quillpat_1001_5001_partb.md")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.xlsx"), "quillpat_1001_5001_partb.docx")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.xlsm"), "quillpat_1001_5001_partb.docx")
+  expect_equal(feedback_name("quillpat_1001_5001_partb.CSV"), "quillpat_1001_5001_partb.docx")
   expect_equal(feedback_name("quillpat_1001_5001_partb.docx"), "quillpat_1001_5001_partb.docx")
   expect_equal(feedback_name("quillpat_1001_5001_partb.png"), "quillpat_1001_5001_partb.png")
 })
 
-test_that("workbook-only student gets md feedback", {
+test_that("workbook-only student gets Word feedback", {
   skip_if_no("tesseract"); skip_if_no("pandoc"); skip_if_no("zip")
   cc <- anon_course(); a <- a1_assignment(cc)
   writeLines(c("item,score", "a,1", "b,2"), file.path(a, "quillpat_1001_5001_partb.csv"))
@@ -976,12 +976,17 @@ test_that("workbook-only student gets md feedback", {
   utils::write.csv(data.frame(code = c("S01", "S02"), total = c("9", "8")),
                    file.path(a, "anon", "scores.csv"), row.names = FALSE)
   quiet(relink(cc$proj, "semester/A1", dict = NULL))
-  out <- file.path(a, "feedback", "quillpat_1001_5001_partb.md")
+  out <- file.path(a, "feedback", "quillpat_1001_5001_partb.docx")
   expect_true(file.exists(out))
   expect_false(file.exists(file.path(a, "feedback", "quillpat_1001_5001_partb.csv")))
-  expect_match(readLines(out, warn = FALSE), "Pat Quill", fixed = TRUE)
+  expect_false(file.exists(file.path(a, "feedback", "quillpat_1001_5001_partb.md")))
+  # A valid Word file: a zip with word/document.xml that pandoc reads back.
+  expect_true("word/document.xml" %in% utils::unzip(out, list = TRUE)$Name)
+  txt <- system2("pandoc", c(shQuote(out), "-t", "plain"), stdout = TRUE)
+  expect_match(paste(txt, collapse = " "), "Good work, Pat Quill.", fixed = TRUE)
   z <- utils::unzip(file.path(a, "feedback.zip"), list = TRUE)$Name
-  expect_true("feedback/quillpat_1001_5001_partb.md" %in% z)
+  expect_setequal(z[z != "feedback/"], c("feedback/quillpat_1001_5001_partb.docx",
+                                         "feedback/riveramorgan_1002_5002_partb.docx"))
   expect_false(any(grepl("\\.csv$|\\.xlsx$", z)))
 })
 
@@ -1138,7 +1143,7 @@ test_that("relink answers the target anonymize chose under skip_types", {
   expect_equal(man$ext[man$code == "S01" & man$target], "xlsx")
   wb_relink_ready(w)
   quiet(relink(w$cc$proj, "semester/A1", dict = NULL))
-  expect_true(file.exists(file.path(w$a, "feedback", "quillpat_1001_5001_partb.md")))
+  expect_true(file.exists(file.path(w$a, "feedback", "quillpat_1001_5001_partb.docx")))
   expect_false(file.exists(file.path(w$a, "feedback", "quillpat_1001_5003_photo.png")))
   sc <- utils::read.csv(file.path(w$a, "a1_scores.csv"), colClasses = "character")
   expect_equal(sc$submission_file[sc$canvas_id == "1001"], "quillpat_1001_5001_partb.xlsx")

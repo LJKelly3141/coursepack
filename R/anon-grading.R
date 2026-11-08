@@ -642,11 +642,11 @@ foreign_terms <- function(key, code) {
 }
 
 # The filename feedback is written under. A workbook or csv submission is
-# answered with markdown of the same name, since feedback cannot be written as
-# a spreadsheet; every other type keeps its name and type.
+# answered with a Word file of the same name, since feedback cannot be written
+# as a spreadsheet; every other type keeps its name and type.
 feedback_name <- function(target) {
   if (tolower(tools::file_ext(target)) %in% SHEET_EXTS) {
-    paste0(tools::file_path_sans_ext(target), ".md")
+    paste0(tools::file_path_sans_ext(target), ".docx")
   } else target
 }
 
@@ -732,10 +732,10 @@ render_feedback <- function(md_lines, target, code) {
 #' [anonymize()] began.
 #'
 #' A student whose submission is a workbook (`.xlsx`, `.xlsm`) or a `.csv` is
-#' answered with a markdown file of the same name, for example
-#' `quillpat_1001_5001_partb.md` for `quillpat_1001_5001_partb.xlsx`, because
-#' feedback cannot be written as a spreadsheet. The zip check expects that
-#' name. The scores file still lists the original submission file.
+#' answered with a Word file of the same name, for example
+#' `quillpat_1001_5001_partb.docx` for `quillpat_1001_5001_partb.xlsx`,
+#' because feedback cannot be written as a spreadsheet. The zip check expects
+#' that name. The scores file still lists the original submission file.
 #'
 #' Each student's feedback answers the file [anonymize()] chose as the target
 #' and recorded in `anon/manifest.csv`, so a `skip_types` choice carries over:

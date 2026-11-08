@@ -4,7 +4,7 @@
 * A sheet over 4,000 cells is treated as raw data and is not read. A "Not read" line under the sheet's heading gives its size in rows and columns, so a grader knows it was left out. Anything else in a workbook the reader cannot describe is named rather than dropped silently.
 * New `skip_types` option on `anonymize()` leaves out files of the types named. The count skipped is reported.
 * An old `.xls` workbook is refused with advice to re-save it as `.xlsx`, and so is a workbook saved in Strict Open XML format. Neither message names the file.
-* A student whose only submission is a workbook or `.csv` now has that file as the one feedback attaches to, and `relink()` answers it with a markdown file of the same name (`partb.xlsx` is answered by `partb.md`). The zip check expects that name. Whether Canvas accepts a `.md` comment attachment on a workbook submission has not been confirmed.
+* A student whose only submission is a workbook or `.csv` now has that file as the one feedback attaches to, and `relink()` answers it with a Word file of the same name (`partb.xlsx` is answered by `partb.docx`). The zip check expects that name. Canvas matches a comment file to its submission by the user and attachment id numbers in the name, not by the extension. Whether Canvas accepts a `.docx` comment file on a workbook submission has not been confirmed; check it with one student before relying on it.
 * In a workbook or `.csv` submission, a student name glued into a longer word (a defined name such as `PatQuillRange`) is no longer a blocking leftover. The leftover check reports it as `GLUED NAME` with the code and path, counts it in the log, and releases `anon/`. Whole-word hits, and glued names in any other file type, still stop the run.
 
 # coursepack 1.3.0.1

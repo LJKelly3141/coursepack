@@ -81,10 +81,10 @@ record of counts to \code{deidentification_log.md} beside the key, the log that
 \code{\link[=anonymize]{anonymize()}} began.
 
 A student whose submission is a workbook (\code{.xlsx}, \code{.xlsm}) or a \code{.csv} is
-answered with a markdown file of the same name, for example
-\code{quillpat_1001_5001_partb.md} for \code{quillpat_1001_5001_partb.xlsx}, because
-feedback cannot be written as a spreadsheet. The zip check expects that
-name. The scores file still lists the original submission file.
+answered with a Word file of the same name, for example
+\code{quillpat_1001_5001_partb.docx} for \code{quillpat_1001_5001_partb.xlsx},
+because feedback cannot be written as a spreadsheet. The zip check expects
+that name. The scores file still lists the original submission file.
 
 Each student's feedback answers the file \code{\link[=anonymize]{anonymize()}} chose as the target
 and recorded in \code{anon/manifest.csv}, so a \code{skip_types} choice carries over:
