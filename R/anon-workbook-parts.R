@@ -105,8 +105,10 @@ pivot_lines <- function(root, pp, sname) {
   out <- c(out, paste0("  - report filters: ", list_or_none(filt)))
   for (i in seq_along(pivot_fields)) {
     h <- xml2::xml_attr(xml2::xml_find_all(pivot_fields[[i]], "m:items/m:item[@h='1' or @h='true']", CHART_NS), "x")
-    if (length(h)) out <- c(out, sprintf("  - hidden items in %s: %s", fname[i],
-                                         paste(vapply(as.integer(h), item_val, "", fi = i - 1L), collapse = ", ")))
+    if (length(h)) {
+      cl <- capped_list(vapply(as.integer(h), item_val, "", fi = i - 1L), "items", range = FALSE)
+      out <- c(out, sprintf("  - hidden items in %s: %s", fname[i], cl$text), indent("    - ", cl$note))
+    }
   }
   for (f in xml2::xml_find_all(pd, "m:filters/m:filter", CHART_NS)) {
     v <- xml2::xml_attr(f, c("stringValue1", "stringValue2"))
@@ -264,11 +266,15 @@ hyperlink_lines <- function(rt, sdoc, sname, cells) {
   out
 }
 
-defined_name_lines <- function(wbx, sheet_names) {
+# chart_names: the _xlchart names a chart uses (attr "xlchart_used" of
+# workbook_charts()); they are described with the chart, not listed here.
+defined_name_lines <- function(wbx, sheet_names, chart_names = character()) {
   out <- character()
   for (d in xml2::xml_find_all(wbx, "//m:definedNames/m:definedName", CHART_NS)) {
     nm <- xml2::xml_attr(d, "name")
-    if (nm == "_xlnm._FilterDatabase") next
+    # Excel's own names: a filter's range, and the hidden names that hold a
+    # newer chart type's data formulas (described with the chart instead).
+    if (nm == "_xlnm._FilterDatabase" || nm %in% chart_names) next
     ls <- suppressWarnings(as.integer(xml2::xml_attr(d, "localSheetId")))
     scope <- if (is.na(ls)) "" else sprintf(" (scope: %s)",
                                             if (ls + 1L <= length(sheet_names)) sheet_names[ls + 1L] else "unknown sheet")

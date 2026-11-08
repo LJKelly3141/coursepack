@@ -400,7 +400,7 @@ workbook_to_md <- function(xlsx, media_dir, media_rel) {
   # Media files no drawing placed (a cell picture, a background) are counted.
   media <- grep("^xl/media/[^/]+$", wb$nm, value = TRUE)
   add_other(st, "other_pictures", length(setdiff(media, names(st$media))))
-  dn <- defined_name_lines(wb$wbx, wb$sheets$name)
+  dn <- defined_name_lines(wb$wbx, wb$sheets$name, attr(charts, "xlchart_used"))
   emb <- embedded_lines(wb$root, wb$nm, st, media_dir, media_rel)
   count_parts(wb$nm, st)
   out <- c(out,

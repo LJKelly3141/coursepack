@@ -73,12 +73,30 @@ ref_data <- function(node, cells) {
   list(f = f, v = v, src = if (is.null(v)) "none" else "(from cells)", fmt = fmt)
 }
 
-show_values <- function(d) {
-  if (is.null(d) || is.null(d$v)) return("values not available")
-  s <- paste(d$v, collapse = ", ")
+# A list of values, in the order given, capped so one chart or pivot cannot
+# swamp the description (and the privacy sweep, one request per file): past
+# CAP_OVER items, the first CAP_HEAD and last CAP_TAIL are shown. Returns the
+# joined text and a count line (NULL when nothing was left out); the count
+# line gives min and max when every non-blank value is a number.
+CAP_OVER <- 200L; CAP_HEAD <- 100L; CAP_TAIL <- 20L
+capped_list <- function(v, what = "points", range = TRUE) {
+  n <- length(v)
+  if (n <= CAP_OVER) return(list(text = paste(v, collapse = ", "), note = NULL))
+  text <- paste(c(v[seq_len(CAP_HEAD)], "...", v[(n - CAP_TAIL + 1):n]), collapse = ", ")
+  note <- sprintf("%d %s; first %d and last %d shown", n, what, CAP_HEAD, CAP_TAIL)
+  num <- suppressWarnings(as.numeric(v[nzchar(trimws(v))]))
+  if (range && length(num) && !anyNA(num)) note <- paste0(note, sprintf("; min %s, max %s", min(num), max(num)))
+  list(text = text, note = note)
+}
+
+# The values text and the count line (NULL unless capped).
+show_values <- function(d, range = TRUE) {
+  if (is.null(d) || is.null(d$v)) return(list(text = "values not available", note = NULL))
+  cl <- capped_list(d$v, range = range)
+  s <- cl$text
   if (identical(d$src, "(from cells)")) s <- paste(s, "(from cells)")
   if (!is.null(d$fmt) && !is.na(d$fmt) && d$fmt != "General") s <- paste0(s, " (format ", d$fmt, ")")
-  s
+  list(text = s, note = cl$note)
 }
 
 title_of <- function(node, cells) {
@@ -174,8 +192,13 @@ series_lines <- function(s, k, cells, is_scatter) {
     d <- ref_data(xml2::xml_find_first(s, paste0("c:", p), CHART_NS), cells)
     if (is.null(d)) next
     out <- c(out, sprintf("  - %s range: %s", parts[[p]], if (is.na(d$f)) "typed in" else d$f))
+    if (p %in% c("xVal", "bubbleSize")) {
+      sv <- show_values(d)
+      out <- c(out, sprintf("  - %s values: %s", parts[[p]], sv$text), indent("  - ", sv$note))
+    }
     if (p %in% c("val", "yVal")) {
-      out <- c(out, paste0("  - values: ", show_values(d)))
+      sv <- show_values(d)
+      out <- c(out, paste0("  - values: ", sv$text), indent("  - ", sv$note))
       num <- suppressWarnings(as.numeric(d$v))
       if (length(num) >= 2 && !anyNA(num) && length(unique(num)) == 1)
         out <- c(out, "  - constant: likely reference line")
@@ -241,9 +264,8 @@ describe_chart <- function(chart, cells) {
   if (!is.null(chart$problem)) return(c(out, paste0("- not described: ", chart$problem)))
   doc <- xml2::read_xml(chart$xml)
   ch <- xml2::xml_find_first(doc, "/c:chartSpace/c:chart", CHART_NS)
-  if (inherits(ch, "xml_missing")) {
-    return(c(out, "- not described: chartex chart (a newer Excel chart type such as waterfall, histogram or box plot)"))
-  }
+  # A newer Excel chart type (chartEx part) is described in anon-workbook-chartex.R.
+  if (inherits(ch, "xml_missing")) return(c(out, describe_chartex(doc, chart, cells)))
   pa <- xml2::xml_find_first(ch, "c:plotArea", CHART_NS)
   pkids <- xml2::xml_children(pa)
   groups <- pkids[grepl("Chart$", xml2::xml_name(pkids))]
@@ -293,9 +315,11 @@ describe_chart <- function(chart, cells) {
       horiz <- identical(val_of(g1, "c:barDir"), "bar")
       # A horizontal bar chart plots the first category at the bottom.
       v <- if (xor(rev_ax, horiz)) rev(cd$v) else cd$v
-      out <- c(out, sprintf("- Categories (plotted order): %s%s (%s)", paste(v, collapse = ", "),
+      cl <- capped_list(v, range = FALSE)
+      out <- c(out, sprintf("- Categories (plotted order): %s%s (%s)", cl$text,
                             if (identical(cd$src, "(from cells)")) " (from cells)" else "",
-                            if (horiz) "top to bottom" else "left to right"))
+                            if (horiz) "top to bottom" else "left to right"),
+               indent("  - ", cl$note))
     }
   }
   k <- 0

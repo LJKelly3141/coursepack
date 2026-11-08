@@ -101,6 +101,43 @@ assign_files <- function(subs, key) {
   subs
 }
 
+# relink()'s submissions, with each student's target the one anonymize()
+# recorded in anon/manifest.csv. anonymize() may have run with skip_types,
+# which can change both the file positions and the target (a photo and a
+# workbook with png skipped: the workbook). A type that is in the folder but
+# in no manifest row was skipped, so the folder is listed again without it.
+# Each student's files must then match the manifest position by position and
+# type by type; otherwise the run stops, naming only the code.
+manifest_targets <- function(assignment_dir, anon_dir, key) {
+  mp <- file.path(anon_dir, "manifest.csv")
+  if (!file.exists(mp)) {
+    stop("no manifest.csv in anon/; re-run anonymize() to rebuild anon/", call. = FALSE)
+  }
+  man <- utils::read.csv(mp, colClasses = "character")
+  if (!all(c("code", "file", "ext", "target") %in% names(man))) {
+    stop("anon/manifest.csv has no code, file, ext and target columns; re-run anonymize()", call. = FALSE)
+  }
+  man$target <- as.logical(man$target)
+  listed <- list_submissions(assignment_dir)
+  skip <- setdiff(unique(tolower(tools::file_ext(listed$original))), man$ext)
+  subs <- assign_files(list_submissions(assignment_dir, skip), key)
+  subs$target <- FALSE
+  for (cd in sort(unique(c(man$code, subs$code)))) {
+    m <- man[man$code == cd, , drop = FALSE]
+    i <- which(subs$code == cd)
+    i <- i[order(subs$position[i])]
+    m <- m[order(suppressWarnings(as.integer(sub("^file", "", m$file)))), , drop = FALSE]
+    fits <- length(i) && nrow(m) == length(i) && identical(m$file, subs$anon_name[i]) &&
+      identical(m$ext, tolower(tools::file_ext(subs$file[i]))) && sum(m$target %in% TRUE) == 1
+    if (!fits) {
+      stop(cd, ": the submission files no longer match what anonymize() recorded in ",
+           "anon/manifest.csv; restore them or re-run anonymize()", call. = FALSE)
+    }
+    subs$target[i[which(m$target %in% TRUE)]] <- TRUE
+  }
+  subs
+}
+
 #' Anonymize one assignment's Canvas downloads for grading
 #'
 #' Turn a folder of Canvas submission downloads into coded plain text that a
@@ -557,7 +594,7 @@ anonymize <- function(proj, assignment, key = file.path(assignment, "anon_key.cs
     sprintf("workbook sheets over the 4,000-cell limit not read: %d", ignored_sheets),
     sprintf("images: %d scanned, %d metadata stripped, %d flagged (%d removed, %d kept by instructor decision)",
             images$scanned, images$stripped, images$flagged, images$removed, images$kept),
-    "leftover check: 0 leftovers",
+    if (n_glued) "leftover check: 0 blocking leftovers" else "leftover check: 0 leftovers",
     sprintf("glued-name hits in workbook or csv files, reported not blocking: %d", n_glued),
     "manifest: no lateness or submission times; all anon/ timestamps set to one value",
     sweep_lines,
@@ -700,6 +737,13 @@ render_feedback <- function(md_lines, target, code) {
 #' feedback cannot be written as a spreadsheet. The zip check expects that
 #' name. The scores file still lists the original submission file.
 #'
+#' Each student's feedback answers the file [anonymize()] chose as the target
+#' and recorded in `anon/manifest.csv`, so a `skip_types` choice carries over:
+#' with `.png` skipped, a student who uploaded a photo and a workbook is
+#' answered on the workbook. If the submission files no longer match the
+#' manifest (a file added or removed since), the run stops, naming only the
+#' code.
+#'
 #' @param proj Course project root. Relative paths are resolved against it.
 #' @param assignment Folder of the assignment's Canvas downloads, the one
 #'   [anonymize()] read.
@@ -767,7 +811,7 @@ relink <- function(proj, assignment, key = file.path(assignment, "anon_key.csv")
   }
 
   key <- check_run(read_key(key_path), key_path, run_id(proj, assignment_dir))
-  subs <- assign_files(list_submissions(assignment_dir), key)
+  subs <- manifest_targets(assignment_dir, anon_dir, key)
   if (!file.exists(file.path(anon_dir, "scores.csv"))) {
     stop("no scores.csv in anon/; the grader writes it, keyed by code", call. = FALSE)
   }

@@ -85,6 +85,13 @@ answered with a markdown file of the same name, for example
 \code{quillpat_1001_5001_partb.md} for \code{quillpat_1001_5001_partb.xlsx}, because
 feedback cannot be written as a spreadsheet. The zip check expects that
 name. The scores file still lists the original submission file.
+
+Each student's feedback answers the file \code{\link[=anonymize]{anonymize()}} chose as the target
+and recorded in \code{anon/manifest.csv}, so a \code{skip_types} choice carries over:
+with \code{.png} skipped, a student who uploaded a photo and a workbook is
+answered on the workbook. If the submission files no longer match the
+manifest (a file added or removed since), the run stops, naming only the
+code.
 }
 \examples{
 p <- tempfile("course-"); dir.create(p)

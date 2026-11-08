@@ -984,3 +984,430 @@ test_that("workbook-only student gets md feedback", {
   expect_true("feedback/quillpat_1001_5001_partb.md" %in% z)
   expect_false(any(grepl("\\.csv$|\\.xlsx$", z)))
 })
+
+# Final review fixes.
+test_that("two charts in one group are both described", {
+  p <- wb_variant(function(parts) change(parts, "xl/drawings/drawing1.xml", function(x) {
+    x <- paste(x, collapse = "\n")
+    frames <- regmatches(x, gregexpr("<xdr:graphicFrame.*?</xdr:graphicFrame>", x))[[1]]
+    grp <- paste0('<xdr:twoCellAnchor><xdr:from><xdr:col>6</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>19</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>17</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:grpSp><xdr:nvGrpSpPr><xdr:cNvPr id="9" name="Group 8"/><xdr:cNvGrpSpPr/></xdr:nvGrpSpPr><xdr:grpSpPr/>',
+                  frames[1], frames[2], '</xdr:grpSp><xdr:clientData/></xdr:twoCellAnchor>')
+    x <- gsub("<xdr:twoCellAnchor><xdr:from><xdr:col>(6|13)</xdr:col>.*?</xdr:twoCellAnchor>\n?", "", x)
+    sub("</xdr:wsDr>", paste0(grp, "\n</xdr:wsDr>"), x, fixed = TRUE)
+  }))
+  ch <- workbook_charts(p)
+  expect_length(ch, 2)
+  cells <- tidyxl::xlsx_cells(p)
+  txt <- vapply(ch, md_of, "", cells = cells)
+  expect_match(txt[1], "### Chart 1 (sheet Summary, G3:S17)", fixed = TRUE)
+  expect_match(txt[2], "### Chart 2 (sheet Summary, G3:S17)", fixed = TRUE)
+  expect_match(txt[1], "- Title: Chart by Pat Quill", fixed = TRUE)
+  expect_match(txt[2], "- Title: Score against target", fixed = TRUE)
+  expect_match(txt[2], "- Part 2: line chart", fixed = TRUE)
+  expect_false(any(grepl("not reached from any sheet", txt, fixed = TRUE)))
+})
+
+xy_chart <- function(group, sers) {
+  paste0('<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><c:chart><c:plotArea>',
+         '<c:', group, '>', sers, '<c:axId val="1"/><c:axId val="2"/></c:', group, '></c:plotArea></c:chart></c:chartSpace>')
+}
+num_ref <- function(tag, f, v = NULL) {
+  cache <- if (is.null(v)) "" else paste0('<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="', length(v), '"/>',
+    paste0(sprintf('<c:pt idx="%d"><c:v>%s</c:v></c:pt>', seq_along(v) - 1, v), collapse = ""), '</c:numCache>')
+  sprintf('<c:%s><c:numRef><c:f>%s</c:f>%s</c:numRef></c:%s>', tag, f, cache, tag)
+}
+
+test_that("scatter and bubble x values and bubble sizes are listed", {
+  f <- chart_fixture()
+  sc <- xy_chart("scatterChart", paste0('<c:scatterStyle val="lineMarker"/><c:ser><c:idx val="0"/><c:order val="0"/>',
+    num_ref("xVal", "Summary!$B$7:$B$9", c(1, 2, 3)), num_ref("yVal", "Summary!$D$7:$D$9", c(4, 5, 6)), '</c:ser>'))
+  txt <- md_of(list(n = 1, sheet = "Summary", anchor = "A1:H20", xml = sc, shapes = character()), f$cells)
+  expect_match(txt, "  - x range: Summary!$B$7:$B$9\n  - x values: 1, 2, 3\n", fixed = TRUE)
+  expect_match(txt, "  - y range: Summary!$D$7:$D$9\n  - values: 4, 5, 6", fixed = TRUE)
+  bb <- xy_chart("bubbleChart", paste0('<c:ser><c:idx val="0"/><c:order val="0"/>',
+    num_ref("xVal", "Summary!$D$7:$D$9"), num_ref("yVal", "Summary!$D$7:$D$9", c(4, 5, 6)),
+    num_ref("bubbleSize", "'No sheet'!$A$1:$A$3"), '</c:ser>'))
+  txt <- md_of(list(n = 1, sheet = "Summary", anchor = "A1:H20", xml = bb, shapes = character()), f$cells)
+  expect_match(txt, "  - x values: 25, 25, 25 (from cells)", fixed = TRUE)
+  expect_match(txt, "  - bubble size range: 'No sheet'!$A$1:$A$3\n  - bubble size values: values not available", fixed = TRUE)
+})
+
+long_bar <- function(vals, reversed = FALSE) {
+  n <- length(vals)
+  pts <- function(v) paste0(sprintf('<c:pt idx="%d"><c:v>%s</c:v></c:pt>', seq_len(n) - 1, v), collapse = "")
+  cats <- sprintf("COMMUNITY MEMORIAL HOSPITAL %d", seq_len(n))
+  xml <- paste0('<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><c:chart><c:plotArea><c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:ser><c:idx val="0"/><c:order val="0"/>',
+    '<c:cat><c:strRef><c:f>data!$B$2:$B$4801</c:f><c:strCache><c:ptCount val="', n, '"/>', pts(cats), '</c:strCache></c:strRef></c:cat>',
+    '<c:val><c:numRef><c:f>data!$H$2:$H$4801</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="', n, '"/>', pts(vals), '</c:numCache></c:numRef></c:val>',
+    '</c:ser><c:axId val="1"/><c:axId val="2"/></c:barChart>',
+    '<c:catAx><c:axId val="1"/><c:scaling><c:orientation val="', if (reversed) "maxMin" else "minMax", '"/></c:scaling><c:axPos val="b"/><c:crossAx val="2"/></c:catAx>',
+    '</c:plotArea></c:chart></c:chartSpace>')
+  describe_chart(list(n = 1, sheet = "Chart", anchor = "A1:H20", xml = xml, shapes = character()), NULL)
+}
+
+test_that("a long series is capped with a count line", {
+  vals <- sprintf("%.1f", 50 + (seq_len(4800) %% 451) / 10)
+  out <- long_bar(vals)
+  expect_lt(sum(nchar(out)), 20000)
+  txt <- paste(out, collapse = "\n")
+  expect_match(txt, sprintf("  - values: %s, ..., %s\n  - 4800 points; first 100 and last 20 shown; min 50, max 95",
+                            paste(vals[1:100], collapse = ", "), paste(vals[4781:4800], collapse = ", ")), fixed = TRUE)
+  cat_line <- grep("^- Categories", out, value = TRUE)
+  expect_match(cat_line, "^- Categories \\(plotted order\\): COMMUNITY MEMORIAL HOSPITAL 1, ")
+  expect_match(cat_line, "HOSPITAL 100, ..., COMMUNITY MEMORIAL HOSPITAL 4781, ", fixed = TRUE)
+  expect_match(cat_line, "HOSPITAL 4800 (left to right)", fixed = TRUE)
+  expect_false(grepl("HOSPITAL 101,", cat_line, fixed = TRUE))
+  expect_equal(out[which(out == cat_line) + 1], "  - 4800 points; first 100 and last 20 shown")
+  # A reversed axis plots the last category first; the cap keeps that order.
+  rv <- grep("^- Categories", long_bar(vals, reversed = TRUE), value = TRUE)
+  expect_match(rv, "^- Categories \\(plotted order\\): COMMUNITY MEMORIAL HOSPITAL 4800, ")
+  expect_match(rv, "HOSPITAL 4701, ..., COMMUNITY MEMORIAL HOSPITAL 20, ", fixed = TRUE)
+  expect_match(rv, "HOSPITAL 1 (left to right)", fixed = TRUE)
+  # 200 points are still listed in full.
+  short <- paste(long_bar(vals[1:200]), collapse = "\n")
+  expect_false(grepl("points; first 100", short, fixed = TRUE))
+  expect_match(short, "HOSPITAL 150, ", fixed = TRUE)
+})
+
+test_that("a long constant series is still flagged as a reference line", {
+  txt <- paste(long_bar(rep("75", 4800)), collapse = "\n")
+  expect_match(txt, "  - 4800 points; first 100 and last 20 shown; min 75, max 75\n  - constant: likely reference line", fixed = TRUE)
+})
+
+test_that("a long list of hidden pivot items is capped", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/pivotCache/pivotCacheDefinition1.xml", function(x) sub(
+      '<sharedItems count="3"><s v="MN"/><s v="WI"/><s v="IA"/></sharedItems>',
+      paste0('<sharedItems count="500">', paste0(sprintf('<s v="Ward %d"/>', 1:500), collapse = ""), '</sharedItems>'),
+      x, fixed = TRUE))
+    change(parts, "xl/pivotTables/pivotTable1.xml", function(x) sub(
+      '<items count="4"><item x="0"/><item x="1"/><item x="2"/><item t="default"/></items>',
+      paste0('<items count="501">', paste0(sprintf('<item x="%d"%s/>', 0:499, ifelse(0:499 < 300, ' h="1"', "")), collapse = ""),
+             '<item t="default"/></items>'), x, fixed = TRUE))
+  })
+  r <- wb_md(p = p)
+  pv <- section(r$lines, "## Pivot tables")
+  h <- grep("hidden items in state", pv)
+  expect_length(h, 1)
+  expect_match(pv[h], "Ward 1, ", fixed = TRUE)
+  expect_match(pv[h], "Ward 100, ..., Ward 281, ", fixed = TRUE)
+  expect_false(grepl("Ward 101,", pv[h], fixed = TRUE))
+  expect_match(pv[h], "Ward 300$")
+  expect_equal(pv[h + 1], "    - 300 items; first 100 and last 20 shown")
+})
+
+test_that("a Strict .xlsm names its own type in the advice", {
+  p <- wb_variant(function(parts) {
+    change(parts, "xl/workbook.xml", function(x) sub("http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+      "http://purl.oclc.org/ooxml/spreadsheetml/main", x, fixed = TRUE))
+  })
+  m <- sub("\\.xlsx$", ".xlsm", p); file.copy(p, m)
+  msg <- errors_with(workbook_charts(m))
+  expect_equal(msg, "workbook saved in Strict Open XML format; re-save it as a normal .xlsx workbook, or pass \"xlsm\" in skip_types")
+  expect_false(grepl("quill|/", msg, ignore.case = TRUE))
+})
+
+test_that("the log says 0 blocking leftovers only when glued hits were reported", {
+  w <- wb_assignment(nickname = FALSE)
+  suppressMessages(wb_anonymize(w))
+  log <- readLines(file.path(w$a, "deidentification_log.md"))
+  expect_true("- leftover check: 0 blocking leftovers" %in% log)
+  expect_false("- leftover check: 0 leftovers" %in% log)
+  w2 <- wb_assignment()
+  wb_anonymize(w2)
+  log2 <- readLines(file.path(w2$a, "deidentification_log.md"))
+  expect_true("- leftover check: 0 leftovers" %in% log2)
+})
+
+# relink() answers the file anonymize() chose, even when skip_types changed
+# the choice: with the photo skipped, the workbook is the target.
+wb_relink_ready <- function(w) {
+  fb <- file.path(w$a, "anon", "feedback"); dir.create(fb, recursive = TRUE)
+  writeLines("Good work, S01.", file.path(fb, "S01.md"))
+  writeLines("Good work, S02.", file.path(fb, "S02.md"))
+  utils::write.csv(data.frame(code = c("S01", "S02"), total = c("9", "8")),
+                   file.path(w$a, "anon", "scores.csv"), row.names = FALSE)
+}
+
+test_that("relink answers the target anonymize chose under skip_types", {
+  skip_if_no("zip")
+  w <- wb_assignment()
+  writeLines("x", file.path(w$a, "quillpat_1001_5003_photo.png"))
+  wb_anonymize(w, skip_types = "png")
+  man <- utils::read.csv(file.path(w$a, "anon", "manifest.csv"), colClasses = c(target = "logical"))
+  expect_equal(man$ext[man$code == "S01" & man$target], "xlsx")
+  wb_relink_ready(w)
+  quiet(relink(w$cc$proj, "semester/A1", dict = NULL))
+  expect_true(file.exists(file.path(w$a, "feedback", "quillpat_1001_5001_partb.md")))
+  expect_false(file.exists(file.path(w$a, "feedback", "quillpat_1001_5003_photo.png")))
+  sc <- utils::read.csv(file.path(w$a, "a1_scores.csv"), colClasses = "character")
+  expect_equal(sc$submission_file[sc$canvas_id == "1001"], "quillpat_1001_5001_partb.xlsx")
+})
+
+test_that("relink stops naming only the code when the manifest no longer fits", {
+  skip_if_no("zip")
+  w <- wb_assignment()
+  wb_anonymize(w)
+  wb_relink_ready(w)
+  # A file added after anonymize() ran: the manifest cannot be matched.
+  mk_docx(file.path(w$a, "quillpat_1001_5009_late.docx"), "Pat Quill added this.")
+  msg <- errors_with(quiet(relink(w$cc$proj, "semester/A1", dict = NULL)))
+  expect_match(msg, "^S01: ")
+  expect_false(grepl("quill|1001|5009|late|docx|xlsx", msg, ignore.case = TRUE))
+  expect_false(dir.exists(file.path(w$a, "feedback")))
+})
+
+# Item 5: newer Excel chart types (chartEx). cx_variant() adds a histogram
+# and a box-and-whisker chart to the Summary sheet's drawing, the way Excel
+# writes them (cx:chart inside mc:AlternateContent).
+CX_NS <- paste0('xmlns:cx="http://schemas.microsoft.com/office/drawing/2014/chartex" ',
+                'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ',
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"')
+CX_HIST <- paste0('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cx:chartSpace ', CX_NS, '>',
+  '<cx:chartData><cx:data id="0"><cx:numDim type="val"><cx:f>\'Pat Quill data\'!$B$2:$B$4</cx:f>',
+  '<cx:lvl ptCount="3" formatCode="General"><cx:pt idx="0">67</cx:pt><cx:pt idx="1">76</cx:pt><cx:pt idx="2">64</cx:pt></cx:lvl></cx:numDim></cx:data></cx:chartData>',
+  '<cx:chart><cx:title pos="t" align="ctr" overlay="0"><cx:tx><cx:txData><cx:v>Wait times by Pat Quill</cx:v></cx:txData></cx:tx></cx:title>',
+  '<cx:plotArea><cx:plotAreaRegion><cx:series layoutId="clusteredColumn" uniqueId="{0001}">',
+  '<cx:tx><cx:txData><cx:f>\'Pat Quill data\'!$B$1</cx:f><cx:v>top_box_pct</cx:v></cx:txData></cx:tx>',
+  '<cx:dataLabels pos="outEnd"><cx:visibility seriesName="0" categoryName="0" value="1"/></cx:dataLabels>',
+  '<cx:dataId val="0"/><cx:layoutPr><cx:binning intervalClosed="r" underflow="5" overflow="auto"><cx:binSize val="10"/></cx:binning></cx:layoutPr></cx:series></cx:plotAreaRegion>',
+  '<cx:axis id="0"><cx:catScaling gapWidth="0"/><cx:title><cx:tx><cx:txData><cx:v>Minutes</cx:v></cx:txData></cx:tx></cx:title><cx:tickLabels/></cx:axis>',
+  '<cx:axis id="1"><cx:valScaling max="20" min="0" majorUnit="5"/><cx:title><cx:tx><cx:rich><a:bodyPr/><a:p><a:r><a:t>Count</a:t></a:r></a:p></cx:rich></cx:tx></cx:title><cx:majorGridlines/><cx:tickLabels/></cx:axis>',
+  '</cx:plotArea><cx:legend pos="b" align="ctr" overlay="0"/></cx:chart></cx:chartSpace>')
+CX_BOX <- paste0('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cx:chartSpace ', CX_NS, '>',
+  '<cx:chartData><cx:data id="0"><cx:strDim type="cat"><cx:f>Summary!$A$7:$A$9</cx:f></cx:strDim><cx:numDim type="val"><cx:f>Summary!$B$7:$B$9</cx:f></cx:numDim></cx:data>',
+  '<cx:data id="1"><cx:numDim type="val"><cx:f>\'Gone sheet\'!$A$1:$A$3</cx:f></cx:numDim></cx:data></cx:chartData>',
+  '<cx:chart><cx:title><cx:tx><cx:txData><cx:v>Score spread</cx:v></cx:txData></cx:tx></cx:title>',
+  '<cx:plotArea><cx:plotAreaRegion><cx:series layoutId="boxWhisker" uniqueId="{0002}">',
+  '<cx:tx><cx:txData><cx:f>Summary!$B$6</cx:f></cx:txData></cx:tx><cx:dataId val="0"/>',
+  '<cx:layoutPr><cx:visibility meanLine="1" meanMarker="1" nonoutliers="0" outliers="1"/><cx:statistics quartileMethod="exclusive"/></cx:layoutPr>',
+  '<cx:extLst><cx:ext uri="{X}"><cx16:mystery xmlns:cx16="http://example.invalid/cx16"/></cx:ext></cx:extLst></cx:series>',
+  '<cx:series layoutId="boxWhisker" uniqueId="{0003}"><cx:dataId val="1"/><cx:layoutPr><cx:statistics quartileMethod="inclusive"/></cx:layoutPr></cx:series></cx:plotAreaRegion>',
+  '<cx:axis id="0" hidden="1"><cx:catScaling/></cx:axis><cx:axis id="1"><cx:valScaling/><cx:fooBar/></cx:axis>',
+  '</cx:plotArea></cx:chart></cx:chartSpace>')
+cx_anchor <- function(col0, row0, row1, id, rid) {
+  sprintf(paste0('<xdr:twoCellAnchor><xdr:from><xdr:col>%d</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>%d</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>%d</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>%d</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:cx1="http://schemas.microsoft.com/office/drawing/2015/9/8/chartex" Requires="cx1">',
+    '<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="%d" name="Chart %d"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>',
+    '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/drawing/2014/chartex"><cx:chart xmlns:cx="http://schemas.microsoft.com/office/drawing/2014/chartex" r:id="%s"/></a:graphicData></a:graphic></xdr:graphicFrame>',
+    '</mc:Choice><mc:Fallback/></mc:AlternateContent><xdr:clientData/></xdr:twoCellAnchor>'),
+    col0, row0, col0 + 6, row1, id, id, rid)
+}
+cx_variant <- function(env = parent.frame()) {
+  wb_variant(function(parts) {
+    put(parts, "xl/charts/chartEx1.xml", CX_HIST)
+    put(parts, "xl/charts/chartEx2.xml", CX_BOX)
+    change(parts, "xl/drawings/drawing1.xml", function(x) sub("</xdr:wsDr>",
+      paste0(cx_anchor(20, 2, 17, 20, "rId20"), cx_anchor(20, 18, 33, 21, "rId21"), "</xdr:wsDr>"), x, fixed = TRUE))
+    change(parts, "xl/drawings/_rels/drawing1.xml.rels", function(x) sub("</Relationships>", paste0(
+      '<Relationship Id="rId20" Type="http://schemas.microsoft.com/office/2014/relationships/chartEx" Target="../charts/chartEx1.xml"/>',
+      '<Relationship Id="rId21" Type="http://schemas.microsoft.com/office/2014/relationships/chartEx" Target="../charts/chartEx2.xml"/>',
+      "</Relationships>"), x, fixed = TRUE))
+    change(parts, "[Content_Types].xml", function(x) sub("</Types>", paste0(
+      '<Override PartName="/xl/charts/chartEx1.xml" ContentType="application/vnd.ms-office.chartex+xml"/>',
+      '<Override PartName="/xl/charts/chartEx2.xml" ContentType="application/vnd.ms-office.chartex+xml"/>',
+      "</Types>"), x, fixed = TRUE))
+  }, env = env)
+}
+
+test_that("a histogram (chartEx) is described in full", {
+  p <- cx_variant()
+  ch <- workbook_charts(p)
+  expect_length(ch, 4)
+  out <- describe_chart(ch[[3]], tidyxl::xlsx_cells(p))
+  expect_equal(out, c(
+    "### Chart 3 (sheet Summary, U3:Z17)",
+    "- Type: histogram (a newer Excel chart type)",
+    "- Title: Wait times by Pat Quill",
+    "- Axis 1: category axis",
+    "  - title: Minutes",
+    "  - scale: gap width 0",
+    "  - gridlines: none",
+    "- Axis 2: value axis",
+    "  - title: Count",
+    "  - scale: min 0, max 20, major unit 5, minor unit automatic",
+    "  - gridlines: major",
+    "- Legend: on, bottom",
+    "- Other text on the chart: none",
+    "- Series 1: top_box_pct ('Pat Quill data'!$B$1)",
+    "  - type: histogram",
+    "  - value range: 'Pat Quill data'!$B$2:$B$4",
+    "  - values: 67, 76, 64",
+    "  - bins: bin width 10; underflow bin at or below 5; overflow bin automatic; intervals closed on the right",
+    "  - data labels: on, showing value, position outEnd"))
+})
+
+test_that("a box and whisker chart (chartEx) is described in full", {
+  p <- cx_variant()
+  ch <- workbook_charts(p)
+  out <- describe_chart(ch[[4]], tidyxl::xlsx_cells(p))
+  expect_equal(out, c(
+    "### Chart 4 (sheet Summary, U19:Z33)",
+    "- Type: box and whisker (a newer Excel chart type)",
+    "- Title: Score spread",
+    "- Axis 1: category axis, hidden",
+    "  - title: none",
+    "  - scale: categories",
+    "  - gridlines: none",
+    "  - tick labels hidden",
+    "- Axis 2: value axis",
+    "  - title: none",
+    "  - scale: min automatic, max automatic, major unit automatic, minor unit automatic",
+    "  - gridlines: none",
+    "  - tick labels hidden",
+    "  - not described: cx:fooBar",
+    "- Legend: none",
+    "- Other text on the chart: none",
+    "- Series 1: Score (from cells) (Summary!$B$6)",
+    "  - type: box and whisker",
+    "  - category range: Summary!$A$7:$A$9",
+    "  - category values: Mo, Pat, Jordan (from cells)",
+    "  - value range: Summary!$B$7:$B$9",
+    "  - values: 10, 20, 30 (from cells)",
+    "  - quartile method: exclusive",
+    "  - shown: mean line, mean markers, outliers; hidden: inner points",
+    "  - data labels: off",
+    "  - not described: cx16:mystery",
+    "- Series 2: no name",
+    "  - type: box and whisker",
+    "  - value range: 'Gone sheet'!$A$1:$A$3",
+    "  - values: values not available",
+    "  - quartile method: inclusive",
+    "  - data labels: off"))
+})
+
+cx_md <- function(body, data = "") {
+  xml <- paste0('<cx:chartSpace ', CX_NS, '><cx:chartData>', data, '</cx:chartData><cx:chart><cx:plotArea><cx:plotAreaRegion>',
+                body, '</cx:plotAreaRegion></cx:plotArea></cx:chart></cx:chartSpace>')
+  describe_chart(list(n = 1, sheet = "Summary", anchor = "A1:H20", xml = xml, shapes = character()), NULL)
+}
+cx_pts <- function(v) paste0(sprintf('<cx:pt idx="%d">%s</cx:pt>', seq_along(v) - 1, v), collapse = "")
+
+test_that("waterfall subtotals, Pareto lines and binning variants are described", {
+  data <- paste0('<cx:data id="0"><cx:strDim type="cat"><cx:f>Summary!$A$2:$A$5</cx:f><cx:lvl ptCount="4">',
+                 cx_pts(c("Start", "Gain", "Loss", "End")), '</cx:lvl></cx:strDim>',
+                 '<cx:numDim type="val"><cx:f>Summary!$B$2:$B$5</cx:f><cx:lvl ptCount="4" formatCode="0.0">',
+                 cx_pts(c(10, 5, -3, 12)), '</cx:lvl></cx:numDim></cx:data>')
+  wf <- cx_md('<cx:series layoutId="waterfall"><cx:dataId val="0"/><cx:layoutPr><cx:subtotals><cx:idx val="0"/><cx:idx val="3"/></cx:subtotals></cx:layoutPr></cx:series>', data)
+  expect_true("- Type: waterfall (a newer Excel chart type)" %in% wf)
+  expect_true("  - category values: Start, Gain, Loss, End" %in% wf)
+  expect_true("  - values: 10, 5, -3, 12 (format 0.0)" %in% wf)
+  expect_true("  - subtotal points: 1 (Start), 4 (End)" %in% wf)
+  pa <- cx_md(paste0('<cx:series layoutId="clusteredColumn"><cx:dataId val="0"/><cx:layoutPr><cx:binning intervalClosed="l"><cx:binCount val="4"/></cx:binning></cx:layoutPr></cx:series>',
+                     '<cx:series layoutId="paretoLine" ownerIdx="0"><cx:axisId val="2"/></cx:series>'), data)
+  expect_true("- Type: Pareto (a histogram with a cumulative percent line; a newer Excel chart type)" %in% pa)
+  expect_true("  - bins: 4 bins; no underflow bin; no overflow bin; intervals closed on the left" %in% pa)
+  expect_true("- Series 2: no name" %in% pa)
+  expect_true("  - type: Pareto line (cumulative percent of series 1)" %in% pa)
+  ag <- cx_md('<cx:series layoutId="clusteredColumn"><cx:dataId val="0"/><cx:layoutPr><cx:aggregation/></cx:layoutPr></cx:series>', data)
+  expect_true("  - bins: by category" %in% ag)
+  lts <- c(treemap = "treemap", sunburst = "sunburst", funnel = "funnel", regionMap = "filled map")
+  for (id in names(lts)) {
+    o <- cx_md(sprintf('<cx:series layoutId="%s"><cx:dataId val="0"/></cx:series>', id), data)
+    expect_true(sprintf("- Type: %s (a newer Excel chart type)", lts[[id]]) %in% o)
+  }
+  tm <- cx_md('<cx:series layoutId="treemap"><cx:dataId val="0"/><cx:layoutPr><cx:parentLabelLayout val="banner"/></cx:layoutPr></cx:series>', data)
+  expect_true("  - not described: cx:parentLabelLayout" %in% tm)
+})
+
+test_that("a long chartEx series is capped like a classic one", {
+  n <- 4800
+  vals <- as.character(50 + (seq_len(n) %% 451) / 10)
+  data <- paste0('<cx:data id="0"><cx:numDim type="val"><cx:f>data!$H$2:$H$4801</cx:f><cx:lvl ptCount="', n, '">',
+                 cx_pts(vals), '</cx:lvl></cx:numDim></cx:data>')
+  out <- cx_md('<cx:series layoutId="clusteredColumn"><cx:dataId val="0"/><cx:layoutPr><cx:binning/></cx:layoutPr></cx:series>', data)
+  expect_lt(sum(nchar(out)), 20000)
+  expect_true("  - 4800 points; first 100 and last 20 shown; min 50, max 95" %in% out)
+  expect_true("  - bins: automatic; no underflow bin; no overflow bin" %in% out)
+})
+
+test_that("a chartEx title is redacted end to end", {
+  w <- wb_assignment(cx_variant())
+  wb_anonymize(w)
+  md <- coded_md(w)
+  expect_true(any(grepl("### Chart 3 (sheet Summary, U3:Z17)", md, fixed = TRUE)))
+  expect_true(any(grepl("^- Title: Wait times by \\[name\\]$", md)))
+  expect_false(any(grepl("quill", md, ignore.case = TRUE) & !grepl("PatQuillRange", md, fixed = TRUE)))
+})
+
+# Residual fixes. Excel writes chartEx data formulas as hidden defined names
+# (_xlchart.v1.0 ...) in workbook.xml; they resolve to sheet ranges.
+xlchart_variant <- function(env = parent.frame()) {
+  wb_variant(function(parts) {
+    hist <- sub("<cx:f>'Pat Quill data'!$B$2:$B$4</cx:f>", "<cx:f>_xlchart.v1.0</cx:f>", CX_HIST, fixed = TRUE)
+    hist <- sub("<cx:f>'Pat Quill data'!$B$1</cx:f>", "<cx:f>_xlchart.v1.1</cx:f>", hist, fixed = TRUE)
+    hist <- gsub("<cx:lvl ptCount=\"3\".*?</cx:lvl>", "", hist)
+    box <- sub("<cx:f>'Gone sheet'!$A$1:$A$3</cx:f>", "<cx:f>_xlchart.v1.9</cx:f>", CX_BOX, fixed = TRUE)
+    put(parts, "xl/charts/chartEx1.xml", hist)
+    put(parts, "xl/charts/chartEx2.xml", box)
+    change(parts, "xl/drawings/drawing1.xml", function(x) sub("</xdr:wsDr>",
+      paste0(cx_anchor(20, 2, 17, 20, "rId20"), cx_anchor(20, 18, 33, 21, "rId21"), "</xdr:wsDr>"), x, fixed = TRUE))
+    change(parts, "xl/drawings/_rels/drawing1.xml.rels", function(x) sub("</Relationships>", paste0(
+      '<Relationship Id="rId20" Type="http://schemas.microsoft.com/office/2014/relationships/chartEx" Target="../charts/chartEx1.xml"/>',
+      '<Relationship Id="rId21" Type="http://schemas.microsoft.com/office/2014/relationships/chartEx" Target="../charts/chartEx2.xml"/>',
+      "</Relationships>"), x, fixed = TRUE))
+    change(parts, "xl/workbook.xml", function(x) sub("<definedNames>", paste0("<definedNames>",
+      "<definedName name=\"_xlchart.v1.0\" hidden=\"1\">'Pat Quill data'!$B$2:$B$4</definedName>",
+      "<definedName name=\"_xlchart.v1.1\" hidden=\"1\">'Pat Quill data'!$B$1</definedName>"), x, fixed = TRUE))
+  }, env = env)
+}
+
+test_that("chartEx formulas written as _xlchart names resolve to their ranges", {
+  p <- xlchart_variant()
+  ch <- workbook_charts(p)
+  cells <- tidyxl::xlsx_cells(p)
+  h <- describe_chart(ch[[3]], cells)
+  expect_true("- Series 1: top_box_pct ('Pat Quill data'!$B$1)" %in% h)
+  expect_true("  - value range: 'Pat Quill data'!$B$2:$B$4" %in% h)
+  expect_true("  - values: 67, 76, 64 (from cells)" %in% h)
+  expect_false(any(grepl("_xlchart", h, fixed = TRUE)))
+  b <- describe_chart(ch[[4]], cells)
+  expect_true("  - value range: range not available" %in% b)
+  expect_true("  - values: values not available" %in% b)
+  expect_false(any(grepl("_xlchart", b, fixed = TRUE)))
+  # Excel's hidden chart names are not listed as the student's defined names.
+  hl <- section(wb_md(p = p)$lines, "## Hyperlinks and defined names")
+  expect_false(any(grepl("_xlchart", hl, fixed = TRUE)))
+  expect_true(any(grepl("PatQuillRange", hl, fixed = TRUE)))
+})
+
+test_that("chartEx hidden labels are capped; categories get a count only", {
+  n <- 4800
+  data <- paste0('<cx:data id="0"><cx:strDim type="cat"><cx:f>data!$A$2:$A$4801</cx:f><cx:lvl ptCount="', n, '">',
+                 cx_pts(seq_len(n)), '</cx:lvl></cx:strDim></cx:data>')
+  hid <- paste0(sprintf('<cx:dataLabelHidden idx="%d"/>', seq_len(n) - 1), collapse = "")
+  out <- cx_md(paste0('<cx:series layoutId="funnel" hidden="true"><cx:dataLabels><cx:visibility value="1"/>', hid,
+                      '</cx:dataLabels><cx:dataId val="0"/></cx:series>'), data)
+  expect_lt(sum(nchar(out)), 20000)
+  lr <- grep("labels removed on points", out)
+  expect_length(lr, 1)
+  expect_match(out[lr], "^    - labels removed on points: 1, 2, .*, 100, \\.\\.\\., 4781, .*, 4800$")
+  expect_equal(out[lr + 1], "    - 4800 points; first 100 and last 20 shown")
+  cv <- grep("^  - category values:", out)
+  expect_equal(out[cv + 1], "  - 4800 points; first 100 and last 20 shown")
+  expect_true("  - hidden" %in% out)
+  short <- cx_md('<cx:series layoutId="funnel"><cx:dataLabels><cx:dataLabelHidden idx="2"/></cx:dataLabels></cx:series>')
+  expect_true("    - labels removed on points: 3" %in% short)
+  nl <- cx_md('<cx:series><cx:dataId val="0"/></cx:series>', data)
+  expect_false(any(grepl("NA", nl, fixed = TRUE)))
+  expect_true("- Type: type not named (a newer Excel chart type)" %in% nl)
+})
+
+test_that("only _xlchart names a chart uses are left out of defined names", {
+  p <- xlchart_variant()
+  # The same variant plus an unused _xlchart name, made by editing a copy.
+  td <- withr::local_tempdir()
+  parts <- file.path(td, "parts"); dir.create(parts)
+  utils::unzip(p, exdir = parts)
+  change(parts, "xl/workbook.xml", function(x) sub("<definedNames>",
+    "<definedNames><definedName name=\"_xlchart.v9.9\">Summary!$A$1</definedName>", x, fixed = TRUE))
+  q <- file.path(td, "quillpat_1001_5001_partb.xlsx")
+  old <- setwd(parts); on.exit(setwd(old))
+  utils::zip(q, list.files(".", recursive = TRUE, all.files = TRUE), flags = "-X -q")
+  setwd(old)
+  hl <- section(wb_md(p = q)$lines, "## Hyperlinks and defined names")
+  expect_true(any(grepl("_xlchart.v9.9: Summary!$A$1", hl, fixed = TRUE)))
+  expect_false(any(grepl("_xlchart.v1.0", hl, fixed = TRUE)))
+  expect_false(any(grepl("_xlchart.v1.1", hl, fixed = TRUE)))
+})

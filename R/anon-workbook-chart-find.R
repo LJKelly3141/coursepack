@@ -138,7 +138,10 @@ workbook_charts <- function(xlsx) {
   utils::unzip(xlsx, files = grep(CHART_PARTS, nm, value = TRUE), exdir = root)
   wb <- xml2::read_xml(file.path(root, "xl/workbook.xml"))
   if (any(grepl("^http://purl\\.oclc\\.org/ooxml/", xml2::xml_ns(wb)))) {
-    wb_stop("workbook saved in Strict Open XML format; re-save it as a normal .xlsx workbook, or pass \"xlsx\" in skip_types")
+    # The advice names the file's own type (xlsx or xlsm), never the file.
+    ext <- tolower(tools::file_ext(xlsx))
+    wb_stop(sprintf("workbook saved in Strict Open XML format; re-save it as a normal .xlsx workbook, or pass %s in skip_types",
+                    if (ext %in% WORKBOOK_EXTS) sprintf("\"%s\"", ext) else "the file's type"))
   }
   wrel <- part_rels(root, "xl/workbook.xml")
   out <- list(); seen <- character()
@@ -154,16 +157,20 @@ workbook_charts <- function(xlsx) {
       dd <- xml2::read_xml(file.path(root, dp))
       drel <- part_rels(root, dp)
       for (top in xml2::xml_children(dd)) {
-        ref <- xml2::xml_find_first(top, ".//c:chart | .//cx:chart", CHART_NS)
-        if (inherits(ref, "xml_missing")) next
+        # A group (xdr:grpSp) can hold several charts under one anchor: each
+        # is its own entry, all at the group's position.
+        refs <- xml2::xml_find_all(top, ".//c:chart | .//cx:chart", CHART_NS)
+        if (!length(refs)) next
         an <- if (grepl("Anchor$", xml2::xml_name(top))) top else
           xml2::xml_find_first(top, ".//*[substring(local-name(), string-length(local-name()) - 5) = 'Anchor']")
         anchor <- if (is_chartsheet) "whole sheet" else
           if (inherits(an, "xml_missing")) "position unknown" else anchor_of(an, sd)
-        cp <- drel[xml2::xml_attr(ref, "r:id", CHART_NS)]
-        cp <- if (is.na(cp)) "(no relationship)" else unname(cp)
-        seen <- c(seen, cp)
-        out[[length(out) + 1]] <- chart_entry(root, cp, xml2::xml_attr(s, "name"), anchor)
+        for (ref in refs) {
+          cp <- drel[xml2::xml_attr(ref, "r:id", CHART_NS)]
+          cp <- if (is.na(cp)) "(no relationship)" else unname(cp)
+          seen <- c(seen, cp)
+          out[[length(out) + 1]] <- chart_entry(root, cp, xml2::xml_attr(s, "name"), anchor)
+        }
       }
     }
   }
@@ -171,6 +178,17 @@ workbook_charts <- function(xlsx) {
     out[[length(out) + 1]] <- chart_entry(root, cp, NA, NA,
                                           sprintf("chart part %s (not reached from any sheet)", cp))
   }
-  for (i in seq_along(out)) out[[i]]$n <- i
+  # Excel writes a newer chart type's data formulas as hidden defined names
+  # (_xlchart.v1.0 ...); each entry carries them so they resolve to ranges.
+  dn <- xml2::xml_find_all(wb, "//m:definedNames/m:definedName[starts-with(@name, '_xlchart.')]", CHART_NS)
+  xlnames <- stats::setNames(sub("^=", "", xml2::xml_text(dn)), xml2::xml_attr(dn, "name"))
+  for (i in seq_along(out)) { out[[i]]$n <- i; out[[i]]$xlnames <- xlnames }
+  # The _xlchart names some chart's cx:f refers to: only these are left out
+  # of the defined names list (an unused one is listed like any other).
+  used <- unlist(lapply(out, function(e) {
+    if (is.null(e$xml)) return(character())
+    trimws(xml2::xml_text(xml2::xml_find_all(xml2::read_xml(e$xml), "//cx:f", CHART_NS)))
+  }))
+  attr(out, "xlchart_used") <- intersect(unique(used[startsWith(used, "_xlchart.")]), names(xlnames))
   out
 }
