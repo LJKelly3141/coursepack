@@ -377,7 +377,15 @@ workbook_to_md <- function(xlsx, media_dir, media_rel) {
   # empty cells inflate it. Cells of sheets over the cap are then dropped, so
   # nothing downstream (charts included) can read them.
   is_ws <- !is.na(wb$sheets$part) & grepl("^xl/worksheets/", wb$sheets$part)
-  cells <- if (any(is_ws)) tidyxl::xlsx_cells(xlsx, sheets = wb$sheets$name[is_ws]) else NULL
+  # tidyxl crashes R on some malformed structures: known ones are refused
+  # here, and the read itself runs in a separate process.
+  faults <- workbook_faults(wb$root, wb$sheets[is_ws, , drop = FALSE])
+  if (length(faults)) {
+    wb_stop(paste0("workbook has a structure the cell reader cannot handle (",
+                   paste(faults, collapse = "; "),
+                   "); re-save it in Excel, or pass \"xlsx\" in skip_types"))
+  }
+  cells <- if (any(is_ws)) xlsx_cells_isolated(xlsx, wb$sheets$name[is_ws]) else NULL
   used <- matrix(0, nrow(wb$sheets), 2)
   if (!is.null(cells)) {
     live <- cells[!cells$is_blank | !is.na(cells$formula), ]

@@ -1,3 +1,9 @@
+# coursepack 1.3.3
+
+* `anonymize()` no longer crashes R when the cell reader (tidyxl) fails on a malformed workbook. tidyxl now runs in a separate R process, so a crash there stops only that file, with the usual "could not be read" message, and the run stops as it does for any unreadable file.
+* Structures known to crash tidyxl are refused before it runs, with a message naming the problem and the sheet's position (never its name): a sheet with no cell data section, a column-width entry without its first or last column, a row holding something other than cells, a shared formula without its first cell, a cell whose style number is not in the style list, a comments part without a comment list, and a comment without a cell reference or text.
+* A workbook with no charts is read again; it had failed with the "could not be read" message.
+
 # coursepack 1.3.2
 
 * `anonymize()` no longer crashes R on a workbook with a very large sheet. The sparkline count searched every element of the sheet, and past 10 million elements the XML library crashed R outright, which no error handler can catch. The count now searches only the sheet's extension list, where sparklines are stored.

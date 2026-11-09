@@ -185,10 +185,11 @@ workbook_charts <- function(xlsx) {
   for (i in seq_along(out)) { out[[i]]$n <- i; out[[i]]$xlnames <- xlnames }
   # The _xlchart names some chart's cx:f refers to: only these are left out
   # of the defined names list (an unused one is listed like any other).
-  used <- unlist(lapply(out, function(e) {
+  # as.character(): with no charts unlist() gives NULL, which startsWith() rejects.
+  used <- as.character(unlist(lapply(out, function(e) {
     if (is.null(e$xml)) return(character())
     trimws(xml2::xml_text(xml2::xml_find_all(xml2::read_xml(e$xml), "//cx:f", CHART_NS)))
-  }))
+  })))
   attr(out, "xlchart_used") <- intersect(unique(used[startsWith(used, "_xlchart.")]), names(xlnames))
   out
 }

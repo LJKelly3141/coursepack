@@ -418,6 +418,57 @@ test_that("sparkline count does not search every element of a large sheet", {
   expect_equal(other_counts(st)[["sparklines"]], 2L)
 })
 
+TINY_ROW <- '<sheetData><row r="1"><c r="A1"><v>1</v></c><c r="B1"><v>2</v></c></row></sheetData>'
+
+test_that("a workbook with no charts is read", {
+  td <- withr::local_tempdir()
+  p <- tiny_workbook(td, TINY_ROW)
+  r <- workbook_to_md(p, file.path(td, "m"), "m")
+  expect_true(any(grepl("## Sheet: Data", r, fixed = TRUE)))
+})
+
+# Each of these crashed R inside tidyxl 1.0.10 (segfault or bus error).
+tidyxl_faults <- list(
+  "column-width entry without its first or last column" =
+    list(paste0('<cols><col max="2" width="9"/></cols>', TINY_ROW)),
+  "row holding something other than cells" =
+    list('<sheetData><row r="1"><c r="B1"><v>2</v></c><extLst/></row></sheetData>'),
+  "no cell data section" = list(""),
+  "shared formula without its first cell" =
+    list('<sheetData><row r="1"><c r="B1"><f t="shared" si="0"/><v>2</v></c></row></sheetData>'),
+  "style number is not in the style list" =
+    list('<sheetData><row r="1"><c r="A1" s="99"><v>1</v></c></row></sheetData>'),
+  "comments part without a comment list" =
+    list(TINY_ROW, "<authors><author>Pat Quill</author></authors>"),
+  "comment without a cell reference or text" =
+    list(TINY_ROW, '<authors><author>Pat Quill</author></authors><commentList><comment ref="A1" authorId="0"/></commentList>'))
+
+for (fault in names(tidyxl_faults)) {
+  test_that(paste("a workbook with a", fault, "is refused, not crashed on"), {
+    td <- withr::local_tempdir()
+    a <- tidyxl_faults[[fault]]
+    p <- tiny_workbook(td, a[[1]], if (length(a) > 1) a[[2]])
+    e <- tryCatch(workbook_to_md(p, file.path(td, "m"), "m"), error = function(e) e)
+    expect_s3_class(e, "coursepack_wb_error")
+    expect_match(conditionMessage(e), fault, fixed = TRUE)
+    expect_match(conditionMessage(e), "sheet 1", fixed = TRUE)
+    expect_false(grepl("Data|Pat Quill", conditionMessage(e)))
+  })
+}
+
+test_that("a crash in the cell reader is an ordinary error, not the end of R", {
+  # Called directly, past the fault check: the child process segfaults.
+  td <- withr::local_tempdir()
+  p <- tiny_workbook(td, tidyxl_faults[["row holding something other than cells"]][[1]])
+  expect_error(xlsx_cells_isolated(p, "Data"), "cell reader failed", fixed = TRUE)
+})
+
+test_that("the isolated cell reader returns tidyxl's cells", {
+  td <- withr::local_tempdir()
+  p <- tiny_workbook(td, TINY_ROW)
+  expect_equal(xlsx_cells_isolated(p, "Data"), tidyxl::xlsx_cells(p, sheets = "Data"))
+})
+
 test_that("nothing silently dropped", {
   r <- wb_md()
   oc <- paste(section(r$lines, "## Other content"), collapse = "\n")
