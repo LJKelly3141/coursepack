@@ -1,0 +1,41 @@
+---
+title: "coursepack"
+subtitle: "Build a Canvas course from plain text"
+author: "Dr. Logan J. Kelly"
+institute: "College of Business and Economics, University of Wisconsin-River Falls"
+format:
+  uwrf-revealjs:
+    footer: "coursepack"
+---
+
+## Build the course
+
+- **Plain text:** `course.yml` and `modules.yml` hold pages, modules and due dates, all in git
+- **Start anywhere:** a new scaffold, or an export of an existing Canvas course
+- **Into Canvas:** `make coursepack` builds a Common Cartridge; re-importing updates, never duplicates
+- **Quizzes:** checked question banks, QTI 1.2 packages, paper forms, announcements from the schedule
+
+## Check before publishing
+
+- **Preview:** a local mockup of every module and item, no upload
+- **Accessibility:** WCAG 2.1 AA audit of the site, PDF/UA-1 check of PDFs, each finding tied to its file
+- **No leaks:** an allowlist and a hidden marker keep private assessments off the public site; a leak stops the build
+
+## Slides and videos
+
+- **Slides:** Quarto decks in the UWRF style, added with `use_uwrf_slides()`
+- **Videos:** the companion package lecturecast voices the speaker notes and animates charts on cue
+- **Output:** MP4, captions and transcript; the instructor approves every word
+- **One deck, two routes:** present it in class, or check it with `lint_notes()` and `build_video()`
+
+## Get started
+
+```r
+remotes::install_github("LJKelly3141/coursepack")
+coursepack::init_course("abcd-101", code = "ABCD 101",
+                        title = "Introduction to Something",
+                        site_url = "https://example.org/abcd-101/",
+                        timezone = "America/Chicago")
+```
+
+coursepack is public on GitHub. lecturecast is private for now.

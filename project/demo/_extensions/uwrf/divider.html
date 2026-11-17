@@ -1,0 +1,28 @@
+<script>
+// Divider slides, the level-one headings, carry no logo, and a red
+// .section-header divider turns the footer and slide number white. The logo
+// and the chrome sit outside the slides, so the current slide's classes are
+// mirrored onto the reveal.js container and uwrf.scss keys off those.
+(function () {
+  function sync(slide) {
+    var reveal = document.querySelector('.reveal');
+    if (!reveal || !slide) return;
+    var divider = slide.classList.contains('level1');
+    reveal.classList.toggle('uwrf-divider', divider);
+    reveal.classList.toggle('uwrf-divider-dark',
+      divider && slide.classList.contains('section-header'));
+  }
+  function hook() {
+    if (!window.Reveal || typeof Reveal.on !== 'function') {
+      setTimeout(hook, 50);
+      return;
+    }
+    Reveal.on('ready', function (e) { sync(e.currentSlide); });
+    Reveal.on('slidechanged', function (e) { sync(e.currentSlide); });
+    if (typeof Reveal.isReady === 'function' && Reveal.isReady()) {
+      sync(Reveal.getCurrentSlide());
+    }
+  }
+  hook();
+})();
+</script>
