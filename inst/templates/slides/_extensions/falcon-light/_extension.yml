@@ -1,0 +1,16 @@
+title: Falcon Light
+author: Logan Kelly
+version: 1.0.0
+quarto-required: ">=1.4.0"
+contributes:
+  formats:
+    revealjs:
+      theme: [white, falcon-fonts.scss, falcon-palette.scss, falcon-rules.scss]
+      include-after-body: divider.html
+      slide-number: true
+      transition: slide
+      navigation-mode: linear
+      controls: true
+      width: 1280
+      height: 720
+      embed-resources: true

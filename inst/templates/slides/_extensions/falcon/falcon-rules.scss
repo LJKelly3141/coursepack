@@ -1,0 +1,319 @@
+/*-- scss:defaults --*/
+
+// Shared by the falcon and falcon-light slide styles. The two copies must stay
+// identical (a test checks); each style's palette file sets the $falcon-*
+// colours this file uses.
+
+/*-- scss:rules --*/
+
+.reveal {
+  background-color: $falcon-paper;
+  font-family: $falcon-body-font;
+  color: $falcon-ink;
+}
+
+// ---- heading band -----------------------------------------------------------
+// White condensed capitals on a red bar with a slanted right end, followed by a
+// thin slanted sky-blue stripe: the look of the falcon video themes. The bar
+// and the stripe are drawn by ::before and ::after behind the text, so the
+// heading text itself is never clipped.
+@mixin falcon-band {
+  // A block as wide as its text: nothing flows up beside the band.
+  display: block;
+  width: fit-content;
+  position: relative;
+  z-index: 0;
+  color: $falcon-band-text;
+  background: none;
+  font-family: $falcon-head-font;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  padding: 0.12em 1.85em 0.08em 0.5em;
+  &::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 0; bottom: 0; left: 0;
+    right: 0.9em;
+    background: $falcon-band;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 0.55em) 100%, 0 100%);
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 0; bottom: 0;
+    right: 0;
+    width: 1.45em;
+    background: $falcon-stripe;
+    clip-path: polygon(0.7em 0, 0.9em 0, 0.35em 100%, 0.15em 100%);
+  }
+}
+
+.reveal h1, .reveal h2 {
+  @include falcon-band;
+}
+
+.reveal h3, .reveal h4 {
+  font-family: $falcon-head-font;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: $falcon-label;
+}
+
+// Title slide: the title in the band, subtitle and byline below it.
+.reveal .slides section.quarto-title-block h1.title,
+.reveal .slides section.quarto-title-block .title {
+  @include falcon-band;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.reveal .slides section.quarto-title-block .subtitle {
+  color: $falcon-ink;
+  font-weight: 700;
+  margin-top: 0.6em;
+}
+
+.reveal .slides section.quarto-title-block .quarto-title-author-name,
+.reveal .slides section.quarto-title-block .date {
+  color: $falcon-muted;
+}
+
+// Section divider: a level-one heading with {.section-header} becomes a red
+// slide with a plain white title (no band on the red).
+.section-header {
+  background-color: $falcon-band !important;
+  color: $falcon-band-text !important;
+
+  h1, h2 {
+    color: $falcon-band-text !important;
+    padding: 0;
+    &::before, &::after { display: none; }
+  }
+}
+
+// ---- text ---------------------------------------------------------------------
+
+.reveal section ul {
+  font-size: 1em;
+  list-style-type: disc;
+}
+
+.reveal section ul li {
+  margin-bottom: 0.4em;
+  color: $falcon-ink;
+}
+
+.reveal section ul li::marker {
+  color: $falcon-label;
+}
+
+// Links are underlined: colour alone does not mark a link.
+.reveal .slides a,
+.reveal .footer a {
+  color: $falcon-accent;
+  text-decoration: underline;
+}
+
+.reveal strong {
+  color: $falcon-ink;
+}
+
+// ---- tables -------------------------------------------------------------------
+// Cells align left; add class="num" to a cell to right-align a number.
+
+.reveal table {
+  color: $falcon-ink;
+}
+
+.reveal table th {
+  color: $falcon-label;
+  border-bottom: 3px solid $falcon-band;
+}
+
+.reveal table td {
+  border-bottom: 1px solid $falcon-rule;
+}
+
+.reveal table th, .reveal table td {
+  text-align: left;
+}
+
+.reveal table .num {
+  text-align: right;
+}
+
+.reveal .smaller table {
+  font-size: 1em;
+}
+
+.small-table {
+  font-size: $falcon-font-min;
+  table {
+    width: 100%;
+  }
+}
+
+// ---- layout and callouts ------------------------------------------------------
+
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+// Callout box: a short takeaway with a red rule down the left.
+.reveal .callout-box {
+  background: $falcon-panel;
+  border-left: 6px solid $falcon-band;
+  padding: 0.4em 0.8em;
+  margin-top: 0.6em;
+}
+
+.highlight-stat {
+  text-align: center;
+
+  .big-number {
+    font-size: 3.5em;
+    font-weight: 600;
+    font-family: $falcon-head-font;
+    color: $falcon-accent;
+    margin: 0.2em 0;
+  }
+
+  .stat-label {
+    font-size: 30px;
+    color: $falcon-muted;
+    margin-top: 0.1em;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 0;
+
+    .stat-item {
+      text-align: center;
+      padding: 0.6rem 1.2rem;
+
+      .number {
+        font-size: 2.1em;
+        font-weight: 600;
+        font-family: $falcon-head-font;
+        color: $falcon-accent;
+      }
+
+      .label {
+        font-size: 26px;
+        color: $falcon-muted;
+      }
+    }
+  }
+}
+
+// Small uppercase label above a paragraph.
+.impact-label {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 1em;
+  color: $falcon-label;
+  margin-top: 0.35em;
+  margin-bottom: 0.1em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-green  { color: $falcon-green;  font-weight: 700; }
+.status-yellow { color: $falcon-orange; font-weight: 700; }
+.status-red    { color: $falcon-label;  font-weight: 700; }
+
+// Footer band at the bottom of a slide, for a source line or a note.
+.slide-footer-band {
+  font-size: $falcon-font-min;
+  color: $falcon-muted;
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid $falcon-rule;
+  line-height: 1.4;
+}
+
+// Quarto shrinks its callouts by the .smaller factor; callouts take the
+// slide's own size instead, so nothing drops under the font floor.
+.reveal .slides section div.callout,
+.reveal .slides section.smaller div.callout {
+  font-size: 1em;
+}
+
+.reveal .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// ---- code and chart output ----------------------------------------------------
+
+.plotly {
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+.reveal .slide .cell {
+  width: 100% !important;
+  margin-bottom: 0 !important;
+}
+
+.reveal .slide .highlight-stat {
+  margin-top: 0 !important;
+}
+
+.reveal .slide .cell-output-display {
+  width: 100% !important;
+  display: flex;
+  justify-content: center;
+}
+
+.reveal .slide .cell-output-display > div {
+  width: 100% !important;
+}
+
+// ---- chrome: slide number, controls, footer -----------------------------------
+
+.reveal .slide-number {
+  color: $falcon-muted;
+  background: none;
+  font-size: $falcon-font-min !important;   // Quarto sets 16px
+}
+
+.reveal .controls button {
+  color: $falcon-band;
+}
+
+.reveal .footer {
+  color: $falcon-muted;
+  font-size: $falcon-font-min !important;   // Quarto sets 16px
+}
+
+// A red .section-header divider gets white chrome: the muted grey on the red
+// is under 3:1. divider.html mirrors the current slide's classes onto the
+// reveal.js container, since the chrome sits outside the slides.
+.reveal.falcon-divider-dark .footer,
+.reveal.falcon-divider-dark .slide-number {
+  color: $falcon-band-text;
+}
+
+.reveal.falcon-divider-dark .slide-menu-button .fas::before {
+  filter: brightness(0) invert(1);
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme Storyboard</title>
+<style>
+  :root { --bg:#f6f5f2; --ink:#1b1b1b; --muted:#666; --card:#fff; --line:#ddd; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141414; --ink:#eee; --muted:#aaa; --card:#1f1f1f; --line:#333; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 "Avenir Next", system-ui, sans-serif; }
+  header { padding:28px 32px 8px; max-width:1500px; margin:auto; }
+  h1 { margin:0 0 4px; font-size:28px; }
+  header p { margin:4px 0; color:var(--muted); max-width:900px; }
+  nav { position:sticky; top:0; z-index:2; background:var(--bg); border-bottom:1px solid var(--line);
+        padding:10px 32px; display:flex; gap:8px; flex-wrap:wrap; }
+  nav button { font:inherit; font-size:14px; padding:6px 12px; border-radius:16px; border:1px solid var(--line);
+        background:var(--card); color:var(--ink); cursor:pointer; }
+  nav button.on { background:var(--ink); color:var(--bg); }
+  main { max-width:1500px; margin:auto; padding:8px 32px 60px; }
+  section { margin:28px 0 40px; }
+  h2 { margin:0; font-size:22px; }
+  .meta { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin:6px 0 12px; color:var(--muted); font-size:14px; }
+  .sw { display:inline-flex; gap:4px; }
+  .sw span { width:22px; height:22px; border-radius:4px; border:1px solid var(--line); display:inline-block; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:12px; }
+  figure { margin:0; background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  figure img, figure video { width:100%; display:block; aspect-ratio:16/9; object-fit:cover; background:#000; }
+  figcaption { padding:6px 10px; font-size:13px; color:var(--muted); }
+  .tag { font-size:12px; padding:2px 8px; border-radius:10px; background:var(--line); color:var(--ink); }
+  #compare select { font:inherit; padding:4px 8px; }
+  @media (max-width:600px) { header, main, nav { padding-left:16px; padding-right:16px; } .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Statistics in Motion: theme storyboard</h1>
+  <p>Video 1, rendered in seven looks. Every frame is a real render of the draft 3 scenes with only the palette, fonts and heading treatment changed. Intro and outro clips are mock-ups of a series sting that would open and close every video; they play on click.</p>
+</header>
+<nav id="nav"></nav>
+<main id="main"></main>
+<script>
+const THEMES = [
+  {id:"paper", name:"Paper (current)", note:"Warm cream with the book's banner palette. Ties the videos to the textbook; quiet, print-like.",
+   sw:["#F3E9D2","#252A29","#1E6F6D","#C65D3B","#687067"], fonts:"Avenir Next"},
+  {id:"editorial", name:"Editorial", note:"Near-white, black ink, serif headings with a short red rule. Reads like a newspaper data graphic.",
+   sw:["#FBFAF6","#141414","#1F4E79","#D6402B","#C98F00"], fonts:"Charter headings, Avenir Next text"},
+  {id:"blueprint", name:"Blueprint", note:"Deep navy with a faint drafting grid, condensed caps headings. Dark and high contrast like the Manim look, but its own.",
+   sw:["#0E2A47","#EAF2FA","#5CC8F0","#FFB547","#F28DB2"], fonts:"DIN Condensed headings, DIN Alternate text"},
+  {id:"midnight", name:"Midnight", note:"Warm near-black (not pure black), cream text, mint, coral and gold. Closest to the classic Manim feel, warmer.",
+   sw:["#17161C","#F4EFE6","#4FD1A5","#FF7A59","#F2C14E"], fonts:"Avenir Next"},
+  {id:"chalk", name:"Chalkboard", note:"Slate green with chalk colours. Classroom feel; the hand-drawn heading font may read as gimmicky.",
+   sw:["#26362F","#F1EFE6","#8CC9E8","#F4A6A6","#F3E28B"], fonts:"Chalkboard SE headings, Avenir Next text"},
+  {id:"falcon", name:"Falcon (UWRF-inspired, dark)", note:"Black, with a UWRF-red heading slab and sky-blue stripe, condensed caps. Colours sampled from UWRF's published brand guide. No university marks or wordmarks.",
+   sw:["#141414","#FFFFFF","#41C7F4","#D31144","#F5F5F5"], fonts:"DIN Condensed headings, Avenir Next text"},
+  {id:"falcon_light", name:"Falcon light (UWRF-inspired)", note:"The same red slab on white, like the header bands on UWRF print pieces.",
+   sw:["#FFFFFF","#141414","#1593C4","#D31144","#8F181A"], fonts:"DIN Condensed headings, Avenir Next text"},
+];
+const FRAMES = [
+  ["SeriesIntro","Series intro (plays)", "v"], ["Title","Title card"], ["Guess","1. Guess the average"],
+  ["BalancePoint","2. Mean: balance point"], ["Middle","3. Median: the middle"], ["MostCommon","4. Mode: most common"],
+  ["WhichOne","5. Which one to use"], ["Gap","6. Pool the world"], ["Closing","7. So what is typical?"],
+  ["SeriesOutro","Series outro (plays)", "v"],
+];
+const nav = document.getElementById("nav"), main = document.getElementById("main");
+function media(t, f) {
+  if (f[2] === "v") return `<video src="${t}/${f[0]}.mp4" poster="${t}/${f[0]}.png" controls preload="none"></video>`;
+  return `<a href="${t}/${f[0]}.png" target="_blank"><img loading="lazy" src="${t}/${f[0]}.png" alt="${f[1]}"></a>`;
+}
+function byTheme() {
+  main.innerHTML = THEMES.map(t => `<section id="${t.id}"><h2>${t.name}</h2>
+    <div class="meta"><span class="sw">${t.sw.map(c=>`<span style="background:${c}" title="${c}"></span>`).join("")}</span>
+    <span>${t.fonts}</span></div><p>${t.note}</p>
+    <div class="grid">${FRAMES.map(f=>`<figure>${media(t.id,f)}<figcaption>${f[1]}</figcaption></figure>`).join("")}</div></section>`).join("");
+}
+function byFrame(k) {
+  const f = FRAMES[k];
+  main.innerHTML = `<section id="compare"><h2>Compare one frame:
+    <select id="sel">${FRAMES.map((g,i)=>`<option value="${i}" ${i==k?"selected":""}>${g[1]}</option>`).join("")}</select></h2>
+    <div class="grid" style="margin-top:12px">${THEMES.map(t=>`<figure>${media(t.id,f)}<figcaption>${t.name}</figcaption></figure>`).join("")}</div></section>`;
+  document.getElementById("sel").onchange = e => byFrame(+e.target.value);
+}
+const modes = [["By theme", byTheme], ["Compare a frame", () => byFrame(3)]];
+nav.innerHTML = modes.map((m,i)=>`<button data-i="${i}">${m[0]}</button>`).join("") +
+  THEMES.map(t=>`<button data-j="${t.id}">${t.name}</button>`).join("");
+nav.onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.i !== undefined) { modes[+b.dataset.i][1](); nav.querySelectorAll("[data-i]").forEach(x=>x.classList.toggle("on", x===b)); }
+  else { if (!document.getElementById(b.dataset.j)) modes[0][1](); document.getElementById(b.dataset.j).scrollIntoView({behavior:"smooth"}); }
+};
+byTheme(); nav.querySelector("[data-i='0']").classList.add("on");
+</script>
+</body>
+</html>

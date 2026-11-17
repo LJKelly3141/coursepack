@@ -1,3 +1,9 @@
+# coursepack 1.3.4
+
+* Two new slide styles beside UWRF, matching the falcon lecture-video themes: `use_falcon_slides()` installs `falcon` (dark, `format: falcon-revealjs`) and `use_falcon_light_slides()` installs `falcon-light` (`format: falcon-light-revealjs`). Headings are white condensed capitals on a red band with a slanted end and a sky-blue stripe. There is no logo. Barlow Condensed and Nunito Sans are bundled under the SIL Open Font License and embedded in the CSS, so a deck needs no web access. Every text colour clears 4.5:1 on the slide and on the callout panel; where a video colour did not, text uses a shade of the same hue. The classes are the UWRF style's. The two styles share their rules, fonts and divider script byte for byte, which a test checks.
+* The falcon video themes are kept under `inst/templates/video/uwrf-falcon/` (the Manim style module and series intro and outro scenes).
+* `use_uwrf_slides()` now shares its install code with the new functions; its behaviour and messages are unchanged.
+
 # coursepack 1.3.3
 
 * `anonymize()` no longer crashes R when the cell reader (tidyxl) fails on a malformed workbook. tidyxl now runs in a separate R process, so a crash there stops only that file, with the usual "could not be read" message, and the run stops as it does for any unreadable file.

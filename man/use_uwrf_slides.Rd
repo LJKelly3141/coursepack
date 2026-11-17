@@ -25,8 +25,9 @@ invisibly.
 Copy the \code{uwrf} Quarto format extension into \code{dir} under the course root, so
 a deck there can declare \code{format: uwrf-revealjs} and get the university
 brand: Passion Red Impact headings, Arial body text, the UWRF logo, slide
-numbers, linear navigation, a 1280 by 720 canvas and embedded resources. It
-is the only slide style the package carries so far.
+numbers, linear navigation, a 1280 by 720 canvas and embedded resources.
+\code{\link[=use_falcon_slides]{use_falcon_slides()}} and \code{\link[=use_falcon_light_slides]{use_falcon_light_slides()}} install the two
+falcon styles the same way.
 }
 \details{
 Nothing outside \code{proj} is touched, and the course's \verb{_quarto.yml} is not

@@ -1,0 +1,46 @@
+/*-- scss:defaults --*/
+
+// falcon-light: the light look of the falcon video themes. Brand colours
+// measured from the university's 2024 student-organization brand standards
+// guide: red #D31144, dark red #8F181A, sky blue #41C7F4. No logo or wordmark.
+//
+// Text colours clear WCAG AA (4.5:1) on both the slide (#FFFFFF) and the
+// callout panel (#F4F4F4). The video theme's blue #1593C4 is 3.5:1 on white,
+// so text uses #11779F, the same hue darkened (5.0:1 on white, 4.6:1 on the
+// panel).
+$falcon-paper: #FFFFFF;
+$falcon-ink: #141414;
+$falcon-muted: #6B6B6B;        // 5.3:1
+$falcon-accent: #11779F;       // links and stat numbers
+$falcon-label: #D31144;        // table headers, labels, list markers, 5.3:1
+$falcon-band: #D31144;         // heading band and dividers; white on it is 5.3:1
+$falcon-band-text: #FFFFFF;
+$falcon-stripe: #41C7F4;       // decorative stripe after the band
+$falcon-rule: #CACACA;
+$falcon-panel: #F4F4F4;
+$falcon-green: #2E7D32;
+$falcon-orange: #C24400;
+
+// Fonts are bundled (falcon-fonts.scss), so every machine shows the same face:
+// Barlow Condensed stands in for the brand's condensed display face, Nunito
+// Sans for its body face.
+$falcon-head-font: "Barlow Condensed", "DIN Condensed", "Arial Narrow", sans-serif;
+$falcon-body-font: "Nunito Sans", "Avenir Next", Arial, sans-serif;
+
+// Font floor, as in the uwrf style: on the 1280 by 720 canvas 24px is 18pt,
+// and nothing on a slide renders below it.
+$falcon-font-min: 24px;
+
+$backgroundColor: $falcon-paper;
+$body-bg: $falcon-paper;
+$body-color: $falcon-ink;
+$mainColor: $falcon-ink;
+$link-color: $falcon-accent;
+$headingColor: $falcon-band-text;
+$presentation-heading-color: $falcon-band-text;
+$presentation-font-size-root: 34px;
+$presentation-font-smaller: 0.75;
+$code-block-font-size: 0.72em;
+$presentation-heading-font: $falcon-head-font;
+$body-font: $falcon-body-font;
+$font-family-sans-serif: $falcon-body-font;

@@ -64,3 +64,83 @@ test_that("a deck in the course renders with format uwrf-revealjs", {
   expect_true(file.exists(html))
   expect_true(any(grepl("slide-logo", readLines(html, warn = FALSE), fixed = TRUE)))
 })
+
+# ---- falcon and falcon-light ---------------------------------------------------
+
+falcon_src <- function(id, f = NULL) {
+  p <- system.file("templates", "slides", "_extensions", id, package = "coursepack")
+  if (is.null(f)) p else file.path(p, f)
+}
+
+for (style in list(list("falcon", use_falcon_slides), list("falcon-light", use_falcon_light_slides))) {
+  id <- style[[1]]; fn <- style[[2]]
+  test_that(paste(id, "installs under slides/, returns its path and refuses to overwrite"), {
+    p <- slides_course()
+    out <- expect_output(fn(p), "coursepack")
+    ext <- file.path(p, "slides", "_extensions", id)
+    expect_equal(normalizePath(out), normalizePath(ext))
+    for (f in c("_extension.yml", "falcon-palette.scss", "falcon-rules.scss",
+                "falcon-fonts.scss", "divider.html", "OFL-BarlowCondensed.txt", "OFL-NunitoSans.txt"))
+      expect_true(file.exists(file.path(ext, f)), info = f)
+    expect_false(any(grepl("logo", list.files(ext), ignore.case = TRUE)))
+    expect_error(fn(p), "already")
+    expect_output(fn(p, overwrite = TRUE))
+  })
+}
+
+test_that("falcon and falcon-light share their rules, fonts and divider byte for byte", {
+  # The two styles differ only in falcon-palette.scss and _extension.yml.
+  for (f in c("falcon-rules.scss", "falcon-fonts.scss", "divider.html",
+              "OFL-BarlowCondensed.txt", "OFL-NunitoSans.txt"))
+    expect_identical(unname(tools::md5sum(falcon_src("falcon", f))),
+                     unname(tools::md5sum(falcon_src("falcon-light", f))), info = f)
+})
+
+test_that("falcon fonts are embedded, never fetched", {
+  fonts <- readLines(falcon_src("falcon", "falcon-fonts.scss"), warn = FALSE)
+  expect_equal(sum(grepl("@font-face", fonts, fixed = TRUE)), 5L)
+  expect_equal(sum(grepl("url(\"data:font/woff2;base64,", fonts, fixed = TRUE)), 5L)
+  for (id in c("falcon", "falcon-light"))
+    for (f in list.files(falcon_src(id), pattern = "\\.(scss|yml|html)$", full.names = TRUE))
+      expect_false(any(grepl("https?://", readLines(f, warn = FALSE))), info = f)
+})
+
+test_that("every falcon text colour clears 4.5:1 on the slide and the callout panel", {
+  lum <- function(h) {
+    v <- strtoi(substring(h, c(2, 4, 6), c(3, 5, 7)), 16L) / 255
+    v <- ifelse(v <= 0.04045, v / 12.92, ((v + 0.055) / 1.055)^2.4)
+    sum(c(0.2126, 0.7152, 0.0722) * v)
+  }
+  ratio <- function(a, b) { l <- sort(c(lum(a), lum(b))); (l[2] + 0.05) / (l[1] + 0.05) }
+  for (id in c("falcon", "falcon-light")) {
+    x <- readLines(falcon_src(id, "falcon-palette.scss"), warn = FALSE)
+    m <- regmatches(x, regexec("^\\$falcon-([a-z-]+): *(#[0-9A-Fa-f]{6});", x))
+    pal <- stats::setNames(vapply(m[lengths(m) == 3], `[`, "", 3),
+                           vapply(m[lengths(m) == 3], `[`, "", 2))
+    for (fg in c("ink", "muted", "accent", "label", "green", "orange"))
+      for (bg in c("paper", "panel"))
+        expect_gte(ratio(pal[[fg]], pal[[bg]]), 4.5)
+    expect_gte(ratio(pal[["band-text"]], pal[["band"]]), 4.5)
+  }
+})
+
+test_that("decks render with format falcon-revealjs and falcon-light-revealjs", {
+  skip_if_no("quarto")
+  for (id in c("falcon", "falcon-light")) {
+    d <- withr::local_tempdir()
+    dir.create(file.path(d, "_extensions"))
+    file.copy(falcon_src(id), file.path(d, "_extensions"), recursive = TRUE)
+    deck <- file.path(d, "deck.qmd")
+    writeLines(c("---", "title: \"Deck\"", "format:", paste0("  ", id, "-revealjs:"),
+                 "    footer: \"Test\"", "---", "", "## One", "", "- a point",
+                 "", "# Two {.section-header}"), deck)
+    status <- system2("quarto", c("render", shQuote(deck)), stdout = FALSE, stderr = FALSE)
+    expect_equal(status, 0L, info = id)
+    html <- readLines(file.path(d, "deck.html"), warn = FALSE)
+    # embed-resources inlines each stylesheet URL-encoded: a space is %20.
+    expect_true(any(grepl("Barlow%20Condensed", html, fixed = TRUE)), info = id)
+    expect_false(any(grepl("fonts.googleapis", html, fixed = TRUE)), info = id)
+    # Quarto's own CSS names the class; a logo would be an element carrying it.
+    expect_false(any(grepl("class=\"slide-logo", html, fixed = TRUE)), info = id)
+  }
+})
