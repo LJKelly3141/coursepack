@@ -18,12 +18,19 @@ test_that("the package ships skills at all", {
   expect_gt(length(skills()), 0)
 })
 
+# Institution skills: one school's policy on purpose, so each may use the terms
+# listed for it. Those terms are blanked before the residue check, and anything
+# else still fails. tools/scrub.sh carries the same list.
+inst_skills <- list("uwrf-syllabus" = "(?i)uwrf|river falls")
+
 test_that("every shipped skill has frontmatter and no course residue", {
   for (d in skills()) {
     s <- readLines(file.path(d, "SKILL.md"), warn = FALSE)
     expect_equal(s[1], "---", info = d)
     expect_true(any(grepl("^name: ", s)), info = d); expect_true(any(grepl("^description:", s)), info = d)
     txt <- paste(read_all(list.files(d, recursive = TRUE, full.names = TRUE)), collapse = "\n")
+    allowed <- inst_skills[[basename(d)]]
+    if (!is.null(allowed)) txt <- gsub(allowed, "", txt, perl = TRUE)
     expect_no_match(txt, residue_re, perl = TRUE, info = d)
     expect_no_match(txt, "scripts/(build_|check_|diff_|audit_)", info = d)
     expect_false(grepl(intToUtf8(8212L), txt, fixed = TRUE), info = d)
