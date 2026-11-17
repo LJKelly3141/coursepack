@@ -18,11 +18,13 @@
 #      exists, and only the id is allowed: every hit is re-tested with the ids
 #      blanked out, so a course number or a home path inside a style file
 #      still fails.
-#   4. the institution's name inside an institution skill: a skill under
-#      inst/skills/ that is one school's policy on purpose. Each is listed in
-#      inst_skills below with the terms it may use (test-skills-content.R
-#      carries the same list); a hit in that skill is re-tested with only
-#      those terms blanked out, so anything else still fails.
+#   4. "UWRF" and "River Falls" inside a clearly marked UWRF skill: a skill
+#      directory under inst/skills/ named uwrf-<something> whose SKILL.md
+#      carries the line "**UWRF-specific skill.**". Such a skill is UWRF policy
+#      on purpose. A hit in it is re-tested with only those two terms blanked
+#      out, so a course number or a home path still fails. A uwrf- directory
+#      without the marker gets no allowance. test-skills-content.R applies
+#      the same rule.
 #
 # Run from the package root: tools/scrub.sh
 set -u
@@ -39,19 +41,22 @@ raw=$(grep -rniE "$residue" \
 # style id is blanked out of a lowercased copy; the original line is what
 # gets printed.
 styles=$(ls -1 inst/templates/slides/_extensions 2>/dev/null | tr 'A-Z' 'a-z' | paste -sd'|' -)
-# Allowed thing 4: skill directory, then the terms it may use.
-inst_skills='uwrf-syllabus:uwrf|river falls'
+# Allowed thing 4: the marked UWRF skills.
+uwrf_skills=""
+for d in inst/skills/uwrf-*/; do
+  [ -f "${d}SKILL.md" ] && grep -qF '**UWRF-specific skill.**' "${d}SKILL.md" && uwrf_skills="${uwrf_skills}${d}"$'\n'
+done
 hits=""
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   probe=$(printf '%s' "$line" | tr 'A-Z' 'a-z')
   [ -n "$styles" ] && probe=$(printf '%s' "$probe" | sed -E "s/($styles)//g")
-  while IFS= read -r entry; do
-    [ -z "$entry" ] && continue
+  while IFS= read -r d; do
+    [ -z "$d" ] && continue
     case "$line" in
-      "inst/skills/${entry%%:*}/"*) probe=$(printf '%s' "$probe" | sed -E "s/(${entry#*:})//g") ;;
+      "$d"*) probe=$(printf '%s' "$probe" | sed -E 's/(uwrf|river falls)//g') ;;
     esac
-  done <<< "$inst_skills"
+  done <<< "$uwrf_skills"
   printf '%s' "$probe" | grep -qE "$residue" && hits="${hits}${line}"$'\n'
 done <<< "$raw"
 [ -n "$hits" ] && { echo "course residue:"; printf '%s' "$hits"; status=1; }

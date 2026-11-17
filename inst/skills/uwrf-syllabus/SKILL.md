@@ -1,13 +1,11 @@
 ---
 name: uwrf-syllabus
-description: Use when creating, revising, checking, or submitting a UW-River Falls (UWRF) course syllabus, or when evaluating/reviewing someone else's UWRF syllabus for compliance (e.g., as chair, on a committee, or peer review). Triggers include "check my syllabus", "does this syllabus have everything", "syllabus requirements", "syllabus checklist", "review this syllabus", "evaluate this syllabus", "syllabus repository", "submit my syllabus", "name the syllabus file", "syllabus insert", "required syllabus components", or /uwrf-syllabus.
+description: UWRF syllabus. Use when creating, revising, checking, or submitting a UW-River Falls (UWRF) course syllabus, or when evaluating/reviewing someone else's UWRF syllabus for compliance (e.g., as chair, on a committee, or peer review). Triggers include "check my syllabus", "does this syllabus have everything", "syllabus requirements", "syllabus checklist", "review this syllabus", "evaluate this syllabus", "syllabus repository", "submit my syllabus", "name the syllabus file", "syllabus insert", "required syllabus components", or /uwrf-syllabus.
 ---
 
 # UWRF Syllabus
 
-> **Institution-specific skill.** Everything below is the policy of the University of Wisconsin-River Falls (UWRF). It is not a general standard. A course at another institution should not use it as written; see **Adapting this skill for another institution** at the end, which explains how to build an equivalent skill for your own school's policy.
->
-> This skill is opt-in. A course installs it with `coursepack::install_skills(which = "uwrf-syllabus")`; `install_skills()` with no `which` leaves it out.
+> **UWRF-specific skill.** Everything below is the syllabus policy of the University of Wisconsin-River Falls (UWRF). It also works as a model for a syllabus skill at any other school: build the same skill with your school's policy in place of UWRF's. **Adapting this skill for another institution**, at the end, gives the steps.
 
 Checks a UWRF working syllabus against the Faculty Senate syllabus requirements, and prepares it for the syllabi repository. Two modes:
 
@@ -200,4 +198,4 @@ This skill is a model. To build the equivalent for another school:
 3. **Put verbatim policy text in `references/`**, never paraphrased, so an added paragraph matches the official wording exactly.
 4. **Write the conditional rules out.** The checks that catch real gaps are the ones with conditions: statements that need two elements, credit-hour arithmetic, online-course contact-hour descriptions, combined-level courses. Spell out what makes each one Partial.
 5. **Record your conventions separately** from the institution's rules, so a reader can tell policy from house style (here, the leading-zero section number).
-6. **Name it for the institution**, `<institution-id>-syllabus`, and mark it institution-specific at the top, so no other school installs it by mistake.
+6. **Name it for the institution**, `<institution-id>-syllabus`, and say at the top which school's policy it holds, so a reader elsewhere knows to adapt it rather than follow it.

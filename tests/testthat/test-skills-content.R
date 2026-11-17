@@ -18,10 +18,11 @@ test_that("the package ships skills at all", {
   expect_gt(length(skills()), 0)
 })
 
-# Institution skills: one school's policy on purpose, so each may use the terms
-# listed for it. Those terms are blanked before the residue check, and anything
-# else still fails. tools/scrub.sh carries the same list.
-inst_skills <- list("uwrf-syllabus" = "(?i)uwrf|river falls")
+# A clearly marked UWRF skill is UWRF policy on purpose: its directory is
+# uwrf-<something> and its SKILL.md carries the marker line. "UWRF" and
+# "River Falls" are blanked before its residue check, and anything else still
+# fails. tools/scrub.sh applies the same rule.
+uwrf_marker <- "**UWRF-specific skill.**"
 
 test_that("every shipped skill has frontmatter and no course residue", {
   for (d in skills()) {
@@ -29,8 +30,8 @@ test_that("every shipped skill has frontmatter and no course residue", {
     expect_equal(s[1], "---", info = d)
     expect_true(any(grepl("^name: ", s)), info = d); expect_true(any(grepl("^description:", s)), info = d)
     txt <- paste(read_all(list.files(d, recursive = TRUE, full.names = TRUE)), collapse = "\n")
-    allowed <- inst_skills[[basename(d)]]
-    if (!is.null(allowed)) txt <- gsub(allowed, "", txt, perl = TRUE)
+    if (startsWith(basename(d), "uwrf-") && any(grepl(uwrf_marker, s, fixed = TRUE)))
+      txt <- gsub("(?i)uwrf|river falls", "", txt, perl = TRUE)
     expect_no_match(txt, residue_re, perl = TRUE, info = d)
     expect_no_match(txt, "scripts/(build_|check_|diff_|audit_)", info = d)
     expect_false(grepl(intToUtf8(8212L), txt, fixed = TRUE), info = d)
