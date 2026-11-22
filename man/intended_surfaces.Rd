@@ -4,7 +4,7 @@
 \alias{intended_surfaces}
 \title{The surfaces a run intends to declare}
 \usage{
-intended_surfaces(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS)
+intended_surfaces(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS, scope = NULL)
 }
 \arguments{
 \item{repos}{Character vector of repository paths.}
@@ -13,6 +13,9 @@ intended_surfaces(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS)
 cartridges, passed to \code{\link[=cartridges_in]{cartridges_in()}}. The caller's own value, not the
 package default, because a declaration built over one set of directories
 and an audit run over another cannot cross-check each other.}
+
+\item{scope}{Internal: the module scope a module audit built, or \code{NULL}
+(the default) for the whole course.}
 }
 \value{
 A named integer vector, surface name to count.

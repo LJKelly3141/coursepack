@@ -11,7 +11,8 @@ audit_course(
   port = 8766L,
   cartridge_dirs = CARTRIDGE_SEARCH_DIRS,
   video_fetch = default_youtube_fetch,
-  verapdf = find_verapdf()
+  verapdf = find_verapdf(),
+  modules = NULL
 )
 }
 \arguments{
@@ -33,6 +34,20 @@ Defaults to the real network fetcher.}
 \item{verapdf}{The veraPDF launcher used to validate published PDFs, from
 \code{\link[=find_verapdf]{find_verapdf()}}. When it is missing the audit asks whether to install it
 or continue without it, and continues on its own where nobody can answer.}
+
+\item{modules}{Module titles from \code{modules.yml} in \code{proj}, or \code{NULL} (the
+default) for the whole course. A module audit reads only what those
+modules place: the rendered pages their items point at, in whichever
+repository serves the URL (\code{proj} serves \code{{site}}, one other repository
+serves \code{{textbook}}), the slide decks and PDFs those pages link to, the
+sources of those pages, and the wiki pages and weblinks the cartridge's
+own module tree places in modules of those titles. Announcements are not
+read. A scoped item URL that lands on no rendered page is a finding. The
+report and plan state the scope, coverage is counted against it, and the
+files are named \verb{<date>-<module>-findings.json} and so on, so a module
+audit is compared only with an earlier audit of the same modules and
+never becomes the full-course baseline. An unknown title stops, as in
+\code{\link[=build_cartridge]{build_cartridge()}}.}
 }
 \value{
 Invisibly, a list with \code{findings} (the full frame, classified rows

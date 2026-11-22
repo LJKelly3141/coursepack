@@ -549,6 +549,8 @@ bump_examined <- function(v, surface, n = 1L) {
 #'   cartridges, passed to [cartridges_in()]. The caller's own value, not the
 #'   package default, because a declaration built over one set of directories
 #'   and an audit run over another cannot cross-check each other.
+#' @param scope Internal: the module scope a module audit built, or `NULL`
+#'   (the default) for the whole course.
 #' @return A named integer vector, surface name to count.
 #' @examples
 #' repo <- tempfile("alpha-")
@@ -566,18 +568,27 @@ bump_examined <- function(v, surface, n = 1L) {
 #'
 #' unlink(repo, recursive = TRUE)
 #' @export
-intended_surfaces <- function(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS) {
+intended_surfaces <- function(repos, cartridge_dirs = CARTRIDGE_SEARCH_DIRS,
+                              scope = NULL) {
   halt_on_surface_collision(repos)
   out <- integer(0)
   for (r in repos) {
     tgt <- discover_target(r)
-    out[page_surface_name(tgt)] <- length(tgt$pages)
+    if (is.null(scope)) {
+      out[page_surface_name(tgt)] <- length(tgt$pages)
+    } else {
+      # A module audit declares a page surface only when the modules place
+      # something in it; an unrendered repo is still declared, at 0.
+      st <- scope_target(scope, tgt); n <- length(st$pages) + length(st$decks)
+      if (n || is.na(tgt$output_dir)) out[page_surface_name(tgt)] <- n
+    }
   }
   for (r in repos) {
     imsccs <- cartridges_in(r, cartridge_dirs)
     if (length(imsccs)) {
       out[cartridge_surface_name(r)] <-
-        sum(vapply(imsccs, cartridge_wiki_page_count, integer(1)))
+        sum(vapply(imsccs, cartridge_wiki_page_count, integer(1),
+                   modules = scope$modules))
     }
   }
   out

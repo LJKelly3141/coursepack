@@ -436,6 +436,31 @@ confidence_line_for <- function(detail) {
   }
 }
 
+# The scope statement a module audit puts at the top of the report and the
+# plan, so neither can be read as a full-course result. Empty for a full run.
+scope_block <- function(meta) {
+  sc <- meta$scope
+  if (is.null(sc)) return(character())
+  pg <- unlist(lapply(names(sc$pages), function(s)
+    if (length(sc$pages[[s]])) paste0("- ", s, ": ", paste(sc$pages[[s]], collapse = ", "))))
+  ms <- unlist(sc$missing, use.names = FALSE)
+  c(sprintf("## Scope: module audit of %s", paste(sc$modules, collapse = ", ")),
+    "",
+    paste("This is NOT a full-course audit. It covers only what modules.yml places",
+          "in the modules named above: the pages their items point at, the slide",
+          "decks and PDFs those pages link to, those pages' sources, and the",
+          "cartridge wiki pages and weblinks in modules of those titles.",
+          "Announcements are not read. The media inventory still lists the whole",
+          "repository. Coverage below is counted against this scope."),
+    "",
+    if (length(pg)) c("Pages in scope:", "", pg, "") else c("Pages in scope: none.", ""),
+    if (length(ms)) c(sprintf("Item URLs that land on no rendered page (%d, each a finding): %s",
+                              length(ms), paste(ms, collapse = ", ")), "") else character(),
+    if (length(sc$external)) c(sprintf("Item URLs outside the audited repos, not audited (%d): %s",
+                                       length(sc$external), paste(sc$external, collapse = ", ")), "")
+    else character())
+}
+
 #' Render the findings report
 #'
 #' Writes the human-readable markdown document: the coverage banners, the
@@ -536,7 +561,8 @@ render_report <- function(df, meta, path) {
     "",
     sprintf("Standard: %s. Tool: %s.", meta$standard %||% "WCAG 2.1 AA",
             meta$tool %||% "pa11y"),
-    "")
+    "",
+    scope_block(meta))
 
   if (!pe_ok) {
     reasons <- c(
@@ -887,6 +913,7 @@ render_plan <- function(df, meta, path) {
   head <- c(
     sprintf("# Accessibility remediation plan, %s", meta$date),
     "",
+    scope_block(meta),
     paste("Ordered by leverage, then by student impact. Work top to bottom.",
           "This plan carries no dates by design."),
     "",

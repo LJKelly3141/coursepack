@@ -31,6 +31,19 @@
 #' @param verapdf The veraPDF launcher used to validate published PDFs, from
 #'   [find_verapdf()]. When it is missing the audit asks whether to install it
 #'   or continue without it, and continues on its own where nobody can answer.
+#' @param modules Module titles from `modules.yml` in `proj`, or `NULL` (the
+#'   default) for the whole course. A module audit reads only what those
+#'   modules place: the rendered pages their items point at, in whichever
+#'   repository serves the URL (`proj` serves `{site}`, one other repository
+#'   serves `{textbook}`), the slide decks and PDFs those pages link to, the
+#'   sources of those pages, and the wiki pages and weblinks the cartridge's
+#'   own module tree places in modules of those titles. Announcements are not
+#'   read. A scoped item URL that lands on no rendered page is a finding. The
+#'   report and plan state the scope, coverage is counted against it, and the
+#'   files are named `<date>-<module>-findings.json` and so on, so a module
+#'   audit is compared only with an earlier audit of the same modules and
+#'   never becomes the full-course baseline. An unknown title stops, as in
+#'   [build_cartridge()].
 #' @return Invisibly, a list with `findings` (the full frame, classified rows
 #'   plus the notice rows), `meta` (the run's metadata) and `files` (the three
 #'   paths written).
@@ -57,10 +70,22 @@ audit_course <- function(repos, proj = ".",
                          port = 8766L,
                          cartridge_dirs = CARTRIDGE_SEARCH_DIRS,
                          video_fetch = default_youtube_fetch,
-                         verapdf = find_verapdf()) {
+                         verapdf = find_verapdf(),
+                         modules = NULL) {
   if (!length(repos)) {
     stop("usage: audit_course(<repo> [, <repo> ...])\n",
          "  no repo is assumed; this audit is not tied to one course")
+  }
+
+  # The module scope, settled before any work so an unknown title stops here
+  # (R/a11y-scope.R). NULL is the whole course and changes nothing below.
+  scope <- audit_scope(proj, modules, repos)
+  scope_pages <- list(); scope_missing <- list(); scope_external <- character()
+  if (!is.null(scope)) {
+    cat("== module audit: ", paste(scope$modules, collapse = ", "), "\n", sep = "")
+    under <- vapply(scope$urls, function(u) any(!is.na(vapply(scope$base, function(b)
+      url_to_rel(u, b), ""))), NA)
+    scope_external <- scope$urls[!under]
   }
 
   today   <- format(Sys.Date(), "%Y-%m-%d")
@@ -124,6 +149,11 @@ audit_course <- function(repos, proj = ".",
 
   for (repo in repos) {
     tgt <- discover_target(repo)
+    if (!is.null(scope)) {
+      st <- scope_target(scope, tgt)
+      tgt$pages <- c(st$pages, st$decks)
+      tgt$scope_pdfs <- st$pdfs
+    }
     surface <- page_surface_name(tgt)  # R/a11y-targets.R: the one shared rule,
                                        # also what intended_surfaces() (below)
                                        # calls to build the real declaration,
@@ -132,7 +162,17 @@ audit_course <- function(repos, proj = ".",
     targets[[surface]] <- tgt   # keyed by surface, because classification is
                                 # per surface: see the classify block below
     cat("== ", surface, ": ", tgt$framework, ", ", length(tgt$pages),
-        " pages\n", sep = "")
+        if (is.null(scope)) " pages\n" else " pages in scope\n", sep = "")
+    if (!is.null(scope)) {
+      scope_pages[[surface]] <- tgt$pages
+      scope_missing[[surface]] <- st$missing
+      for (u in st$missing) all[[length(all) + 1]] <- finding(
+        surface = surface, file = u, criterion = NA_character_,
+        level = NA_character_, selector = NA_character_, severity = "serious",
+        issue = "a module item points at a page this repo did not render, so it was NOT audited",
+        detail = "Render the page, or correct the item's URL in modules.yml, then re-run.",
+        source = "custom")
+    }
 
     # An honest, explicit 0 for a surface that was reached but examined
     # nothing, distinct from a surface with no entry at all (never reached).
@@ -166,6 +206,14 @@ audit_course <- function(repos, proj = ".",
     # Console output scrolls away; the report persists and is what someone
     # relies on. An audit that examined nothing and an audit that found nothing
     # must never read the same. See ruling R27.
+    # A module that places nothing in this repo is not a missing render.
+    # Its surface is dropped from the count, and intended_surfaces() leaves it
+    # out of the declaration on its own path, so the two still cross-check.
+    if (!is.null(scope) && !is.na(tgt$output_dir) && !length(tgt$pages)) {
+      cat("   nothing in these modules is served from this repo\n")
+      pages_examined <- pages_examined[names(pages_examined) != surface]
+      next
+    }
     if (is.na(tgt$output_dir) || !length(tgt$pages)) {
       cat("   no rendered output found; render it before auditing\n")
       zero_page_targets <- c(zero_page_targets, zero_page_note(surface, tgt))
@@ -225,7 +273,8 @@ audit_course <- function(repos, proj = ".",
     # to students, which is the rule set 2026-08-13. A file can be out
     # of scope for either reason independently, so neither filter subsumes the
     # other and both are required.
-    src_exclude <- unique(c(tgt$resource_dirs, tgt$unproduced_sources))
+    src_exclude <- unique(c(tgt$resource_dirs, tgt$unproduced_sources,
+                            if (!is.null(scope)) st$exclude))
     all[[length(all) + 1]] <- check_missing_fig_alt(tgt$repo, surface,
                                                     exclude = src_exclude)
     all[[length(all) + 1]] <- check_colour_only(tgt$repo, surface,
@@ -259,7 +308,8 @@ audit_course <- function(repos, proj = ".",
     cart_surface <- cartridge_surface_name(repo)
     for (z in cartridges_in(repo, cartridge_dirs)) {
       cat("== cartridge: ", basename(z), " (", cart_surface, ")\n", sep = "")
-      res <- audit_cartridge(z, surface = cart_surface, video_fetch = video_fetch)
+      res <- audit_cartridge(z, surface = cart_surface, video_fetch = video_fetch,
+                             modules = scope$modules)
       # The cartridge half of the empirical counter (finding C1). The number
       # comes back from audit_cartridge() as an attribute recording how many
       # wiki pages that call ACTUALLY read, not from re-globbing the zip here
@@ -300,7 +350,7 @@ audit_course <- function(repos, proj = ".",
   # cartridge_dirs is passed through, not left to the package default: the
   # audit loop above searched THIS caller's directories, and a declaration
   # built over a different set of files could not cross-check it.
-  declared <- intended_surfaces(repos, cartridge_dirs)
+  declared <- intended_surfaces(repos, cartridge_dirs, scope = scope)
 
   full_df <- do.call(rbind, Filter(function(x) !is.null(x) && nrow(x), all))
   if (is.null(full_df)) full_df <- finding("x","x","x","x","x","x","x")[0, ]
@@ -399,11 +449,22 @@ audit_course <- function(repos, proj = ".",
                                         checked  = pdf_tool,
                                         results  = pdf_results),
                notices           = notices)
+  # A module audit says so in every file it writes. NULL for the whole course,
+  # so a full run's meta is unchanged.
+  if (!is.null(scope))
+    meta$scope <- list(modules = scope$modules, pages = scope_pages,
+                       missing = scope_missing, external = scope_external)
 
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-  jsonp <- file.path(out_dir, paste0(today, "-findings.json"))
-
-  prior <- sort(list.files(out_dir, pattern = "-findings\\.json$",
+  # A module audit's files carry the module slug, and each kind of run diffs
+  # only against an earlier run of the same scope: a module audit never
+  # becomes the full-course baseline, and a full run never diffs against one.
+  stem  <- if (is.null(scope)) today else paste0(today, "-", scope$slug)
+  jsonp <- file.path(out_dir, paste0(stem, "-findings.json"))
+  prior_re <- if (is.null(scope)) "^[0-9]{4}-[0-9]{2}-[0-9]{2}-findings\\.json$"
+              else paste0("^[0-9]{4}-[0-9]{2}-[0-9]{2}-",
+                          gsub("([.+])", "\\\\\\1", scope$slug), "-findings\\.json$")
+  prior <- sort(list.files(out_dir, pattern = prior_re,
                            full.names = TRUE), decreasing = TRUE)
   prior <- setdiff(prior, jsonp)
   if (length(prior)) {
@@ -412,8 +473,8 @@ audit_course <- function(repos, proj = ".",
         nrow(d$new), " new, ", nrow(d$unchanged), " unchanged\n", sep = "")
   }
 
-  mdp   <- file.path(out_dir, paste0(today, "-findings.md"))
-  planp <- file.path(out_dir, paste0(today, "-plan.md"))
+  mdp   <- file.path(out_dir, paste0(stem, "-findings.md"))
+  planp <- file.path(out_dir, paste0(stem, "-plan.md"))
   write_findings(df, meta, jsonp)
   render_report(work_df, meta, mdp)
   render_plan(work_df, meta, planp)
@@ -426,6 +487,9 @@ audit_course <- function(repos, proj = ".",
   # report: measured against declared. They come from different code paths on
   # purpose (finding C1), so printing only one of them hides exactly the case
   # this counter exists to catch.
+  if (!is.null(scope))
+    cat("\nMODULE AUDIT, not a full-course audit: ",
+        paste(scope$modules, collapse = ", "), "\n", sep = "")
   cat("\npages examined (measured) vs declared:\n")
   for (s in unique(c(names(pages_examined), names(declared)))) {
     got  <- if (s %in% names(pages_examined)) pages_examined[[s]] else 0L

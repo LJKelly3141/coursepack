@@ -4,7 +4,12 @@
 \alias{audit_cartridge}
 \title{Audit one cartridge}
 \usage{
-audit_cartridge(imscc_path, surface, video_fetch = default_youtube_fetch)
+audit_cartridge(
+  imscc_path,
+  surface,
+  video_fetch = default_youtube_fetch,
+  modules = NULL
+)
 }
 \arguments{
 \item{imscc_path}{Path to the \code{.imscc} file.}
@@ -15,6 +20,11 @@ the caller, which does know which repository it came from, must say so.}
 
 \item{video_fetch}{The watch-page fetcher passed to \code{\link[=video_caption_state]{video_caption_state()}}.
 Defaults to the real network fetcher.}
+
+\item{modules}{Module titles, or \code{NULL} for the whole cartridge. When
+given, only the wiki pages and weblinks the cartridge's own module tree
+places in those modules are read, announcements are not read at all
+(\code{topics_read} is 0), and a title the cartridge has no module for stops.}
 }
 \value{
 A findings data frame, possibly with no rows, carrying the

@@ -836,12 +836,19 @@ cartridges_in <- function(repo, dirs = CARTRIDGE_SEARCH_DIRS) {
 # `wiki_content/*.html` pattern), not a naming or business rule, and is the
 # safer tradeoff against returning paths into an already-unlinked
 # directory.
-cartridge_wiki_page_count <- function(imscc_path) {
+# `modules`, when given, counts only the wiki pages the cartridge's module
+# tree places in modules of those titles (cartridge_scope_files(),
+# R/a11y-scope.R).
+cartridge_wiki_page_count <- function(imscc_path, modules = NULL) {
   tmp <- tempfile("imscc-")
   dir.create(tmp, recursive = TRUE)
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
   utils::unzip(imscc_path, exdir = tmp)
-  length(list.files(file.path(tmp, "wiki_content"), pattern = "\\.html$"))
+  wiki <- list.files(file.path(tmp, "wiki_content"), pattern = "\\.html$",
+                     full.names = TRUE)
+  if (!is.null(modules))
+    wiki <- intersect(wiki, cartridge_scope_files(tmp, modules, basename(imscc_path)))
+  length(wiki)
 }
 
 #' Audit one cartridge
@@ -858,6 +865,10 @@ cartridge_wiki_page_count <- function(imscc_path) {
 #'   the caller, which does know which repository it came from, must say so.
 #' @param video_fetch The watch-page fetcher passed to [video_caption_state()].
 #'   Defaults to the real network fetcher.
+#' @param modules Module titles, or `NULL` for the whole cartridge. When
+#'   given, only the wiki pages and weblinks the cartridge's own module tree
+#'   places in those modules are read, announcements are not read at all
+#'   (`topics_read` is 0), and a title the cartridge has no module for stops.
 #' @return A findings data frame, possibly with no rows, carrying the
 #'   `wiki_pages_read` and `topics_read` attributes.
 #' @examples
@@ -878,7 +889,8 @@ cartridge_wiki_page_count <- function(imscc_path) {
 #'
 #' unlink(root, recursive = TRUE)
 #' @export
-audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_fetch) {
+audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_fetch,
+                            modules = NULL) {
   tmp <- tempfile("imscc-")
   dir.create(tmp, recursive = TRUE)
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
@@ -887,6 +899,11 @@ audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_f
   wiki <- list.files(file.path(tmp, "wiki_content"), pattern = "\\.html$",
                      full.names = TRUE)
   xmls <- list.files(tmp, pattern = "\\.xml$", recursive = TRUE, full.names = TRUE)
+  if (!is.null(modules)) {
+    keep <- cartridge_scope_files(tmp, modules, basename(imscc_path))
+    wiki <- intersect(wiki, keep)
+    xmls <- intersect(xmls, keep)
+  }
 
   # One video resolution pass, shared by the availability and caption checks
   # below, so a video embedded on more than one page is fetched once and both
@@ -897,7 +914,8 @@ audit_cartridge <- function(imscc_path, surface, video_fetch = default_youtube_f
   # of their own, so they reach the same iframe and link-text rules only after
   # being unescaped and written out. New coverage: a course with announcements
   # reports more findings than it did before this ran.
-  ann <- check_announcement_bodies(xmls, surface)
+  ann <- if (is.null(modules)) check_announcement_bodies(xmls, surface)
+         else list(findings = list(), topics_read = 0L)
 
   out <- c(check_untitled_iframes(wiki, surface),
            check_weak_link_text(xmls, surface),

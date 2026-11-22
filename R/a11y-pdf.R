@@ -113,6 +113,8 @@ published_pdfs <- function(tgt) {
   if (is.na(tgt$output_dir) || !dir.exists(tgt$output_dir)) return(empty)
   f <- list.files(tgt$output_dir, pattern = "\\.pdf$", recursive = TRUE,
                   ignore.case = TRUE)
+  # A module audit validates only the PDFs its scoped pages link to.
+  if (!is.null(tgt$scope_pdfs)) f <- intersect(f, tgt$scope_pdfs)
   if (!length(f)) return(empty)
   src <- vapply(tools::file_path_sans_ext(f), function(stem) {
     cand <- paste0(stem, c(".qmd", ".Rmd"))
